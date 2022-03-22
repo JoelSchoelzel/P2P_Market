@@ -57,10 +57,8 @@ def read_economics():
     
     # Always EUR per kWh (meter per anno)
     params["eco"]["pr",   "el"]     = 0.319
-    params["eco"]["sell", "chp"]    = 0.091
-    params["eco"]["sell", "pv"]     = 0.091
-    params["eco"]["gas", "chp"]     = 0.0635   # €/kWh
-    params["eco"]["gas", "boiler"]  = 0.0635   # €/kWh
+    params["eco"]["sell"]    = 0.091
+    params["eco"]["gas"]     = 0.0635   # €/kWh
 
 
     params["phy"]["rho_w"]           = 1000 # [kg/m^3]
@@ -338,7 +336,7 @@ def read_demands(options, nodes):
                 pass
 
     for n in range(options["nb_bes"]):
-        nodes["building_" + str(n)] = {
+        nodes[n] = {
             "elec": demands[n]["elec"],
             "heat": demands[n]["heat"],
             "dhw": demands[n]["dhw"].T,
@@ -346,7 +344,7 @@ def read_demands(options, nodes):
     
     # Check small demand values
     for n in nodes:
-        for t in range(len(nodes["building_" + str(0)]["heat"])):
+        for t in range(len(nodes[0]["heat"])):
             if nodes[n]["heat"][t] < 0.01:
                 nodes[n]["heat"][t] = 0
             if nodes[n]["dhw"][t] < 0.01:
@@ -365,9 +363,9 @@ def read_demands(options, nodes):
     #    for m in range(tweeks):
     #        for t in range(time_hor):
     for n in range(options["nb_bes"]):
-        nodes["building_" + str(n)]["ev_avail"]      = ev_exists[n] * ev_data["avail"][:, n]
-        nodes["building_" + str(n)]["ev_dem_arrive"] = ev_exists[n] * ev_data["dem_arrive"][:, n]
-        nodes["building_" + str(n)]["ev_dem_leave"]  = ev_exists[n] * ev_data["dem_leave"][:, n]
+        nodes[n]["ev_avail"]      = ev_exists[n] * ev_data["avail"][:, n]
+        nodes[n]["ev_dem_arrive"] = ev_exists[n] * ev_data["dem_arrive"][:, n]
+        nodes[n]["ev_dem_leave"]  = ev_exists[n] * ev_data["dem_leave"][:, n]
 
     building_params["ev_exists"] = ev_exists
 
@@ -412,7 +410,7 @@ def get_solar_irr(options, weather):
 
     nodes = {}
     for n in range(options["nb_bes"]):
-        nodes["building_" + str(n)] = {
+        nodes[n] = {
                 "T_air": weather_param["T_air"]
         }
 
@@ -432,7 +430,7 @@ def get_pv_power(nodes, options, building_params, devs, solar_irr):
             pv_power[n, t] = solar_irr[n, t] * devs["pv"]["eta_el"][t] * devs["pv"]["area_real"] \
                              * building_params["modules"][n] / 1000  # kW,       PV output
 
-        nodes["building_" + str(n)]["pv_power"] = pv_power[n, :]
+        nodes[n]["pv_power"] = pv_power[n, :]
 
     # calculate availability of pv system considerung pv_share
     pv_exists = pv.pv_share(pv_share, options["nb_bes"])
@@ -446,8 +444,8 @@ def get_pv_power(nodes, options, building_params, devs, solar_irr):
     # Check small demand values
     for n in range(options["nb_bes"]):
         for t in range(datapoints):
-            if nodes["building_" + str(n)]["pv_power"][t] < 0.01:
-                nodes["building_" + str(n)]["pv_power"][t] = 0
+            if nodes[n]["pv_power"][t] < 0.01:
+                nodes[n]["pv_power"][t] = 0
 
     return nodes, building_params
     
@@ -516,50 +514,50 @@ def map_devices(options, nodes, building_params, weather_param, params, scenario
         devs["ev"][n] = dict(cap=0.0, eta_ch_ev=0.95, eta_dch_ev=0.97, min_soc=0.1, max_soc=0.9, max_ch_ev=45,
                           max_dch_ev=40)
 
-        nodes["building_" + str(n)]["devs"] = {}
+        nodes[n]["devs"] = {}
 
-        nodes["building_" + str(n)]["devs"]["bat"] = devs["bat"][n]
-        nodes["building_" + str(n)]["devs"]["eh"] = devs["eh"][n]
-        nodes["building_" + str(n)]["devs"]["hp35"] = devs["hp35"][n]
-        nodes["building_" + str(n)]["devs"]["hp55"] = devs["hp55"][n]
-        nodes["building_" + str(n)]["devs"]["tes"] = devs["tes"][n]
-        nodes["building_" + str(n)]["devs"]["chp"] = devs["chp"][n]
-        nodes["building_" + str(n)]["devs"]["boiler"] = devs["boiler"][n]
-        nodes["building_" + str(n)]["devs"]["ev"] = devs["ev"][n]
-        nodes["building_" + str(n)]["devs"]["pv"] = devs["pv"]
+        nodes[n]["devs"]["bat"] = devs["bat"][n]
+        nodes[n]["devs"]["eh"] = devs["eh"][n]
+        nodes[n]["devs"]["hp35"] = devs["hp35"][n]
+        nodes[n]["devs"]["hp55"] = devs["hp55"][n]
+        nodes[n]["devs"]["tes"] = devs["tes"][n]
+        nodes[n]["devs"]["chp"] = devs["chp"][n]
+        nodes[n]["devs"]["boiler"] = devs["boiler"][n]
+        nodes[n]["devs"]["ev"] = devs["ev"][n]
+        nodes[n]["devs"]["pv"] = devs["pv"]
 
 
-        nodes["building_" + str(n)]["devs"]["tes"]["cap"] = params["phy"]["beta"] * building_params["mean_heat"][n]
+        nodes[n]["devs"]["tes"]["cap"] = params["phy"]["beta"] * building_params["mean_heat"][n]
 
         if building_params["ev_exists"][n] == 1:
-            nodes["building_" + str(n)]["devs"]["ev"]["cap"] = 35.0
+            nodes[n]["devs"]["ev"]["cap"] = 35.0
 
         if scenarios.iloc[n, scn] == "gas":
-            nodes["building_" + str(n)]["devs"]["boiler"]["cap"] = building_params["design"][n]
+            nodes[n]["devs"]["boiler"]["cap"] = building_params["design"][n]
 
         elif scenarios.iloc[n, scn] == "hp" and building_params["cat"][n] == 1:
-            nodes["building_" + str(n)]["devs"]["eh"]["cap"] = building_params["design_dhw"][n]
-            nodes["building_" + str(n)]["devs"]["hp35"]["cap"] = building_params["design"][n]
-            nodes["building_" + str(n)]["devs"]["hp35"]["exists"] = 1
+            nodes[n]["devs"]["eh"]["cap"] = building_params["design_dhw"][n]
+            nodes[n]["devs"]["hp35"]["cap"] = building_params["design"][n]
+            nodes[n]["devs"]["hp35"]["exists"] = 1
 
         elif scenarios.iloc[n,scn] == "hp" and building_params["cat"][n] == 2:
-            nodes["building_" + str(n)]["devs"]["eh"]["cap"] = building_params["design_dhw"][n]
-            nodes["building_" + str(n)]["devs"]["hp55"]["cap"] = building_params["design"][n]
-            nodes["building_" + str(n)]["devs"]["hp55"]["exists"] = 1
+            nodes[n]["devs"]["eh"]["cap"] = building_params["design_dhw"][n]
+            nodes[n]["devs"]["hp55"]["cap"] = building_params["design"][n]
+            nodes[n]["devs"]["hp55"]["exists"] = 1
 
         elif scenarios.iloc[n, scn] == "chp":
-            nodes["building_" + str(n)]["devs"]["chp"]["cap"] = building_params["design"][n]
+            nodes[n]["devs"]["chp"]["cap"] = building_params["design"][n]
 
         else:
             pass
 
     # Calculation of Coefficient of Power
     for n in range(options["nb_bes"]):
-        nodes["building_" + str(n)]["devs"]["COP_sh35"] = np.zeros(datapoints)
-        nodes["building_" + str(n)]["devs"]["COP_sh55"] = np.zeros(datapoints)
+        nodes[n]["devs"]["COP_sh35"] = np.zeros(datapoints)
+        nodes[n]["devs"]["COP_sh55"] = np.zeros(datapoints)
         for t in range(datapoints):
-                nodes["building_" + str(n)]["devs"]["COP_sh35"][t] = 0.4 * (273.15 + 35) / (35 - weather_param["T_air"][t])
-                nodes["building_" + str(n)]["devs"]["COP_sh55"][t] = 0.4 * (273.15 + 55) / (55 - weather_param["T_air"][t])
+                nodes[n]["devs"]["COP_sh35"][t] = 0.4 * (273.15 + 35) / (35 - weather_param["T_air"][t])
+                nodes[n]["devs"]["COP_sh55"][t] = 0.4 * (273.15 + 55) / (55 - weather_param["T_air"][t])
 
     return nodes, devs, building_params
 
@@ -573,12 +571,12 @@ def get_design_heat(options, demands, building_params):
     daily_mean_heat = np.zeros(shape=buildings)
     daily_mean_temp = np.zeros(shape=(buildings, 365))
     for n in range(buildings):
-        design_heat[n] = 1.2 * np.max(demands["building_" + str(n)]["heat"] + demands["building_" + str(n)]["dhw"])
-        design_dhw[n] = 2 * np.max(demands["building_" + str(n)]["dhw"])
+        design_heat[n] = 1.2 * np.max(demands[n]["heat"] + demands[n]["dhw"])
+        design_dhw[n] = 2 * np.max(demands[n]["dhw"])
         for t in range(365):
             # calc daily heat demand in kWh
-            daily_mean_temp[n, t] = np.sum(demands["building_" + str(n)]["heat"][24*t:24*t+24]) \
-                                    + np.sum(demands["building_" + str(n)]["dhw"][24*t:24*t+24])
+            daily_mean_temp[n, t] = np.sum(demands[n]["heat"][24*t:24*t+24]) \
+                                    + np.sum(demands[n]["dhw"][24*t:24*t+24])
         daily_mean_heat[n] = np.mean(daily_mean_temp[n, :])
 
     building_params["design"] = design_heat
@@ -652,22 +650,3 @@ def get_ev_dat(ev_raw):
 
     return ev_param, ev_dat, number_evs_max
 
-
-
-if __name__ == "__main__":
-    timesteps = 24
-    days = 5
-    # Random temperatures between -10 and +20 degC:
-    temperature_ambient = np.random.rand(timesteps) * 30 - 10
-    
-    temperature_design = -12 # Aachen
-    
-    solar_irradiation = np.random.rand(timesteps) * 800
-    solar_irradiation
-    
-    devs = read_devices(timesteps, temperature_ambient, 
-                        temperature_flow=35,
-                        temperature_design=temperature_design,
-                        solar_irradiation=solar_irradiation)
-                        
-    (eco, par, devs) = read_economics(devs)

@@ -3,7 +3,7 @@ Created on 10.06.2021
 
 @author: jsc
 """
-import python.object_bes as object_bes
+import python.opti_methods as opti_methods
 import python.parse_inputs as parse_inputs
 import python.load_scenarios as scenarios
 import python.load_net as net
@@ -13,9 +13,7 @@ import pandas as pd
 import datetime
 
 def get_inputs(par_rh, options, scenarios, scn):
-
-    # Load Params
-
+    ### Load Params
     # load rolling horizon parameters
     par_rh = parse_inputs.compute_pars_rh(par_rh)
 
@@ -36,59 +34,7 @@ def get_inputs(par_rh, options, scenarios, scn):
     # Read technichal datas of the network
     net_data = net.create_net(options)
 
-
     return nodes, building_params, params, devs, net_data, weather, par_rh
-
-
-def compute_objects(options, nodes, params, devs, net_data, weather, scenarios, scn):
-    # bes objects
-    buildings = []
-    for n in range(options["nb_bes"]):
-        buildings.append(object_bes.bes(nodes["building_" + str(n)], params, par_rh, weather, scenarios.iloc[n,scn]))
-
-    return buildings
-
-def rolling_horizon_opti(options, par_rh, buildings, building_params, scenarios, scn):
-    # Run rolling horizon
-    init_val = {}  # not needed for first optimization, thus empty dictionary
-    opti_bes = {}  # to store the results of the bes optimization
-    # Start optimizations
-    for n_opt in range(par_rh["n_opt"]):
-        opti_bes[n_opt] = {}
-        init_val[0] = {}
-        init_val[n_opt+1] = {}
-
-
-
-        if n_opt == 0:
-            for n in range(options["nb_bes"]):
-
-                print("Starting optimization: n_opt: " + str(n_opt) + ", building:" +str(n) + ".")
-
-                init_val[n_opt]["building_" + str(n)] = {}
-                opti_bes[n_opt][n] = buildings[n].op_proposal(nodes["building_" + str(n)],params, par_rh,
-                                                              building_params.iloc[n], scenarios.iloc[n,scn],
-                                                              init_val[n_opt]["building_" + str(n)], n_opt)
-
-                init_val[n_opt + 1]["building_" + str(n)] = buildings[n].init_val(opti_bes[n_opt][n], par_rh, n_opt)
-
-
-        else:
-            for n in range(options["nb_bes"]):
-
-                print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(n) + ".")
-
-
-                opti_bes[n_opt][n] = buildings[n].op_proposal(nodes["building_" + str(n)], params, par_rh,
-                                                              building_params.iloc[n], scenarios.iloc[n,scn],
-                                                              init_val[n_opt]["building_" + str(n)], n_opt)
-
-                init_val[n_opt + 1]["building_" + str(n)] = buildings[n].init_val(opti_bes[n_opt][n], par_rh, n_opt)
-
-        print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) + "% of optimizations processed.")
-
-    return opti_bes
-
 
 
 
@@ -99,7 +45,8 @@ if __name__ == '__main__':
     print("This program begin at " + str(datetime.datetime.now()) + ".")
 
     # Set options
-    options = {"times": 8760, #* 4,  # whole year 15min resolution
+    options = {"optimization": "central",   # central or decentral
+               "times": 8760, #* 4,  # whole year 15min resolution
                "tweeks": 4,  # number of typical weeks
                "Dorfnetz": False,  # todo: aktuell klappt nur Vorstadtnetz, da bei Dorfnetz noch 1 Gebäude fehlt
                "pv_share": 0.0,  # 0.25, 0.5, 0.75, 1.0
@@ -129,11 +76,11 @@ if __name__ == '__main__':
     # Get following inputs:
     nodes, building_params, params, devs, net_data, weather, par_rh = get_inputs(par_rh, options, scenarios, scn)
 
-    # Compute objects for optimization
-    buildings = compute_objects(options, nodes, params, devs, net_data, weather, scenarios, scn)
-
     # Run (rolling horizon) optimization
-    opti_bes = rolling_horizon_opti(options, par_rh, buildings, building_params, scenarios, scn)
+    if options["optimization"] == "central":
+        central_opti = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
+    elif options["optimization"] == "decentral":
+        decentral_opti = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
 
     # Compute plots
 
