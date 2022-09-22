@@ -17,7 +17,7 @@ def create_scenarios(options):
         grid = "vorstadtnetz"
 
     # Building parameters
-    building_params = pd.read_csv(path_input + "buildings_" + grid + ".csv", delimiter=";")
+    building_params = pd.read_csv(path_input + "buildings_" + options["neighborhood"] + ".csv", delimiter=";")
 
     scenarios = pd.DataFrame(index=building_params.index)
 
@@ -49,7 +49,7 @@ def create_scenarios(options):
                 scenarios[counter][116+chp:144] = "gas"
                 counter += 1
 
-    scenarios.to_csv(path_input + "scenarios_" + grid + ".csv", sep=";", index=False)
+    scenarios.to_csv(path_input + "scenarios_" + options["neighborhood"] + ".csv", sep=";", index=False)
 
     return scenarios
 
@@ -57,14 +57,14 @@ def get_scenarios(options):
 
     # Define path for use case input data
     path_file = options["path_file"]
-    path_input = path_file + "/raw_inputs/"
+    path_input = path_file + "/raw_inputs/demands_" + options["neighborhood"] + "/"
 
-    if options["Dorfnetz"]:
-        grid = "dorfnetz"
-    else:
-        grid = "vorstadtnetz"
+    #if options["Dorfnetz"]:
+    #    grid = "dorfnetz"
+    #else:
+    #    grid = "vorstadtnetz"
 
-    scns = pd.read_csv(path_input + "scenarios_" + grid + ".csv",delimiter=";")
+    scns = pd.read_csv(path_input + "scenarios_" + options["neighborhood"] + ".csv",delimiter=";")
 
     return scns
 

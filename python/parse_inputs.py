@@ -12,6 +12,7 @@ import numpy as np
 import scipy.stats as stats
 import pandas as pd
 import copy
+import pickle
 
 import python.pv_buildings as pv
 import python.ev_param as ev_param
@@ -56,9 +57,13 @@ def read_economics():
                 for key in pC.keys()}
     
     # Always EUR per kWh (meter per anno)
-    params["eco"]["pr",   "el"]     = 0.319
-    params["eco"]["sell"]    = 0.091
-    params["eco"]["gas"]     = 0.0635   # €/kWh
+    params["eco"]["pr",   "el"]     = 0.4
+    params["eco"]["sell_pv"]    = 0.082 # €/kWh valid for pv systems with < 10 kWp
+    params["eco"]["sell_chp"] = 0.191 # €/kWh (average Q4 2021 - Q2 2022 + avoided costs for grid usage)
+    params["eco"]["gas"]     = 0.15   # €/kWh
+    params["eco"]["co2_gas"] = 0.411 # kg/kWh (Germany, 2019; https://de.statista.com/statistik/daten/studie/38897/umfrage/co2-emissionsfaktor-fuer-den-strommix-in-deutschland-seit-1990/)
+    params["eco"]["co2_el"] = 0.241 # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
+    params["eco"]["co2_pv"] = 0.056 # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
 
 
     params["phy"]["rho_w"]           = 1000 # [kg/m^3]
@@ -75,10 +80,7 @@ def read_economics():
     return params
 
 
-def compute_pars_rh(input_rh):
-    param = input_rh
-
-    param["dt"] = 1
+def compute_pars_rh(param, options, districtData):
 
     # Months and starting hours of months
     param["month_start"] = {}
@@ -95,12 +97,13 @@ def compute_pars_rh(input_rh):
     param["month_start"][11] = 7296
     param["month_start"][12] = 8016
     param["month_start"][13] = 8760    # begin of next year
+
     # %% ROLLING HORIZON SET UP: Time steps, etc.
 
     param["operational_optim"] = 1
     if param["operational_optim"]:
 
-        # Example to explain set up:    n_hours: 42
+        # Example to explain set up:    n_hours: 48
         #                               n_hours_ov: 36
         #                           --> n_hours_ch: 12
         #                               n_blocks: 2
@@ -108,7 +111,7 @@ def compute_pars_rh(input_rh):
 
         # Calculate duration of each time block
         param["org_block_duration"] = {}  # original block duration (for example: [12,36])
-        param["block_duration"] = {}  # block duration with another resolution (for example: [12,36/6]=[12,6])
+        param["block_duration"] = {}  # block duration with another resolution (for example: [12/1,36/6]=[12,6])
 
         # First block (block 0): control horizon (detailed time series)
         param["org_block_duration"][0] = param["n_hours"] - param["n_hours_ov"]
@@ -130,10 +133,13 @@ def compute_pars_rh(input_rh):
         # Set up time steps
 
         # optimize any period of length n_opt_max*n_hours_ch or entire year starting at hour 0
-        if param["month"] == 0:
+        if param["month"] == 0: # optimize entire year
 
-            # Calculate number of operational optimizations (month = 0: optimization of whole year)
-            param["n_opt_total"] = int(np.ceil(8760 / param["n_hours_ch"]))
+            # Calculate number of operational optimizations
+            if options["number_typeWeeks"] > 0:
+                param["n_opt_total"] = int(np.ceil(districtData.time["clusterHorizon"] / 3600 / param["n_hours_ch"]))
+            else:
+                param["n_opt_total"] = int(np.ceil(8760 / param["n_hours_ch"]))
 
             # Number of optimizations: Take minimum out of maximum optimizations or total optimizations needed to cover entire year
             param["n_opt"] = min(param["n_opt_total"], param["n_opt_max"])
@@ -150,7 +156,8 @@ def compute_pars_rh(input_rh):
             hours_month = param["month_start"][param["month"] + 1] - param["month_start"][param["month"]]
 
             # Calculate number of optimizations
-            param["n_opt"] = int(np.ceil(hours_month / param["n_hours_ch"]))
+            #param["n_opt"] = int(np.ceil(hours_month / param["n_hours_ch"]))
+            param["n_opt"] = min(int(np.ceil(hours_month / param["n_hours_ch"])), param["n_opt_max"])
 
             # Set up starting hour of each optimization
             param["hour_start"] = {}  # starting hour of each optimization
@@ -158,11 +165,13 @@ def compute_pars_rh(input_rh):
                 # Starting hour of each optimization
                 param["hour_start"][i] = param["month_start"][param["month"]] + i * param["n_hours_ch"]
 
+        param["end_time_org"] = param["n_opt"] * param["n_hours_ch"] # relevant for soc_end = soc_init
+
                 # Set up optimization time steps (incl. aggregated foresight time steps)
         param["time_steps"] = {}  # time steps for optimization incl. aggregation, for 1st optimization for example above:
         # [0,1,2,3,4,5,6,7,8,9,10,11, 12,13,14,15,16,17]
         param["org_time_steps"] = {}  # original time steps for optimizations, for 1st optimization for example above:
-        # [0,1,2,3,4,5,6,7,8,9,10,11, 12,18,24,30,36]
+        # [0,1,2,3,4,5,6,7,8,9,10,11, 12,18,24,30,36,42]
         param["duration"] = {}  # indicates duration of each time step
 
         # Set up time steps for each optimization
@@ -199,21 +208,33 @@ def compute_pars_rh(input_rh):
             count = 0
 
             # add original time steps for each optimization time step using starting hour and duration of previous time step
-            for t in param["time_steps"][i]:
-                if count > 0:
-                    param["org_time_steps"][i].append(param["org_time_steps"][i][-1] + param["duration"][i][t - 1])
+            for t in range(param["time_steps"][i][0], param["time_steps"][i][-1]):
+                #if count > 0:
+                    param["org_time_steps"][i].append(param["org_time_steps"][i][-1] + param["duration"][i][t])
 
 
     # adjust the following values
-    param["start_time"] = param["month_start"][input_rh["month"]]
-    param["end_time"] = param["month_start"][input_rh["month"] + 1]
-    if input_rh["month"] == 0:
-        param["month_start"][0] = 0
-        param["obs_period"] = 365  # Observation period in days
-        param["times"] = param["obs_period"] * 24
-    else:
-        param["obs_period"] = int((param["end_time"] - param["start_time"]) / 24)
-        param["times"] = param["obs_period"]  * 24 + input_rh["n_hours_ov"]
+        param["datapoints"] = int(8760/options["discretization_input_data"])
+
+       # if param["month"] == 0:
+       #     param["start_time"] = param["month_start"][1]
+       #     param["end_time"] = param["month_start"][13]
+            # param["obs_period"] = 365  # Observation period in days
+       # else:
+       #     param["start_time"] = param["month_start"][param["month"]]
+       #     param["end_time"] = param["month_start"][param["month"] + 1]
+            # param["obs_period"] = int((param["end_time"] - param["start_time"]) / 24)
+
+
+    #param["start_time"] = param["month_start"][input_rh["month"]]
+    #param["end_time"] = param["month_start"][input_rh["month"] + 1]
+    #if input_rh["month"] == 0:
+    #    param["month_start"][0] = 0
+    #    param["obs_period"] = 365  # Observation period in days
+    #    param["times"] = param["obs_period"] * 24
+    #else:
+    #    param["obs_period"] = int((param["end_time"] - param["start_time"]) / 24)
+    #    param["times"] = param["obs_period"]  * 24 + input_rh["n_hours_ov"]
 
     return param
 
@@ -286,75 +307,184 @@ def aggregate_foresight(nodes, param, n_opt):
     return nodes, param
 
 
-def read_demands(options, nodes):
+def read_demands(options, districtData,par_rh):
         
     # Define path for use case input data
-    path_file = options["path_file"]
-    path_input = path_file + "/raw_inputs/demands_vorstadtnetz/"
+    #path_file = options["path_file"]
+    #path_input = path_file + "/raw_inputs/demands_" + options["neighborhood"] + "/"
     #path_nodes = path_input + name_nodefile
     #path_demands = path_input + "demands\\"
 
-    # todo: days within month * 24 * dt
-    datapoints = options["times"]
+    #datapoints = options["times"]
     #time_hor = options["time_hor"]
     #tweeks = options["tweeks"]
-    ev_share = options["ev_share"]
+
 
     # todo: in options wird ein Netz ausgewählt, damit werden Netz- (Grenzen des ONS, Stränge, etc.) und Gebäudeinformationen gebündelt eingelesen --> z.B. number_bes
     # Possible selection of typical grids
-    if options["Dorfnetz"]:
-        grid = "dorfnetz"
-    else:
-        grid = "vorstadtnetz"
+    #if options["Dorfnetz"]:
+        #grid = "dorfnetz"
+    #else:
+        #grid = "vorstadtnetz"
 
     # Building parameters
-    building_params = pd.read_csv(path_input + "buildings_" + grid + ".csv",delimiter=";")
-    options["nb_bes"] = len(building_params)
+    #building_params = pd.read_csv(path_input + "buildings_" + options["neighborhood"] + ".csv",delimiter=";")
+
+    options["nb_bes"] = districtData.district.__len__() # number of building energy systems
+    #datapoints = par_rh["datapoints"]
+
 
     # Get heatloads of building categories
-    heatloads = {}
-    for cat in range(1,7):
-        heatloads[cat] = np.loadtxt(
-            open(path_input + "cat_" + str(cat) + ".csv","rb"), delimiter=";", skiprows=1) / 1000  # kW, heat demand
+    #heatloads = {}
+   # for cat in range(1,7):
+   #     heatloads[cat] = np.loadtxt(
+   #         open(path_input + "cat_" + str(cat) + ".csv","rb"), delimiter=";", skiprows=1) / 1000  # kW, heat demand
+
+    #building_list = ["EFH_1860_adv", "EFH_1860_retr", "EFH_1861_1918_adv", "EFH_1861_1918_retr", "EFH_1919_1948_adv",
+    #                 "EFH_1919_1948_def",
+    #                 "EFH_1919_1948_retr", "EFH_1949_1957_adv", "EFH_1949_1957_def", "EFH_1949_1957_retr",
+    #                 "EFH_1949_1957_adv",
+    #                 "EFH_1958_1968_adv", "EFH_1958_1968_retr", "EFH_1958_1968_def", "EFH_1969_1978_adv",
+    #                 "EFH_1969_1978_retr",
+    #                 "EFH_1969_1978_def", "EFH_1979_1983_adv", "EFH_1979_1983_retr", "EFH_1979_1983_def",
+    #                 "EFH_1984_1994_adv",
+    #                 "EFH_1984_1994_retr", "EFH_1984_1994_def", "EFH_1995_2001_adv", "EFH_1995_2001_def",
+    #                 "EFH_2002_2009_adv",
+    #                 "EFH_2002_2009_def", "EFH_2010_2019_def",
+    #                 "MFH_1860_adv", "MFH_1860_def", "MFH_1861_1918_adv", "MFH_1861_1918_retr", "MFH_1919_1948_adv",
+    #                 "MFH_1919_1948_def",
+    #                 "MFH_1919_1948_retr", "MFH_1949_1957_adv", "MFH_1949_1957_def", "MFH_1949_1957_retr",
+    #                 "MFH_1949_1957_adv",
+    #                 "MFH_1958_1968_adv", "MFH_1958_1968_retr", "MFH_1958_1968_def", "MFH_1969_1978_adv",
+    #                 "MFH_1969_1978_retr", "MFH_1969_1978_def", "MFH_1979_1983_adv", "MFH_1979_1983_retr",
+    #                 "MFH_1979_1983_def", "MFH_1984_1994_adv", "MFH_1984_1994_retr", "MFH_1984_1994_def",
+    #                 "MFH_1995_2001_adv", "MFH_1995_2001_def", "MFH_2002_2009_adv", "MFH_2002_2009_def",
+    #                 "MFH_2010_2019_def"
+    #                 ]
+
+    #for cat in building_list:
+    #    heatloads[cat] = np.loadtxt(
+    #        open(path_input + "/" + str(cat) + ".csv","rb"), delimiter=";", skiprows=1) / 1000  # kW, heat demand
 
     # Fill nodes dictionairy with demands (electricity, drinking hot water, heat load)
-    demands = {}
-    for i in range(options["nb_bes"]):
-        demands[i] = {
-            "elec": np.loadtxt(
-                open(path_input + "/elec_" + str(i) + ".csv", "rb"),
-                delimiter=",", skiprows=1, usecols=1) / 1000,  # kW, electricity demand
-            "dhw": np.loadtxt(
-                open(path_input + "/dhw_" + str(i) + ".csv","rb"),
-                skiprows=1) / 1000,  # kW, domestic hot water demand
-        }
+    #demands = {}
+    #for i in range(options["nb_bes"]):
+    #    demands[i] = {
+    #        "elec": np.loadtxt(
+    #            open(path_input + "/elec_" + str(i) + ".csv", "rb"),
+    #            delimiter=",", skiprows=1, usecols=1) / 1000,  # kW, electricity demand
+    #        "dhw": np.loadtxt(
+    #            open(path_input + "/dhw_" + str(i) + ".csv","rb"),
+    #            skiprows=1) / 1000,  # kW, domestic hot water demand
+    #    }
 
-        for cat in range(1,7):
-            if cat == building_params["cat"][i]:
-                demands[i]["heat"] = heatloads[cat][:,1]
-            else:
-                pass
+       # for cat in range(1,7):
+       #     if cat == building_params["cat"][i]:
+       #         demands[i]["heat"] = heatloads[cat][:,1]
+       #     else:
+       #         pass
 
-    for n in range(options["nb_bes"]):
-        nodes[n] = {
-            "elec": demands[n]["elec"],
-            "heat": demands[n]["heat"],
-            "dhw": demands[n]["dhw"].T,
-        }
-    
-    # Check small demand values
-    for n in nodes:
-        for t in range(len(nodes[0]["heat"])):
-            if nodes[n]["heat"][t] < 0.01:
-                nodes[n]["heat"][t] = 0
-            if nodes[n]["dhw"][t] < 0.01:
-                nodes[n]["dhw"][t] = 0
-            if nodes[n]["elec"][t] < 0.01:
-                nodes[n]["elec"][t] = 0
+     #   for cat in building_list:
+     #    if cat == building_params["type"][i]:
+     #       demands[i]["heat"] = heatloads[cat]
+     #    else:
+     #       pass
 
-    # Electric Vehicles
+    # Electric Vehicles # todo: read EV data from district generator
+    ev_share = options["ev_share"]
     ev_data = ev_param.ev_load(options, options["nb_bes"])
     ev_exists = ev_param.ev_share(ev_share, options["nb_bes"])
+
+    building_params = {}
+    nodes = {}
+
+    if options["number_typeWeeks"] == 0: # input data not clustered
+        pv_exists = np.zeros(shape=(options["nb_bes"], 1))
+        for n in range(options["nb_bes"]):
+            nodes[n] = {
+                "elec": districtData.district[n]['user'].elec,
+                "heat": districtData.district[n]['user'].heat,
+                "dhw": districtData.district[n]['user'].dhw,
+                "T_air": districtData.site['T_e'],
+                "type": districtData.district[n]['user'].building,
+                "ev_avail": ev_exists[n] * ev_data["avail"][:, n],
+                "ev_dem_arrive": ev_exists[n] * ev_data["dem_arrive"][:, n],
+                "ev_dem_leave": ev_exists[n] * ev_data["dem_leave"][:, n],
+                "pv_power": districtData.district[n]['generationPV'],
+                "devs": {}
+            }
+            nodes[n]["devs"]["COP_sh35"] = np.zeros(len(nodes[0]["T_air"]))
+            nodes[n]["devs"]["COP_sh55"] = np.zeros(len(nodes[0]["T_air"]))
+            pv_exists[n] = districtData.scenario.PV[n]
+
+            # Check small demand values
+            for t in range(len(nodes[0]["heat"])):
+                if nodes[n]["heat"][t] < 0.01:
+                    nodes[n]["heat"][t] = 0
+                if nodes[n]["dhw"][t] < 0.01:
+                    nodes[n]["dhw"][t] = 0
+                if nodes[n]["elec"][t] < 0.01:
+                    nodes[n]["elec"][t] = 0
+                if nodes[n]["pv_power"][t] < 0.01:
+                    nodes[n]["pv_power"][t] = 0
+
+                # Calculation of Coefficient of Power
+                nodes[n]["devs"]["COP_sh35"][t] = 0.4 * (273.15 + 35) / (35 - nodes[n]["T_air"][t])
+                nodes[n]["devs"]["COP_sh55"][t] = 0.4 * (273.15 + 55) / (55 - nodes[n]["T_air"][t])
+
+        building_params["ev_exists"] = np.zeros(shape=(options["nb_bes"], 1))
+        building_params["pv_exists"] = pv_exists
+
+    else: # clustered input data
+        pv_exists = np.zeros(shape=(options["nb_bes"], 1))
+        for k in range(options["number_typeWeeks"]):
+            nodes[k] = {}
+            for n in range(options["nb_bes"]):
+                nodes[k][n] = {
+                    "elec": districtData.district[n]['user'].elec_cluster[k],
+                    "heat": districtData.district[n]['user'].heat_cluster[k],
+                    "dhw": districtData.district[n]['user'].dhw_cluster[k],
+                    "T_air": districtData.site['T_e_cluster'][k],
+                    "type": districtData.district[n]['user'].building,
+                    "ev_avail": ev_exists[n] * ev_data["avail"][:, n],
+                    "ev_dem_arrive": ev_exists[n] * ev_data["dem_arrive"][:, n],
+                    "ev_dem_leave": ev_exists[n] * ev_data["dem_leave"][:, n],
+                    "pv_power": districtData.district[n]['generation_cluster'][k],
+                    "devs": {}
+                }
+                nodes[k][n]["devs"]["COP_sh35"] = np.zeros(len(nodes[0][0]["T_air"]))
+                nodes[k][n]["devs"]["COP_sh55"] = np.zeros(len(nodes[0][0]["T_air"]))
+                pv_exists[n] = districtData.scenario.PV[n]
+
+                # Check small demand values
+                for t in range(len(nodes[0][0]["heat"])):
+                    if nodes[k][n]["heat"][t] < 0.01:
+                        nodes[k][n]["heat"][t] = 0
+                    if nodes[k][n]["dhw"][t] < 0.01:
+                        nodes[k][n]["dhw"][t] = 0
+                    if nodes[k][n]["elec"][t] < 0.01:
+                        nodes[k][n]["elec"][t] = 0
+                    if nodes[k][n]["pv_power"][t] < 0.01:
+                        nodes[k][n]["pv_power"][t] = 0
+
+                    # Calculation of Coefficient of Power
+                    nodes[k][n]["devs"]["COP_sh35"][t] = 0.4 * (273.15 + 35) / (35 - nodes[k][n]["T_air"][t])
+                    nodes[k][n]["devs"]["COP_sh55"][t] = 0.4 * (273.15 + 55) / (55 - nodes[k][n]["T_air"][t])
+
+                append_demands = True # double data for rolling horizon opti
+                if append_demands:
+                    nodes[k][n]["heat_appended"] = np.append(nodes[k][n]["heat"], nodes[k][n]["heat"])
+                    nodes[k][n]["dhw_appended"] = np.append(nodes[k][n]["dhw"], nodes[k][n]["dhw"])
+                    nodes[k][n]["elec_appended"] = np.append(nodes[k][n]["elec"], nodes[k][n]["elec"])
+                    nodes[k][n]["pv_power_appended"] = np.append(nodes[k][n]["pv_power"], nodes[k][n]["pv_power"])
+                    nodes[k][n]["devs"]["COP_sh35_appended"] = np.append(nodes[k][n]["devs"]["COP_sh35"], nodes[k][n]["devs"]["COP_sh35"])
+                    nodes[k][n]["devs"]["COP_sh55_appended"] = np.append(nodes[k][n]["devs"]["COP_sh55"], nodes[k][n]["devs"]["COP_sh55"])
+                    nodes[k][n]["ev_avail_appended"] = np.append(nodes[k][n]["ev_avail"], nodes[k][n]["ev_avail"])
+                    nodes[k][n]["ev_dem_leave_appended"] = np.append(nodes[k][n]["ev_dem_leave"], nodes[k][n]["ev_dem_leave"])
+
+
+        building_params["ev_exists"] = np.zeros(shape=(options["nb_bes"], 1))
+        building_params["pv_exists"] = pv_exists
 
     #for n in nodes:
     #    nodes["building_" + str(n)]["ev_avail"] = np.zeros(shape=(time_hor, tweeks))
@@ -362,66 +492,63 @@ def read_demands(options, nodes):
     #    nodes["building_" + str(n)]["ev_dem_leave"] = np.zeros(shape=(time_hor, tweeks))
     #    for m in range(tweeks):
     #        for t in range(time_hor):
-    for n in range(options["nb_bes"]):
-        nodes[n]["ev_avail"]      = ev_exists[n] * ev_data["avail"][:, n]
-        nodes[n]["ev_dem_arrive"] = ev_exists[n] * ev_data["dem_arrive"][:, n]
-        nodes[n]["ev_dem_leave"]  = ev_exists[n] * ev_data["dem_leave"][:, n]
 
-    building_params["ev_exists"] = ev_exists
+    #building_params["ev_exists"] = ev_exists
 
-                
     return nodes, building_params, options
 
-def get_solar_irr(options, weather):
+def get_solar_irr(options, weather, par_rh):
 
     # Define path for use case input data
-    path_file = options["path_file"]
-    path_input = path_file + "/raw_inputs/demands_vorstadtnetz/"
+    #path_file = options["path_file"]
+    #path_input = path_file + "/raw_inputs/demands_" + options["neighborhood"] + "/"
 
-    # todo: days within month * 24 * dt
-    datapoints = 8760
+    #datapoints = par_rh["datapoints"]
+    #datapoints = 8760
 
     # todo: in options wird ein Netz ausgewählt, damit werden Netz- (Grenzen des ONS, Stränge, etc.) und Gebäudeinformationen gebündelt eingelesen --> z.B. number_bes
     # Possible selection of typical grids
-    if options["Dorfnetz"]:
-        grid = "dorfnetz"
-    else:
-        grid = "vorstadtnetz"
+    #if options["Dorfnetz"]:
+    #    grid = "dorfnetz"
+    #else:
+    #    grid = "vorstadtnetz"
 
     # Building parameters
-    building_params = pd.read_csv(path_input + "buildings_" + grid + ".csv",delimiter=";")
-    options["nb_bes"] = len(building_params)
+    #building_params = pd.read_csv(path_input + "buildings_" + options["neighborhood"] + ".csv",delimiter=";")
+    #options["nb_bes"] = len(building_params)
 
-    vorher = [i for i in range(0,datapoints,4)]
-    nachher = [i for i in range(0,datapoints)]
-    weather_param = {}
-    weather_param["T_air"] = weather["T_air"]   # np.interp(nachher, vorher, weather["T_air"])
-    weather_param["G_dir"] = weather["sol_dir"] # np.interp(nachher, vorher, weather["sol_dir"])
-    weather_param["G_dif"] = weather["sol_diff"]# np.interp(nachher, vorher, weather["sol_diff"])
-    weather_param["G_sol"] = weather_param["G_dir"] + weather_param["G_dif"]
+    #vorher = [i for i in range(len(weather["T_air"]))]
+    #nachher = [i for i in range(datapoints)]
+    #weather_param = {}
+    #weather_param["T_air"] = weather["T_air"]  # np.interp(nachher, vorher, weather["T_air"]) # resolution
+    #weather_param["G_dir"] = weather["sol_dir"]  # np.interp(nachher, vorher, weather["sol_dir"])
+    #weather_param["G_dif"] = weather["sol_diff"]  # np.interp(nachher, vorher, weather["sol_diff"])
+
+    #weather_param["T_air"] = np.interp(nachher, vorher, weather["T_air"])
+    #weather_param["G_dir"] = np.interp(nachher, vorher, weather["sol_dir"])
+    #weather_param["G_dif"] = np.interp(nachher, vorher, weather["sol_diff"])
+    #weather_param["G_sol"] = weather_param["G_dir"] + weather_param["G_dif"]
 
     # todo: check if annual calc works on 15min basis
     # get solar irradiance on tilted surface
-    solar_irr = np.zeros(shape=(options["nb_bes"], datapoints))
+    #solar_irr = np.zeros(shape=(options["nb_bes"], datapoints))
 
-    for n in range(options["nb_bes"]):
-        solar_irr[n] = solar.get_irrad_profile(weather_param, building_params["azimuth"][n],
-                                               building_params["elevation"][n])
+    #for n in range(options["nb_bes"]):
+    #    solar_irr[n] = solar.get_irrad_profile(weather_param, building_params["azimuth"][n],
+    #                                           building_params["elevation"][n], options)
 
-    nodes = {}
-    for n in range(options["nb_bes"]):
-        nodes[n] = {
-                "T_air": weather_param["T_air"]
-        }
+    #nodes = {}
+    #for n in range(options["nb_bes"]):
+    #    nodes[n] = {
+    #            "T_air": weather_param["T_air"]
+    #    }
 
     return nodes, solar_irr, weather_param
 
-def get_pv_power(nodes, options, building_params, devs, solar_irr):
+def get_pv_power(nodes, options, building_params, devs, solar_irr, par_rh):
 
     pv_share = options["pv_share"]
-
-    # todo: days within month * 24 * dt
-    datapoints = 8760
+    datapoints = par_rh["datapoints"]
 
     # calculate PV power
     pv_power = np.zeros(shape=(options["nb_bes"], datapoints))
@@ -449,115 +576,187 @@ def get_pv_power(nodes, options, building_params, devs, solar_irr):
 
     return nodes, building_params
     
+def get_pv_power_from_DG(nodes, options, building_params, districtData):
 
+  #  pv_exists = np.zeros(shape=(options["nb_bes"],1))
+
+   # for n in range(options["nb_bes"]):
+   #     nodes[n]["pv_power"] = districtData.district[n]['generationPV']
+   #     pv_exists[n] = districtData.scenario.PV[n]
+
+    #building_params["pv_exists"] = pv_exists
+
+
+    # Check small demand values
+   # for n in range(options["nb_bes"]):
+   #     for t in range(len(nodes[0]["pv_power"])):
+   #         if nodes[n]["pv_power"][t] < 0.01:
+   #             nodes[n]["pv_power"][t] = 0
+
+    return nodes, building_params
     
-def map_devices(options, nodes, building_params, weather_param, params, scenarios, scn):
+def map_devices(options, nodes, building_params, par_rh, districtData):
 
-    building_params = get_design_heat(options, nodes, building_params)
-    datapoints = 8760
+    # building_params = get_design_heat(options, nodes, building_params)
+    #for n in range(options["nb_bes"]):
+    #    building_params["design"][n] = districtData.district[n]['heatload'] + districtData.district[n]['dhwload'] # in W
+    #    building_params["design_dhw"][n] = districtData.district[n]['dhwload'] # in W
+
 
     devs = {}
-    devs["pv"] = dict(eta_el_stc=0.199, area_real=1.6, eta_inv=0.96, t_cell_stc=25, G_stc=1000, t_cell_noct=44,
-                      t_air_noct=20, G_noct=800, gamma=-0.003, eta_opt=0.9)
+    #devs["pv"] = dict(eta_el_stc=0.199, area_real=1.6, eta_inv=0.96, t_cell_stc=25, G_stc=1000, t_cell_noct=44,
+    #                  t_air_noct=20, G_noct=800, gamma=-0.003, eta_opt=0.9)
 
     # calculate time variant efficiency
-    t_cell = np.zeros(shape=(datapoints, 1))
-    eta_el = np.zeros(shape=(datapoints, 1))
-    for t in range(datapoints):
-        t_cell[t] = (weather_param["T_air"][t] + (devs["pv"]["t_cell_noct"] - devs["pv"]["t_air_noct"])
-                     * (weather_param["G_sol"][t] / devs["pv"]["G_noct"])
-                     * (1 - (devs["pv"]["eta_el_stc"] * (1 - devs["pv"]["gamma"] * devs["pv"]["t_cell_stc"])) /
-                        devs["pv"]["eta_opt"])) / \
-                    ((1 + (devs["pv"]["t_cell_noct"] - devs["pv"]["t_air_noct"])
-                      * (weather_param["G_sol"][t] / devs["pv"]["G_noct"]) *
-                      ((devs["pv"]["gamma"] * devs["pv"]["eta_el_stc"]) / devs["pv"]["eta_opt"])))
+    #t_cell = np.zeros(shape=(datapoints, 1))
+    #eta_el = np.zeros(shape=(datapoints, 1))
+    #for t in range(datapoints):
+    #    t_cell[t] = (weather_param["T_air"][t] + (devs["pv"]["t_cell_noct"] - devs["pv"]["t_air_noct"])
+    #                 * (weather_param["G_sol"][t] / devs["pv"]["G_noct"])
+    #                 * (1 - (devs["pv"]["eta_el_stc"] * (1 - devs["pv"]["gamma"] * devs["pv"]["t_cell_stc"])) /
+    #                    devs["pv"]["eta_opt"])) / \
+    #                ((1 + (devs["pv"]["t_cell_noct"] - devs["pv"]["t_air_noct"])
+    #                  * (weather_param["G_sol"][t] / devs["pv"]["G_noct"]) *
+    #                  ((devs["pv"]["gamma"] * devs["pv"]["eta_el_stc"]) / devs["pv"]["eta_opt"])))
 
-        eta_el[t] = devs["pv"]["eta_el_stc"] * (1 + devs["pv"]["gamma"] * (t_cell[t] - devs["pv"]["t_cell_stc"]))
+    #    eta_el[t] = devs["pv"]["eta_el_stc"] * (1 + devs["pv"]["gamma"] * (t_cell[t] - devs["pv"]["t_cell_stc"]))
 
-        devs["pv"]["eta_el"] = eta_el[:]
+    #    devs["pv"]["eta_el"] = eta_el[:]
 
 
-    devs["bat"] = {}
-    devs["boiler"] = {}
-    devs["hp35"] = {}
-    devs["hp55"] = {}
-    devs["chp"] = {}
-    devs["bz"] = {}
-    devs["eh"] = {}
-    devs["tes"] = {}
-    devs["ev"] = {}
+    #devs["bat"] = {}
+    #devs["boiler"] = {}
+    #devs["hp35"] = {}
+    #devs["hp55"] = {}
+    #devs["chp"] = {}
+    #devs["bz"] = {}
+    #devs["eh"] = {}
+    #devs["tes"] = {}
+    #devs["ev"] = {}
+
+    # get Sunfire fuel cell distribution in district from file
+    district = pd.read_csv("C:/Users/Arbeit/Documents/WiHi_EBC/districtgenerator_python/data/scenarios/district_Neubau.csv",
+        header=0, delimiter=";")  # todo: path has to be adjusted
+
+    T_e_mean = [] # mean of outdoor temperature
+    number_bz_sf = district["Sunfire_BZ"]  # number of Sunfire fuel cells in BES n
+
+    for k in range(options["number_typeWeeks"]):
+        T_e_mean.append(np.mean(nodes[k][0]["T_air"]))
 
     for n in range(options["nb_bes"]):
+        devs[n] = {}
         """
             - eta = Q/P
             - omega = (Q+P) / E
         """
         # BATTERY
         # TODO: k_loss
-        devs["bat"][n] = dict(cap=0.0, min_soc=0.1, max_ch=0.6, max_dch=0.6, max_soc=0.9, eta_bat=0.957, k_loss=0)
+        devs[n]["bat"] = dict(cap=0.0, min_soc=0.1, max_ch=0.6, max_dch=0.6, max_soc=0.9, eta_bat=0.957, k_loss=0)
         # BOILER
-        devs["boiler"][n] = dict(cap=0.0, eta_th=0.94)
+        devs[n]["boiler"] = dict(cap=0.0, eta_th=0.94)
         # HEATPUMP
         # TODO: mod_lvl
-        devs["hp35"][n] = dict(cap=0.0, dT_max=15, exists=0, mod_lvl=1)
-        devs["hp55"][n] = dict(cap=0.0,dT_max=15, exists=0, mod_lvl=1)
+        devs[n]["hp35"] = dict(cap=0.0, dT_max=15, exists=0, mod_lvl=1)
+        devs[n]["hp55"] = dict(cap=0.0,dT_max=15, exists=0, mod_lvl=1)
         # CHP FOR MULTI-FAMILY HOUSES
         # TODO: mod_lvl
-        devs["chp"][n] = dict(cap=0.0, eta_th=0.62, eta_el=0.30, mod_lvl=0.6)
-        devs["bz"][n] = dict(cap=0.0, eta_th=0.53, eta_el=0.39)
+        devs[n]["chp"] = dict(cap=0.0, eta_th=0.62, eta_el=0.30, mod_lvl=0.6)
+        devs[n]["bz"] = dict(cap=0.0, eta_th=0.53, eta_el=0.39)
+        # bz_sf: Sunfire fuel cell; is installed in combination with boiler
+        devs[n]["bz_sf"] = dict(cap=1250, eta_th=0.493, eta_el=0.33, min_heat=650, max_power=750, min_power=375, number_bz_sf=0) # parameters for Sunfire Home 750
         # ELECTRIC HEATER
-        devs["eh"][n] = dict(cap=0.0)
+        devs[n]["eh"] = dict(cap=0.0)
         # THERMAL ENERGY STORAGE
         # TODO: k_loss
-        devs["tes"][n] = dict(cap=0.0, dT_max=35, min_soc=0.0, eta_tes=0.98, eta_ch=1, eta_dch=1)
+        devs[n]["tes"] = dict(cap=0.0, dT_max=35, min_soc=0.0, eta_tes=0.98, eta_ch=1, eta_dch=1)
         # ELECTRIC VEHICLE
-        devs["ev"][n] = dict(cap=0.0, eta_ch_ev=0.95, eta_dch_ev=0.97, min_soc=0.1, max_soc=0.9, max_ch_ev=45,
+        devs[n]["ev"] = dict(cap=0.0, eta_ch_ev=0.95, eta_dch_ev=0.97, min_soc=0.1, max_soc=0.9, max_ch_ev=45,
                           max_dch_ev=40)
 
-        nodes[n]["devs"] = {}
+        #nodes[n]["devs"] = {}
 
-        nodes[n]["devs"]["bat"] = devs["bat"][n]
-        nodes[n]["devs"]["eh"] = devs["eh"][n]
-        nodes[n]["devs"]["hp35"] = devs["hp35"][n]
-        nodes[n]["devs"]["hp55"] = devs["hp55"][n]
-        nodes[n]["devs"]["tes"] = devs["tes"][n]
-        nodes[n]["devs"]["chp"] = devs["chp"][n]
-        nodes[n]["devs"]["boiler"] = devs["boiler"][n]
-        nodes[n]["devs"]["ev"] = devs["ev"][n]
-        nodes[n]["devs"]["pv"] = devs["pv"]
+        #if districtData.district[n]['user'].building == "MFH":
+        #    number_bz_sf.append(int(district["Sunfire_BZ/flat"][n] * districtData.district[n]['user'].nb_flats))
+        #else:
+        #    number_bz_sf.append(int(district["Sunfire_BZ/flat"][n]))
 
 
-        nodes[n]["devs"]["tes"]["cap"] = params["phy"]["beta"] * building_params["mean_heat"][n]
+        devs[n]["tes"]["cap"] = districtData.district[n]['capacities']['TES']
 
-        if building_params["ev_exists"][n] == 1:
-            nodes[n]["devs"]["ev"]["cap"] = 35.0
+        if districtData.district[n]['capacities']['EV'] :
+            devs[n]["ev"]["cap"] = districtData.district[n]['capacities']['EV']
 
-        if scenarios.iloc[n, scn] == "gas":
-            nodes[n]["devs"]["boiler"]["cap"] = building_params["design"][n]
+        if districtData.district[n]['capacities']['BZ'] :
+            devs[n]["bz"]["cap"] = districtData.district[n]['capacities']['BZ']
 
-        elif scenarios.iloc[n, scn] == "hp" and building_params["cat"][n] == 1:
-            nodes[n]["devs"]["eh"]["cap"] = building_params["design_dhw"][n]
-            nodes[n]["devs"]["hp35"]["cap"] = building_params["design"][n]
-            nodes[n]["devs"]["hp35"]["exists"] = 1
+        if districtData.scenario.heater[n] == "BOI":
+            devs[n]["boiler"]["cap"] = districtData.district[n]['capacities']['BOI']
 
-        elif scenarios.iloc[n,scn] == "hp" and building_params["cat"][n] == 2:
-            nodes[n]["devs"]["eh"]["cap"] = building_params["design_dhw"][n]
-            nodes[n]["devs"]["hp55"]["cap"] = building_params["design"][n]
-            nodes[n]["devs"]["hp55"]["exists"] = 1
+        elif districtData.scenario.heater[n] == "HP":
+            if (districtData.district[n]['envelope'].construction_year > 1994) or (districtData.district[n]['envelope'].construction_year > 1983 and districtData.district[n]['envelope'].retrofit ==1) or (districtData.district[n]['envelope'].construction_year > 1958 and districtData.district[n]['envelope'].retrofit ==2):
+                # heat pump with 35C supply temperature todo: adjust parameters above
+                devs[n]["eh"]["cap"] = districtData.district[n]['capacities']['EH']
+                devs[n]["hp35"]["cap"] = districtData.district[n]['capacities']['HP']
+                devs[n]["hp35"]["exists"] = 1
 
-        elif scenarios.iloc[n, scn] == "chp":
-            nodes[n]["devs"]["chp"]["cap"] = building_params["design"][n]
+            else: # heat pump with 55C supply temperature
+                devs[n]["eh"]["cap"] = districtData.district[n]['capacities']['EH']
+                devs[n]["hp55"]["cap"] = districtData.district[n]['capacities']['HP']
+                devs[n]["hp55"]["exists"] = 1
+
+        elif districtData.scenario.heater[n] == "CHP":
+            devs[n]["chp"]["cap"] = districtData.district[n]['capacities']['CHP']
 
         else:
             pass
 
-    # Calculation of Coefficient of Power
-    for n in range(options["nb_bes"]):
-        nodes[n]["devs"]["COP_sh35"] = np.zeros(datapoints)
-        nodes[n]["devs"]["COP_sh55"] = np.zeros(datapoints)
-        for t in range(datapoints):
-                nodes[n]["devs"]["COP_sh35"][t] = 0.4 * (273.15 + 35) / (35 - weather_param["T_air"][t])
-                nodes[n]["devs"]["COP_sh55"][t] = 0.4 * (273.15 + 55) / (55 - weather_param["T_air"][t])
+
+
+        if options["number_typeWeeks"] == 0:
+            nodes[n]["devs"]["bat"] = devs[n]["bat"]
+            nodes[n]["devs"]["eh"] = devs[n]["eh"]
+            nodes[n]["devs"]["hp35"] = devs[n]["hp35"]
+            nodes[n]["devs"]["hp55"] = devs[n]["hp55"]
+            nodes[n]["devs"]["tes"] = devs[n]["tes"]
+            nodes[n]["devs"]["chp"] = devs[n]["chp"]
+            nodes[n]["devs"]["boiler"] = devs[n]["boiler"]
+            nodes[n]["devs"]["ev"] = devs[n]["ev"]
+            nodes[n]["devs"]["bz"] = devs[n]["bz"]
+            nodes[n]["devs"]["bz_sf"] = devs[n]["bz_sf"].copy()
+            nodes[n]["devs"]["bz_sf"]["cap"] = 0.0 # Sunfire BZ only implemented for type weeks
+
+
+        else:
+            for k in range(options["number_typeWeeks"]):
+
+                nodes[k][n]["devs"]["bat"] = devs[n]["bat"]
+                nodes[k][n]["devs"]["eh"] = devs[n]["eh"]
+                nodes[k][n]["devs"]["hp35"] = devs[n]["hp35"]
+                nodes[k][n]["devs"]["hp55"] = devs[n]["hp55"]
+                nodes[k][n]["devs"]["tes"] = devs[n]["tes"]
+                nodes[k][n]["devs"]["chp"] = devs[n]["chp"]
+                nodes[k][n]["devs"]["boiler"] = devs[n]["boiler"]
+                nodes[k][n]["devs"]["ev"] = devs[n]["ev"]
+                nodes[k][n]["devs"]["bz"] = devs[n]["bz"]
+                nodes[k][n]["devs"]["bz_sf"] = devs[n]["bz_sf"].copy()
+
+
+                if T_e_mean[k] < options["T_heating_limit_BZ"]: # Sunfire BZ active
+
+                    nodes[k][n]["devs"]["bz_sf"]["cap"] = number_bz_sf[n] * devs[n]["bz_sf"]["cap"]
+                    nodes[k][n]["devs"]["bz_sf"]["min_heat"] = number_bz_sf[n] * devs[n]["bz_sf"]["min_heat"]
+                    nodes[k][n]["devs"]["bz_sf"]["max_power"] = number_bz_sf[n] * devs[n]["bz_sf"]["max_power"]
+                    nodes[k][n]["devs"]["bz_sf"]["min_power"] = number_bz_sf[n] * devs[n]["bz_sf"]["min_power"]
+                    nodes[k][n]["devs"]["bz_sf"]["number_bz_sf"] = number_bz_sf[n]
+
+
+                else: # Sunfire BZ inactive
+                    nodes[k][n]["devs"]["bz_sf"]["cap"] = 0.0
+                    nodes[k][n]["devs"]["bz_sf"]["number_bz_sf"] = str(number_bz_sf[n]) + " (inactive)"
+
+
+    building_params["T_e_mean"] = T_e_mean
 
     return nodes, devs, building_params
 
@@ -591,7 +790,7 @@ def get_ev_dat(ev_raw):
 
     # manual parameters for ev
     ev_param = {}
-    ev_param["soc_nom_ev"] = 35.0  # 35 kWh are the average EV battery capcity
+    ev_param["soc_nom_ev"] = 35.0  # 35 kWh are the average EV battery capcity # todo: outdated
     ev_param["soc_init_ev"] = 0.05 * ev_param["soc_nom_ev"]
     ev_param["eta_ch_ev"] = 0.97
     ev_param["p_max_ev"] = 11.0  # in kW
@@ -599,7 +798,7 @@ def get_ev_dat(ev_raw):
     ev_param["ev_operation"] = "grid_reactive"  # possible entries are "on_demand", "grid_reactive" and "bi-directional"
 
     ev_dat = {}
-    # convert 15 min data to hourly data
+    # convert 15 min data to hourly data # resolution
     ev_dat["bed"] = {}
     ev_dat["bed"]["avail"] = np.zeros(shape=(len(ev_raw["EV_occurrence"][0]), 8760))
     ev_dat["bed"]["dem_arrive"] = np.zeros(shape=(len(ev_raw["EV_uncontrolled_charging_profile"][0]), 8760))
@@ -621,7 +820,7 @@ def get_ev_dat(ev_raw):
         temp = next(x for x, val in enumerate(index_leave[i]) if val == True)
         index_leave[i][temp] = False
 
-    ev_dat["bed"]["dem_leave"] = np.zeros([20, 8760])
+    ev_dat["bed"]["dem_leave"] = np.zeros([20, 8760]) # resolution
     for n in range(20):
         for i in range(1, 365):
             ev_dat["bed"]["dem_leave"][n, (24 * i):(24 * i + 24)] = index_leave[n][(24 * i):(24 * i + 24)] * daily_dem[

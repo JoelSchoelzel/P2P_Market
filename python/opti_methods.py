@@ -50,14 +50,37 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                 print("Starting optimization: n_opt: " + str(n_opt) + ".")
                 init_val[n_opt] = {}
                 opti_res[n_opt] = central_operation(nodes,params, par_rh, building_params,
-                                                      init_val[n_opt], n_opt)
+                                                      init_val[n_opt], n_opt, options)
                 init_val[n_opt + 1] = init_val_central_operation(opti_res[n_opt], nodes, par_rh, n_opt)
             else:
                 print("Starting optimization: n_opt: " + str(n_opt) + ".")
                 opti_res[n_opt] = central_operation(nodes, params, par_rh, building_params,
-                                                      init_val[n_opt], n_opt)
+                                                      init_val[n_opt], n_opt, options)
                 init_val[n_opt + 1] = init_val_central_operation(opti_res[n_opt], nodes, par_rh, n_opt)
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) + "% of optimizations processed.")
+        return opti_res
+
+    elif options["optimization"] == "central_typeWeeks":
+        # Start optimizations
+        for k in range(options["number_typeWeeks"]):
+            init_val[k] = {}
+            opti_res[k] = {}
+            for n_opt in range(par_rh["n_opt"]):
+                opti_res[k][n_opt] = {}
+                init_val[k][0] = {}
+                init_val[k][n_opt+1] = {}
+                if n_opt == 0:
+                    print("Starting optimization: type week: " + str(k) + " n_opt: " + str(n_opt) + ".")
+                    init_val[k][n_opt] = {}
+                    opti_res[k][n_opt] = central_operation(nodes[k],params, par_rh, building_params,
+                                                          init_val[k][n_opt], n_opt, options)
+                    init_val[k][n_opt + 1] = init_val_central_operation(opti_res[k][n_opt], nodes[k], par_rh, n_opt)
+                else:
+                    print("Starting optimization: type week: " + str(k) + " n_opt: " + str(n_opt) + ".")
+                    opti_res[k][n_opt] = central_operation(nodes[k], params, par_rh, building_params,
+                                                          init_val[k][n_opt], n_opt, options)
+                    init_val[k][n_opt + 1] = init_val_central_operation(opti_res[k][n_opt], nodes[k], par_rh, n_opt)
+                print("Finished optimization: type week: " + str(k) + " n_opt: " + str(n_opt) + ". " + str((par_rh["n_opt"]*k + n_opt+1) / (par_rh["n_opt"]* options["number_typeWeeks"]) * 100) + "% of optimizations processed.")
         return opti_res
 
 
@@ -79,13 +102,13 @@ def init_val_decentral_operation(opti_bes, par_rh, n_opt):
     return init_val
 
 
-def central_operation(nodes, params, pars_rh, building_params, init_val, n_opt):
+def central_operation(nodes, params, pars_rh, building_params, init_val, n_opt, options):
     """
     This function computes a deterministic solution.
     Internally, the results of the subproblem are stored.
     """
 
-    opti_res = central_opti.compute(nodes, params, pars_rh, building_params, init_val, n_opt)
+    opti_res = central_opti.compute(nodes, params, pars_rh, building_params, init_val, n_opt, options)
 
     return opti_res
 

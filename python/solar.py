@@ -10,7 +10,7 @@ import python.sun as sun
 
             
 #%%
-def get_irrad_profile(param, azimuth, elevation):
+def get_irrad_profile(param, azimuth, elevation, options):
     """
     Calculates global irradiance on tilted surface from weather file.
     Parameters
@@ -30,21 +30,22 @@ def get_irrad_profile(param, azimuth, elevation):
     
     # Load time series as numpy array
     sun_diffuse = param["G_dif"]
-    sun_global = param["G_sol"]
-    sun_direct = sun_global - sun_diffuse
+    sun_direct = param["G_dir"]
 
-    # todo: local properties as input in main file
-    # Define local properties of Bedburg
-    time_zone = 1                # ---,      time zone 
-    location = (50.99, 6.57)     # degree,   latitude, longitude of location
-    altitude = 70.0              # m,        height of location above sea level
+    # Define local properties
+    time_zone = options["time_zone"]            # ---,      time zone
+    location = options["location"]              # degree,   latitude, longitude of location
+    altitude = options["altitude"]              # m,        height of location above sea level
     
     # Calculate geometric relations
-    geometry = sun.getGeometry(0, 900, 8760, time_zone, location, altitude)
+    timeDiscretization = int(3600*options["discretization_input_data"])
+    timesteps = int(8760/options["discretization_input_data"])
+
+    geometry = sun.getGeometry(0, timeDiscretization, timesteps, time_zone, location, altitude) # first three: (initialTime, timeDiscretization, number of timesteps)
     (omega, delta, thetaZ, airmass, Gon) = geometry
     
     theta = sun.getIncidenceAngle(ele, azim, location[0], omega, delta)
-    theta = theta[1] 
+    theta = theta[1]
     
     # cosTheta is not required
     # Calculate radiation on tilted surface
