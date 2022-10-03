@@ -1,4 +1,3 @@
-import random
 import pandas as pd
 import numpy as np
 
@@ -6,39 +5,40 @@ import numpy as np
 if __name__ == '__main__':
 
     options_district = {"nb_buildings": 20, # number of buildings in district
-                        "shares_building_types": [0, 0, 100], # SFH, MFH, TH ; sum has to be 100
+                        "shares_building_types": [80, 20, 0], # SFH, MFH, TH ; sum has to be 100
                         # e.g. 60 for SFH: share of single family houses in district is 60%
-                        "construction_period": "01", # construction period 03: 1969-78, 02: 1984-94, 01: 2002-09
+                        "construction_period": "03", # construction period 03: 1969-78, 02: 1984-94, 01: 2002-09
                         "rf_L1": 4, # e.g. 4: every fourth building with tabula retrofit level 1
 
                         "HP": [4, 4, 4], # SFH, MFH, TH
                         # e.g. 3 for SFH/MFH/TH: every third SFH/MFH/TH with heat pump, rest is boiler
 
-                        "EV": [3, 3, 3], # SFH, MFH, TH
+                        "EV": [0, 0, 0], # SFH, MFH, TH
                         # e.g. 3 for SFH/TH: every third SFH/TH with one EV
                         # e.g. 3 for MFH: every third MFH-APARTMENT with one EV
                         "f_EV": ["L", "S", "M"], # SFH, MFH, TH
                         # EV battery capacity: S, M or L
 
-                        "PV": [3, 3, 3], # SFH, MFH, TH
+                        "PV": [3, 4, 3], # SFH, MFH, TH
                         # e.g. 3 for SFH/MFH/TH: every third SFH/MFH/TH with PV system
-                        "f_PV": [0.6, 0.7, 0.5], # SFH, MFH, TH ; area_PV = f_PV * area_roof
+                        "f_PV": [0.5, 0.6, 0.4], # SFH, MFH, TH ; area_PV = f_PV * area_roof
                         "gamma_PV": [10, 0, -10], # SFH, MFH, TH [degree]
                         # -180 <= gamma_PV <= 180, with zero due south, east negative and west positive
 
-                        "STC": [5, 5, 5], # SFH, MFH, TH
+                        "STC": [0, 0, 0], # SFH, MFH, TH
                         # e.g. 3 for SFH/MFH/TH: every third SFH/MFH/TH with solar thermal collector
-                        "f_STC": [0.15, 0.2, 0.1], # SFH, MFH, TH
+                        # set STC to [0, 0, 0] for MAScity
+                        "f_STC": [0.1, 0.2, 0.1], # SFH, MFH, TH
                         # area_STC = f_STC * area_roof
 
-                        "BAT": [2, 3, 2], # SFH, MFH, TH
+                        "BAT": [2, 4, 2], # SFH, MFH, TH
                         # e.g. 2 for SFH: every second SFH with PV system gets battery system
                         "f_BAT": [0.8, 1.0, 0.8], # SFH, MFH, TH ; Wh battery / Wp PV
 
                         "f_TES": [35, 40, 35], # SFH, MFH, TH
                         # thermal energy storage: l storage volume / kW heater
 
-                        "BZ": [0, 0, 0], # SFH, MFH, TH
+                        "BZ": [2, 2, 2], # SFH, MFH, TH
                         # e.g. 3 for SFH/TH: every third SFH/TH with boiler is extended with a Sunfire fuel cell
                         # e.g. 3 for MFH: every third MFH-APARTMENT adds one SF fuel cell to the building's heating system
 
@@ -120,9 +120,9 @@ if __name__ == '__main__':
 
     # area according to tabula data
     area_tab = {}
-    area_tab["0"] = dict(start=1969, end=1978, A_SFH=155, A_MFH=410, A_TH=129) # area in m²
-    area_tab["1"] = dict(start=1984, end=1994, A_SFH=153, A_MFH=430, A_TH=130)
-    area_tab["2"] = dict(start=2002, end=2009, A_SFH=154, A_MFH=459, A_TH=135)
+    area_tab["0"] = dict(start=1969, end=1978, A_SFH=173, A_MFH=469, A_TH=106) # area in m²
+    area_tab["1"] = dict(start=1984, end=1994, A_SFH=150, A_MFH=778, A_TH=128)
+    area_tab["2"] = dict(start=2002, end=2009, A_SFH=147, A_MFH=2190, A_TH=152)
 
     area = np.zeros(options_district["nb_buildings"], dtype=int)
     for n in range(options_district["nb_buildings"]):
@@ -287,6 +287,13 @@ if __name__ == '__main__':
         for n in range(IDs["BOI_TH"].__len__()):
             if n % options_district["BZ"][2] == 0:
                 bz[IDs["BOI_TH"][n]] = 1
+
+    # avoid clustering error in case f_PV or f_STC == 0:
+    for n in range(options_district["nb_buildings"]):
+        if f_pv[n] == 0:
+            f_pv[n] = 2
+        if f_stc[n] == 0:
+            f_stc[n] = 2
 
     # create dataframe
     df = {'id': IDs["all_buildings"], 'building': building_type, 'year': year, 'retrofit': retrofit, 'area': area, 'heater': heater, 'PV': pv,

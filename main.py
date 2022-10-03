@@ -59,14 +59,14 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name" : "District_CP02_SFH60_MFH40_TH0_BZ3-3-3", # name of csv input file
+        "scenario_name" : "District_CP03_SFH60_MFH20_TH20_BZ3-4-3", # name of csv input file
         "randomProfile" : False,
         # clustering - True: perform time series clustering, False: use rolling horizon approach
         "clustering" : True,
         # calcUserProfiles - False: load user profiles from file (Tip: do if you need annual data!), True: new calculation
-        "calcUserProfiles" : True,
+        "calcUserProfiles" : False,
         # saveUserProfiles - Only taken into account if calcUserProfile is True
-        "saveUserProfiles" : True,
+        "saveUserProfiles" : False,
         # use5R1C - Use 5R1C model
         # False: Heating demand is a parameter
         # True: Indoor temperature and heating demand are variables to be calculated dynamically
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     # Set options for MAScity
     options = {"optimization": "central_typeWeeks",   # central, central_typeWeeks or decentral
                "number_typeWeeks": 4, # set 0 in case no type weeks are investigated
-               "T_heating_limit_BZ": 14, # Sunfire BZ active for T_e_mean < T_heating_limit_BZ [°C]
+               "full_path_scenario": "C:\\Users\\Arbeit\\Documents\\WiHi_EBC\\districtgenerator_python\\data\\scenarios\\District_CP03_SFH60_MFH20_TH20_BZ3-4-3.csv", # scenario csv
                # "times": 2688, #8760 * 4,  # whole year 15min resolution
                # "tweeks": 4,  # number of typical weeks
                "Dorfnetz": False,  # grid type # todo: aktuell klappt nur Vorstadtnetz, da bei Dorfnetz noch 1 Gebäude fehlt
@@ -131,19 +131,23 @@ if __name__ == '__main__':
         "overlap_block_duration": [0, 0],} # h, duration of overlap time blocks, insert 0 for default: half of overlap horizon
 
     # Get following inputs:
-    nodes, building_params, params, devs, net_data, par_rh = get_inputs(par_rh, options, districtData)
+    nodes, building_params, params, devs_pre_opti, net_data, par_rh = get_inputs(par_rh, options, districtData)
 
     # Run (rolling horizon) optimization
-    if options["optimization"] == "central" or options["optimization"] == "central_typeWeeks":
-        central_opti_results = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
+    if options["optimization"] == "central_typeWeeks":
+        central_opti_results, typeweeks_recalc, typeweeks_indices = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
+
+    #elif options["optimization"] == "central":
+    #    central_opti_results = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
+
     #elif options["optimization"] == "decentral": # neither adapted to 15min input data nor to clustered data yet
     #    decentral_opti = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
 
     # Compute plots
-    results, criteria_typeweeks, cost_co2_year, energy_power_year = output.compute_out(options, options_DG, par_rh, central_opti_results, districtData.weights, params)
+    criteria_typeweeks, criteria_year = output.compute_out(options, options_DG, par_rh, central_opti_results, districtData.weights, params, building_params)
 
     # Safe results
-    with open(options["path_results"] + "/central_opti_output/" + options_DG["scenario_name"]+ "_T" + str(options["T_heating_limit_BZ"]) + ".p", 'wb') as fp:
+    with open(options["path_results"] + "/central_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
         pickle.dump(central_opti_results, fp)
 
     # End time (Time measurement)

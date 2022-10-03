@@ -57,14 +57,19 @@ def read_economics():
                 for key in pC.keys()}
     
     # Always EUR per kWh (meter per anno)
-    params["eco"]["pr",   "el"]     = 0.4
     params["eco"]["sell_pv"]    = 0.082 # €/kWh valid for pv systems with < 10 kWp
     params["eco"]["sell_chp"] = 0.191 # €/kWh (average Q4 2021 - Q2 2022 + avoided costs for grid usage)
-    params["eco"]["gas"]     = 0.15   # €/kWh
     params["eco"]["co2_gas"] = 0.411 # kg/kWh (Germany, 2019; https://de.statista.com/statistik/daten/studie/38897/umfrage/co2-emissionsfaktor-fuer-den-strommix-in-deutschland-seit-1990/)
     params["eco"]["co2_el"] = 0.241 # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
     params["eco"]["co2_pv"] = 0.056 # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
 
+    # calculate costs with prices of Q3+Q4 2021
+    params["eco"]["pr",   "el"]     = 0.3287 # €/kWh, Q3+Q4 2021 (https://www-genesis.destatis.de/genesis/online?operation=previous&levelindex=1&step=1&titel=Ergebnis&levelid=1663949631295&acceptscookies=false#abreadcrumb)
+    params["eco"]["gas"]     = 0.0683   # €/kWh, Q3+Q4 2021 (https://www-genesis.destatis.de/genesis/online?sequenz=tabelleErgebnis&selectionname=61243-0010&language=de#abreadcrumb)
+
+    # calculate costs with raised el/gas prices of Q3 2022
+    #params["eco"]["pr",   "el"] = 0.4403 # Verivox Q3 2022 (https://www.verivox.de/strom/verbraucherpreisindex/)
+    #params["eco"]["gas"] = 0.1853 # Verivox Q3 2022 (https://www.verivox.de/gas/verbraucherpreisindex/)
 
     params["phy"]["rho_w"]           = 1000 # [kg/m^3]
     params["phy"]["c_w"]             = 4180 # [J/(kg*K)]
@@ -78,7 +83,6 @@ def read_economics():
 
 
     return params
-
 
 def compute_pars_rh(param, options, districtData):
 
@@ -238,9 +242,6 @@ def compute_pars_rh(param, options, districtData):
 
     return param
 
-
-# %% Aggregate the foresight time steps (by averaging)
-
 def aggregate_foresight(nodes, param, n_opt):
     """
     Aggregates time series for RH approach with aggregated foresight.
@@ -305,7 +306,6 @@ def aggregate_foresight(nodes, param, n_opt):
             nodes[n][dat][t] = avg
 
     return nodes, param
-
 
 def read_demands(options, districtData,par_rh):
         
@@ -635,7 +635,7 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
     #devs["ev"] = {}
 
     # get Sunfire fuel cell distribution in district from file
-    district = pd.read_csv("C:/Users/Arbeit/Documents/WiHi_EBC/districtgenerator_python/data/scenarios/district_Neubau.csv",
+    district = pd.read_csv(options["full_path_scenario"],
         header=0, delimiter=";")  # todo: path has to be adjusted
 
     T_e_mean = [] # mean of outdoor temperature
@@ -652,9 +652,9 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         """
         # BATTERY
         # TODO: k_loss
-        devs[n]["bat"] = dict(cap=0.0, min_soc=0.1, max_ch=0.6, max_dch=0.6, max_soc=0.9, eta_bat=0.957, k_loss=0)
+        devs[n]["bat"] = dict(cap=0.0, min_soc=0.05, max_ch=0.6, max_dch=0.6, max_soc=0.95, eta_bat=0.97, k_loss=0)
         # BOILER
-        devs[n]["boiler"] = dict(cap=0.0, eta_th=0.94)
+        devs[n]["boiler"] = dict(cap=0.0, eta_th=0.97)
         # HEATPUMP
         # TODO: mod_lvl
         devs[n]["hp35"] = dict(cap=0.0, dT_max=15, exists=0, mod_lvl=1)
@@ -664,14 +664,14 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         devs[n]["chp"] = dict(cap=0.0, eta_th=0.62, eta_el=0.30, mod_lvl=0.6)
         devs[n]["bz"] = dict(cap=0.0, eta_th=0.53, eta_el=0.39)
         # bz_sf: Sunfire fuel cell; is installed in combination with boiler
-        devs[n]["bz_sf"] = dict(cap=1250, eta_th=0.493, eta_el=0.33, min_heat=650, max_power=750, min_power=375, number_bz_sf=0) # parameters for Sunfire Home 750
+        devs[n]["bz_sf"] = dict(cap=1250, eta_th=0.493, eta_el=0.33, min_heat=650, max_power=750, min_power=375, number_bz_sf=0, status="-") # parameters for Sunfire Home 750
         # ELECTRIC HEATER
         devs[n]["eh"] = dict(cap=0.0)
         # THERMAL ENERGY STORAGE
         # TODO: k_loss
         devs[n]["tes"] = dict(cap=0.0, dT_max=35, min_soc=0.0, eta_tes=0.98, eta_ch=1, eta_dch=1)
         # ELECTRIC VEHICLE
-        devs[n]["ev"] = dict(cap=0.0, eta_ch_ev=0.95, eta_dch_ev=0.97, min_soc=0.1, max_soc=0.9, max_ch_ev=45,
+        devs[n]["ev"] = dict(cap=0.0, eta_ch_ev=0.97, eta_dch_ev=0.97, min_soc=0.05, max_soc=0.95, max_ch_ev=45,
                           max_dch_ev=40)
 
         #nodes[n]["devs"] = {}
@@ -723,37 +723,35 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
             nodes[n]["devs"]["boiler"] = devs[n]["boiler"]
             nodes[n]["devs"]["ev"] = devs[n]["ev"]
             nodes[n]["devs"]["bz"] = devs[n]["bz"]
-            nodes[n]["devs"]["bz_sf"] = devs[n]["bz_sf"].copy()
+            nodes[n]["devs"]["bz_sf"] = devs[n]["bz_sf"]
             nodes[n]["devs"]["bz_sf"]["cap"] = 0.0 # Sunfire BZ only implemented for type weeks
 
 
         else:
             for k in range(options["number_typeWeeks"]):
 
-                nodes[k][n]["devs"]["bat"] = devs[n]["bat"]
-                nodes[k][n]["devs"]["eh"] = devs[n]["eh"]
-                nodes[k][n]["devs"]["hp35"] = devs[n]["hp35"]
-                nodes[k][n]["devs"]["hp55"] = devs[n]["hp55"]
-                nodes[k][n]["devs"]["tes"] = devs[n]["tes"]
-                nodes[k][n]["devs"]["chp"] = devs[n]["chp"]
-                nodes[k][n]["devs"]["boiler"] = devs[n]["boiler"]
-                nodes[k][n]["devs"]["ev"] = devs[n]["ev"]
-                nodes[k][n]["devs"]["bz"] = devs[n]["bz"]
+                nodes[k][n]["devs"]["bat"] = devs[n]["bat"].copy()
+                nodes[k][n]["devs"]["eh"] = devs[n]["eh"].copy()
+                nodes[k][n]["devs"]["hp35"] = devs[n]["hp35"].copy()
+                nodes[k][n]["devs"]["hp55"] = devs[n]["hp55"].copy()
+                nodes[k][n]["devs"]["tes"] = devs[n]["tes"].copy()
+                nodes[k][n]["devs"]["chp"] = devs[n]["chp"].copy()
+                nodes[k][n]["devs"]["boiler"] = devs[n]["boiler"].copy()
+                nodes[k][n]["devs"]["ev"] = devs[n]["ev"].copy()
+                nodes[k][n]["devs"]["bz"] = devs[n]["bz"].copy()
                 nodes[k][n]["devs"]["bz_sf"] = devs[n]["bz_sf"].copy()
 
+                nodes[k][n]["devs"]["bz_sf"]["cap"] = number_bz_sf[n] * devs[n]["bz_sf"]["cap"]
+                nodes[k][n]["devs"]["bz_sf"]["min_heat"] = number_bz_sf[n] * devs[n]["bz_sf"]["min_heat"]
+                nodes[k][n]["devs"]["bz_sf"]["max_power"] = number_bz_sf[n] * devs[n]["bz_sf"]["max_power"]
+                nodes[k][n]["devs"]["bz_sf"]["min_power"] = number_bz_sf[n] * devs[n]["bz_sf"]["min_power"]
+                nodes[k][n]["devs"]["bz_sf"]["number_bz_sf"] = number_bz_sf[n].copy()
 
-                if T_e_mean[k] < options["T_heating_limit_BZ"]: # Sunfire BZ active
+                if number_bz_sf[n] > 0:
+                    nodes[k][n]["devs"]["bz_sf"]["status"] = "active"
+                else:
+                    nodes[k][n]["devs"]["bz_sf"]["status"] = "no SF FC installed in BES"
 
-                    nodes[k][n]["devs"]["bz_sf"]["cap"] = number_bz_sf[n] * devs[n]["bz_sf"]["cap"]
-                    nodes[k][n]["devs"]["bz_sf"]["min_heat"] = number_bz_sf[n] * devs[n]["bz_sf"]["min_heat"]
-                    nodes[k][n]["devs"]["bz_sf"]["max_power"] = number_bz_sf[n] * devs[n]["bz_sf"]["max_power"]
-                    nodes[k][n]["devs"]["bz_sf"]["min_power"] = number_bz_sf[n] * devs[n]["bz_sf"]["min_power"]
-                    nodes[k][n]["devs"]["bz_sf"]["number_bz_sf"] = number_bz_sf[n]
-
-
-                else: # Sunfire BZ inactive
-                    nodes[k][n]["devs"]["bz_sf"]["cap"] = 0.0
-                    nodes[k][n]["devs"]["bz_sf"]["number_bz_sf"] = str(number_bz_sf[n]) + " (inactive)"
 
 
     building_params["T_e_mean"] = T_e_mean
@@ -783,8 +781,6 @@ def get_design_heat(options, demands, building_params):
     building_params["mean_heat"] = daily_mean_heat
 
     return building_params
-
-
 
 def get_ev_dat(ev_raw):
 

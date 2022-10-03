@@ -6,9 +6,10 @@ import pandas as pd
 import pickle
 
 
-def compute_out(options, options_DG, par_rh, central_opti_results, weights_typeweeks, params):
+def compute_out(options, options_DG, par_rh, central_opti_results, weights_typeweeks, params, building_params):
 
-    results_ch = {} # combined results of all control horizons
+    results_ch = {} # transfer the results of all control horizons into time series
+    # calculate criteria for typeweeks (criteria_typeweeks) and the whole year (criteria_year)
     criteria_typeweeks = {}
 
     for k in range(options["number_typeWeeks"]):
@@ -47,68 +48,86 @@ def compute_out(options, options_DG, par_rh, central_opti_results, weights_typew
                     results_ch[k]["gas_from_grid_bes"][n].append(central_opti_results[k][i][24][n]["boiler"][t] + central_opti_results[k][i][24][n]["chp"][t] +
                                                                  central_opti_results[k][i][24][n]["bz"][t] + central_opti_results[k][i][24][n]["bz_sf"][t])
 
-
-        criteria_typeweeks[k] = {"E_el_from_grid": sum(results_ch[k]["power_from_grid"])/1000 * par_rh["resolution"][0], # kWh
-                         "E_el_to_grid": sum(results_ch[k]["power_to_grid"]) / 1000 * par_rh["resolution"][0],
-                         "E_gas_from_grid": sum(results_ch[k]["gas_from_grid"]) / 1000 * par_rh["resolution"][0],
-                         "E_el_feed": sum(results_ch[k]["power_feed"]) / 1000 * par_rh["resolution"][0],
-                         "E_el_demand": sum(results_ch[k]["power_demand"]) / 1000 * par_rh["resolution"][0],
-                         "E_el_pv_gen": sum(results_ch[k]["power_pv_gen"]) / 1000 * par_rh["resolution"][0],
+        # distr: district, bes: building energy system
+        criteria_typeweeks[k] = {"E_el_from_grid_distr": sum(results_ch[k]["power_from_grid"])/1000 * par_rh["resolution"][0], # kWh
+                         "E_el_to_grid_distr": sum(results_ch[k]["power_to_grid"]) / 1000 * par_rh["resolution"][0],
+                         "E_gas_from_grid_distr": sum(results_ch[k]["gas_from_grid"]) / 1000 * par_rh["resolution"][0],
+                         "E_el_feed_distr": sum(results_ch[k]["power_feed"]) / 1000 * par_rh["resolution"][0],
+                         "E_el_demand_distr": sum(results_ch[k]["power_demand"]) / 1000 * par_rh["resolution"][0],
+                         "E_el_pv_gen_distr": sum(results_ch[k]["power_pv_gen"]) / 1000 * par_rh["resolution"][0],
                          "peak_power_transformer_to_grid": max(results_ch[k]["power_to_grid"])/1000, # kW
                          "peak_power_transformer_from_grid": max(results_ch[k]["power_from_grid"])/1000,
                          "E_el_feed_pv_bes": {(n): sum(results_ch[k]["power_feed_pv_bes"][n])/1000 * par_rh["resolution"][0] for n
-                                           in range(options["nb_bes"])},
+                            in range(options["nb_bes"])},
                          "E_el_feed_chp_bes": {(n): sum(results_ch[k]["power_feed_chp_bes"][n]) / 1000 * par_rh["resolution"][0] for n
-                                     in range(options["nb_bes"])},
+                            in range(options["nb_bes"])},
                          "E_el_demand_bes": {(n): sum(results_ch[k]["power_demand_bes"][n]) / 1000 * par_rh["resolution"][0] for n
-                                     in range(options["nb_bes"])},
-                         "E_gas_from_grid_bes": {(n): sum(results_ch[k]["gas_from_grid_bes"][n]) / 1000 * par_rh["resolution"][0] for
-                                     n in range(options["nb_bes"])},
+                            in range(options["nb_bes"])},
+                         "E_gas_from_grid_bes": {(n): sum(results_ch[k]["gas_from_grid_bes"][n]) / 1000 * par_rh["resolution"][0] for n
+                            in range(options["nb_bes"])},
+                         "T_e_mean": building_params["T_e_mean"][k]
                                  }
 
-    energy_power_year = {"E_el_from_grid": sum(criteria_typeweeks[k]["E_el_from_grid"] * weights_typeweeks[k] for k in
-                                           range(options["number_typeWeeks"])),
-                     "E_el_to_grid": sum(criteria_typeweeks[k]["E_el_to_grid"] * weights_typeweeks[k] for k in
-                                           range(options["number_typeWeeks"])),
-                     "E_gas_from_grid": sum(criteria_typeweeks[k]["E_gas_from_grid"] * weights_typeweeks[k] for k in
-                                           range(options["number_typeWeeks"])),
-                     "E_el_feed": sum(criteria_typeweeks[k]["E_el_feed"] * weights_typeweeks[k] for k in
-                                           range(options["number_typeWeeks"])),
-                     "E_el_demand": sum(criteria_typeweeks[k]["E_el_demand"] * weights_typeweeks[k] for k in
-                                           range(options["number_typeWeeks"])),
-                     "E_el_pv_gen": sum(criteria_typeweeks[k]["E_el_pv_gen"] * weights_typeweeks[k] for k in
-                                      range(options["number_typeWeeks"])),
+        criteria_typeweeks[k].update({"CO2_el_from_grid_distr": criteria_typeweeks[k]["E_el_from_grid_distr"] * params["eco"]["co2_el"]})
+        criteria_typeweeks[k].update({"CO2_gas_from_grid_distr": criteria_typeweeks[k]["E_gas_from_grid_distr"] * params["eco"]["co2_gas"]})
+        criteria_typeweeks[k].update({"CO2_pv_gen_distr": criteria_typeweeks[k]["E_el_pv_gen_distr"] * params["eco"]["co2_pv"]})
+        criteria_typeweeks[k].update({"cost_gas_from_grid_distr": criteria_typeweeks[k]["E_gas_from_grid_distr"] * params["eco"]["gas"]})
+        criteria_typeweeks[k].update({"cost_el_from_grid_distr": criteria_typeweeks[k]["E_el_from_grid_distr"] * params["eco"]["pr",   "el"]})
+        criteria_typeweeks[k].update({"cost_gas_from_grid_bes": {(n): criteria_typeweeks[k]["E_gas_from_grid_bes"][n] * params["eco"]["gas"] for n in range(options["nb_bes"])}})
+        criteria_typeweeks[k].update({"cost_el_demand_bes": {(n): criteria_typeweeks[k]["E_el_demand_bes"][n] * params["eco"]["pr",   "el"] for n in range(options["nb_bes"])}})
+        criteria_typeweeks[k].update({"revenue_el_feed_pv_bes": {(n): criteria_typeweeks[k]["E_el_feed_pv_bes"][n] * params["eco"]["sell_pv"] for n in range(options["nb_bes"])}})
+        criteria_typeweeks[k].update({"revenue_el_feed_chp_bes": {(n): criteria_typeweeks[k]["E_el_feed_chp_bes"][n] * params["eco"]["sell_chp"] for n in range(options["nb_bes"])}})
+
+
+    criteria_year = {"E_el_from_grid_distr": sum(criteria_typeweeks[k]["E_el_from_grid_distr"] * weights_typeweeks[k] for k in
+                        range(options["number_typeWeeks"])),
+                     "E_el_to_grid_distr": sum(criteria_typeweeks[k]["E_el_to_grid_distr"] * weights_typeweeks[k] for k in
+                        range(options["number_typeWeeks"])),
+                     "E_gas_from_grid_distr": sum(criteria_typeweeks[k]["E_gas_from_grid_distr"] * weights_typeweeks[k] for k in
+                        range(options["number_typeWeeks"])),
+                     "E_el_feed_distr": sum(criteria_typeweeks[k]["E_el_feed_distr"] * weights_typeweeks[k] for k in
+                        range(options["number_typeWeeks"])),
+                     "E_el_demand_distr": sum(criteria_typeweeks[k]["E_el_demand_distr"] * weights_typeweeks[k] for k in
+                        range(options["number_typeWeeks"])),
+                     "E_el_pv_gen_distr": sum(criteria_typeweeks[k]["E_el_pv_gen_distr"] * weights_typeweeks[k] for k in
+                        range(options["number_typeWeeks"])),
                      "peak_power_transformer_to_grid": max(criteria_typeweeks[k]["peak_power_transformer_to_grid"] for
-                                                           k in range(options["number_typeWeeks"])),
+                        k in range(options["number_typeWeeks"])),
                      "peak_power_transformer_from_grid": max(criteria_typeweeks[k]["peak_power_transformer_from_grid"] for
-                                                             k in range(options["number_typeWeeks"])),
+                        k in range(options["number_typeWeeks"])),
                      "E_el_feed_pv_bes": {(n): sum(criteria_typeweeks[k]["E_el_feed_pv_bes"][n] * weights_typeweeks[k] for k in
-                                           range(options["number_typeWeeks"])) for n in range(options["nb_bes"])},
+                        range(options["number_typeWeeks"])) for n in range(options["nb_bes"])},
                      "E_el_feed_chp_bes": {(n): sum(criteria_typeweeks[k]["E_el_feed_chp_bes"][n] * weights_typeweeks[k] for k in
-                                      range(options["number_typeWeeks"])) for n in range(options["nb_bes"])},
+                        range(options["number_typeWeeks"])) for n in range(options["nb_bes"])},
                      "E_el_demand_bes": {(n): sum(criteria_typeweeks[k]["E_el_demand_bes"][n] * weights_typeweeks[k] for k in
-                                                range(options["number_typeWeeks"])) for n in range(options["nb_bes"])},
+                        range(options["number_typeWeeks"])) for n in range(options["nb_bes"])},
                      "E_gas_from_grid_bes": {(n): sum(criteria_typeweeks[k]["E_gas_from_grid_bes"][n] * weights_typeweeks[k] for k in
-                                                range(options["number_typeWeeks"])) for n in range(options["nb_bes"])},
-                     }
+                        range(options["number_typeWeeks"])) for n in range(options["nb_bes"])},
+                     "CO2_el_from_grid_distr": sum(criteria_typeweeks[k]["CO2_el_from_grid_distr"] * weights_typeweeks[k] for k in
+                        range(options["number_typeWeeks"])),
+                     "CO2_gas_from_grid_distr": sum(criteria_typeweeks[k]["CO2_gas_from_grid_distr"] * weights_typeweeks[k] for k in
+                         range(options["number_typeWeeks"])),
+                     "CO2_pv_gen_distr": sum(criteria_typeweeks[k]["CO2_pv_gen_distr"] * weights_typeweeks[k] for k in
+                         range(options["number_typeWeeks"])),
+                     "cost_gas_from_grid_distr": sum(criteria_typeweeks[k]["cost_gas_from_grid_distr"] * weights_typeweeks[k] for k in
+                         range(options["number_typeWeeks"])),
+                     "cost_el_from_grid_distr": sum(criteria_typeweeks[k]["cost_el_from_grid_distr"] * weights_typeweeks[k] for k in
+                         range(options["number_typeWeeks"])),
+                     "cost_gas_from_grid_bes": {(n): sum(criteria_typeweeks[k]["cost_gas_from_grid_bes"][n] * weights_typeweeks[k] for k in
+                        range(options["number_typeWeeks"])) for n in range(options["nb_bes"])},
+                     "cost_el_demand_bes": {(n): sum(criteria_typeweeks[k]["cost_el_demand_bes"][n] * weights_typeweeks[k] for k in
+                        range(options["number_typeWeeks"])) for n in range(options["nb_bes"])},
+                     "revenue_el_feed_pv_bes": {(n): sum(criteria_typeweeks[k]["revenue_el_feed_pv_bes"][n] * weights_typeweeks[k] for k in
+                        range(options["number_typeWeeks"])) for n in range(options["nb_bes"])},
+                     "revenue_el_feed_chp_bes": {(n): sum(criteria_typeweeks[k]["revenue_el_feed_chp_bes"][n] * weights_typeweeks[k] for k in
+                        range(options["number_typeWeeks"])) for n in range(options["nb_bes"])},
+                          }
 
-    cost_co2_year = {"CO2_emission_district": energy_power_year["E_gas_from_grid"] * params["eco"]["co2_gas"] +
-                                              energy_power_year["E_el_from_grid"] * params["eco"]["co2_el"] +
-                                              energy_power_year["E_el_pv_gen"] * params["eco"]["co2_pv"],
-                     "cost_district": energy_power_year["E_gas_from_grid"] * params["eco"]["gas"] +
-                                      energy_power_year["E_el_from_grid"] * params["eco"]["pr",   "el"],
-                     "cost_BES": {(n): energy_power_year["E_gas_from_grid_bes"][n] * params["eco"]["gas"] +
-                                      energy_power_year["E_el_demand_bes"][n] * params["eco"]["pr",   "el"] for n in range(options["nb_bes"])},
-                     "revenue_BES": {(n): energy_power_year["E_el_feed_pv_bes"][n] * params["eco"]["sell_pv"] +
-                                          energy_power_year["E_el_feed_chp_bes"][n] * params["eco"]["sell_chp"] for n in range(options["nb_bes"])}
-                     }
+    criteria_year.update({"cost_diff_el_bes_distr": sum(criteria_year["cost_el_demand_bes"][n] for n in range(options["nb_bes"])) - criteria_year["cost_el_from_grid_distr"]})
 
-    cost_co2_year.update({"cost_diff_BES_district": sum(cost_co2_year["cost_BES"][n] for n in range(options["nb_bes"])) - cost_co2_year["cost_district"]})
 
-    # cost_diff_BES_district = sum(cost_co2_year["cost_BES"][n] for n in range(options["nb_bes"])) - cost_co2_year["cost_district"]
-
-    criteria = [energy_power_year, cost_co2_year]
-    with open(options["path_results"] + "/criteria_" + options_DG["scenario_name"]+ "_T" + str(options["T_heating_limit_BZ"]) + ".p", 'wb') as fp:
+    criteria = [criteria_typeweeks, criteria_year]
+    with open(options["path_results"] + "/criteria_" + options_DG["scenario_name"] + ".p", 'wb') as fp:
         pickle.dump(criteria, fp)
 
     # create dataframe
@@ -119,8 +138,7 @@ def compute_out(options, options_DG, par_rh, central_opti_results, weights_typew
     #criteria.to_csv(options["path_results"] + "/criteria_" + options_DG["scenario_name"]+ "_T" + str(options["T_heating_limit_BZ"]) + ".csv", index=False)
 
 
-
-    return results_ch, criteria_typeweeks, cost_co2_year, energy_power_year
+    return criteria_typeweeks, criteria_year
 
 
 
