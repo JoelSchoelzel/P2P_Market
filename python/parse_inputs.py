@@ -639,7 +639,6 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         header=0, delimiter=";")  # todo: path has to be adjusted
 
     T_e_mean = [] # mean of outdoor temperature
-    #number_bz_sf = district["Sunfire_BZ"]  # number of Sunfire fuel cells in BES n
 
     for k in range(options["number_typeWeeks"]):
         T_e_mean.append(np.mean(nodes[k][0]["T_air"]))
@@ -663,8 +662,6 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         # TODO: mod_lvl
         devs[n]["chp"] = dict(cap=0.0, eta_th=0.62, eta_el=0.30, mod_lvl=0.6)
         devs[n]["bz"] = dict(cap=10000000000, eta_th=0.53, eta_el=0.39)
-        # bz_sf: Sunfire fuel cell; is installed in combination with boiler
-        #devs[n]["bz_sf"] = dict(cap=1250, eta_th=0.493, eta_el=0.33, min_heat=650, max_power=750, min_power=375, number_bz_sf=0, status="-") # parameters for Sunfire Home 750
         # ELECTRIC HEATER
         devs[n]["eh"] = dict(cap=0.0)
         # THERMAL ENERGY STORAGE
@@ -675,11 +672,6 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
                           max_dch_ev=40)
 
         #nodes[n]["devs"] = {}
-
-        #if districtData.district[n]['user'].building == "MFH":
-        #    number_bz_sf.append(int(district["Sunfire_BZ/flat"][n] * districtData.district[n]['user'].nb_flats))
-        #else:
-        #    number_bz_sf.append(int(district["Sunfire_BZ/flat"][n]))
 
 
         devs[n]["tes"]["cap"] = districtData.district[n]['capacities']['TES']
@@ -723,8 +715,6 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
             nodes[n]["devs"]["boiler"] = devs[n]["boiler"]
             nodes[n]["devs"]["ev"] = devs[n]["ev"]
             nodes[n]["devs"]["bz"] = devs[n]["bz"]
-            #nodes[n]["devs"]["bz_sf"] = devs[n]["bz_sf"]
-            #nodes[n]["devs"]["bz_sf"]["cap"] = 0.0 # Sunfire BZ only implemented for type weeks
 
 
         else:
@@ -739,19 +729,6 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
                 nodes[k][n]["devs"]["boiler"] = devs[n]["boiler"].copy()
                 nodes[k][n]["devs"]["ev"] = devs[n]["ev"].copy()
                 nodes[k][n]["devs"]["bz"] = devs[n]["bz"].copy()
-                #nodes[k][n]["devs"]["bz_sf"] = devs[n]["bz_sf"].copy()
-
-                #nodes[k][n]["devs"]["bz_sf"]["cap"] = number_bz_sf[n] * devs[n]["bz_sf"]["cap"]
-                #nodes[k][n]["devs"]["bz_sf"]["min_heat"] = number_bz_sf[n] * devs[n]["bz_sf"]["min_heat"]
-                #nodes[k][n]["devs"]["bz_sf"]["max_power"] = number_bz_sf[n] * devs[n]["bz_sf"]["max_power"]
-                #nodes[k][n]["devs"]["bz_sf"]["min_power"] = number_bz_sf[n] * devs[n]["bz_sf"]["min_power"]
-                #nodes[k][n]["devs"]["bz_sf"]["number_bz_sf"] = number_bz_sf[n].copy()
-
-                #if number_bz_sf[n] > 0:
-                #    nodes[k][n]["devs"]["bz_sf"]["status"] = "active"
-                #else:
-                #    nodes[k][n]["devs"]["bz_sf"]["status"] = "no SF FC installed in BES"
-
 
 
     building_params["T_e_mean"] = T_e_mean

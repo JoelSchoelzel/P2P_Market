@@ -99,32 +99,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         return opti_res, typeweek_recalc, index
 
 def infeasible_model_adjust_fuel_cell_configuration(k, nodes, options, index_typeweeks, IISconstr):
-    '''
-    # deactivate Sunfire FC for typeweek with infeasible model
-    infeasibleBES = []
-    concernedBuildingTypes = []
-    for i, elem in enumerate(IISconstr):
-        if 'min_heat_bz_sf' in elem:
-            if not int(elem.partition("bes")[2]) in infeasibleBES:
-                infeasibleBES.append(int(elem.partition("bes")[2]))
 
-    if infeasibleBES.__len__() == 0:
-        raise ValueError("Error ist probably not caused by Sunfire fuel cell. Further investigation with debugger necessarry.")
-
-    for j in infeasibleBES:
-        if not nodes[k][j]["type"] in concernedBuildingTypes:
-            concernedBuildingTypes.append(nodes[k][j]["type"])
-
-    for n in range(options["nb_bes"]):
-        if nodes[k][n]["type"] in concernedBuildingTypes:
-            if nodes[k][n]["devs"]["bz_sf"]["cap"] > 0:
-                nodes[k][n]["devs"]["bz_sf"]["cap"] = 0
-                nodes[k][n]["devs"]["bz_sf"]["status"] = "inactive"
-
-    # calculate certain typeweek again (now without Sunfire FC)
-    current_index = np.where(np.isin(index_typeweeks, k))[0][-1]
-    index_typeweeks.insert(current_index + 1, k)
-    '''
     return nodes, index_typeweeks
 
 def decentral_operation(node, params, pars_rh, building_params, init_val, n_opt):
