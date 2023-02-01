@@ -141,7 +141,7 @@ def compute_pars_rh(param, options, districtData):
 
             # Calculate number of operational optimizations
             if options["number_typeWeeks"] > 0:
-                param["n_opt_total"] = int(np.ceil(districtData.time["clusterHorizon"] / 3600 / param["n_hours_ch"]))
+                param["n_opt_total"] = int(np.ceil(districtData.time["clusterLength"] / 3600 / param["n_hours_ch"])) #districtData.time["clusterHorizon"]
             else:
                 param["n_opt_total"] = int(np.ceil(8760 / param["n_hours_ch"]))
 
@@ -449,7 +449,7 @@ def read_demands(options, districtData,par_rh):
                     "ev_avail": ev_exists[n] * ev_data["avail"][:, n],
                     "ev_dem_arrive": ev_exists[n] * ev_data["dem_arrive"][:, n],
                     "ev_dem_leave": ev_exists[n] * ev_data["dem_leave"][:, n],
-                    "pv_power": districtData.district[n]['generation_cluster'][k],
+                    #"pv_power": districtData.district[n]['generation_cluster'][k],
                     "devs": {}
                 }
                 nodes[k][n]["devs"]["COP_sh35"] = np.zeros(len(nodes[0][0]["T_air"]))
@@ -464,19 +464,19 @@ def read_demands(options, districtData,par_rh):
                         nodes[k][n]["dhw"][t] = 0
                     if nodes[k][n]["elec"][t] < 0.01:
                         nodes[k][n]["elec"][t] = 0
-                    if nodes[k][n]["pv_power"][t] < 0.01:
-                        nodes[k][n]["pv_power"][t] = 0
+                    #if nodes[k][n]["pv_power"][t] < 0.01:
+                    #    nodes[k][n]["pv_power"][t] = 0
 
                     # Calculation of Coefficient of Power
-                    nodes[k][n]["devs"]["COP_sh35"][t] = 0.4 * (273.15 + 35) / (35 - nodes[k][n]["T_air"][t])
-                    nodes[k][n]["devs"]["COP_sh55"][t] = 0.4 * (273.15 + 55) / (55 - nodes[k][n]["T_air"][t])
+                #    nodes[k][n]["devs"]["COP_sh35"][t] = 0.4 * (273.15 + 35) / (35 - nodes[k][n]["T_air"][t])
+                #    nodes[k][n]["devs"]["COP_sh55"][t] = 0.4 * (273.15 + 55) / (55 - nodes[k][n]["T_air"][t])
 
                 append_demands = True # double data for rolling horizon opti
                 if append_demands:
                     nodes[k][n]["heat_appended"] = np.append(nodes[k][n]["heat"], nodes[k][n]["heat"])
                     nodes[k][n]["dhw_appended"] = np.append(nodes[k][n]["dhw"], nodes[k][n]["dhw"])
                     nodes[k][n]["elec_appended"] = np.append(nodes[k][n]["elec"], nodes[k][n]["elec"])
-                    nodes[k][n]["pv_power_appended"] = np.append(nodes[k][n]["pv_power"], nodes[k][n]["pv_power"])
+                    #nodes[k][n]["pv_power_appended"] = np.append(nodes[k][n]["pv_power"], nodes[k][n]["pv_power"])
                     nodes[k][n]["devs"]["COP_sh35_appended"] = np.append(nodes[k][n]["devs"]["COP_sh35"], nodes[k][n]["devs"]["COP_sh35"])
                     nodes[k][n]["devs"]["COP_sh55_appended"] = np.append(nodes[k][n]["devs"]["COP_sh55"], nodes[k][n]["devs"]["COP_sh55"])
                     nodes[k][n]["ev_avail_appended"] = np.append(nodes[k][n]["ev_avail"], nodes[k][n]["ev_avail"])
@@ -639,7 +639,7 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         header=0, delimiter=";")  # todo: path has to be adjusted
 
     T_e_mean = [] # mean of outdoor temperature
-    number_bz_sf = district["Sunfire_BZ"]  # number of Sunfire fuel cells in BES n
+    #number_bz_sf = district["Sunfire_BZ"]  # number of Sunfire fuel cells in BES n
 
     for k in range(options["number_typeWeeks"]):
         T_e_mean.append(np.mean(nodes[k][0]["T_air"]))
@@ -662,9 +662,9 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         # CHP FOR MULTI-FAMILY HOUSES
         # TODO: mod_lvl
         devs[n]["chp"] = dict(cap=0.0, eta_th=0.62, eta_el=0.30, mod_lvl=0.6)
-        devs[n]["bz"] = dict(cap=0.0, eta_th=0.53, eta_el=0.39)
+        devs[n]["bz"] = dict(cap=10000000000, eta_th=0.53, eta_el=0.39)
         # bz_sf: Sunfire fuel cell; is installed in combination with boiler
-        devs[n]["bz_sf"] = dict(cap=1250, eta_th=0.493, eta_el=0.33, min_heat=650, max_power=750, min_power=375, number_bz_sf=0, status="-") # parameters for Sunfire Home 750
+        #devs[n]["bz_sf"] = dict(cap=1250, eta_th=0.493, eta_el=0.33, min_heat=650, max_power=750, min_power=375, number_bz_sf=0, status="-") # parameters for Sunfire Home 750
         # ELECTRIC HEATER
         devs[n]["eh"] = dict(cap=0.0)
         # THERMAL ENERGY STORAGE
@@ -723,8 +723,8 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
             nodes[n]["devs"]["boiler"] = devs[n]["boiler"]
             nodes[n]["devs"]["ev"] = devs[n]["ev"]
             nodes[n]["devs"]["bz"] = devs[n]["bz"]
-            nodes[n]["devs"]["bz_sf"] = devs[n]["bz_sf"]
-            nodes[n]["devs"]["bz_sf"]["cap"] = 0.0 # Sunfire BZ only implemented for type weeks
+            #nodes[n]["devs"]["bz_sf"] = devs[n]["bz_sf"]
+            #nodes[n]["devs"]["bz_sf"]["cap"] = 0.0 # Sunfire BZ only implemented for type weeks
 
 
         else:
@@ -739,18 +739,18 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
                 nodes[k][n]["devs"]["boiler"] = devs[n]["boiler"].copy()
                 nodes[k][n]["devs"]["ev"] = devs[n]["ev"].copy()
                 nodes[k][n]["devs"]["bz"] = devs[n]["bz"].copy()
-                nodes[k][n]["devs"]["bz_sf"] = devs[n]["bz_sf"].copy()
+                #nodes[k][n]["devs"]["bz_sf"] = devs[n]["bz_sf"].copy()
 
-                nodes[k][n]["devs"]["bz_sf"]["cap"] = number_bz_sf[n] * devs[n]["bz_sf"]["cap"]
-                nodes[k][n]["devs"]["bz_sf"]["min_heat"] = number_bz_sf[n] * devs[n]["bz_sf"]["min_heat"]
-                nodes[k][n]["devs"]["bz_sf"]["max_power"] = number_bz_sf[n] * devs[n]["bz_sf"]["max_power"]
-                nodes[k][n]["devs"]["bz_sf"]["min_power"] = number_bz_sf[n] * devs[n]["bz_sf"]["min_power"]
-                nodes[k][n]["devs"]["bz_sf"]["number_bz_sf"] = number_bz_sf[n].copy()
+                #nodes[k][n]["devs"]["bz_sf"]["cap"] = number_bz_sf[n] * devs[n]["bz_sf"]["cap"]
+                #nodes[k][n]["devs"]["bz_sf"]["min_heat"] = number_bz_sf[n] * devs[n]["bz_sf"]["min_heat"]
+                #nodes[k][n]["devs"]["bz_sf"]["max_power"] = number_bz_sf[n] * devs[n]["bz_sf"]["max_power"]
+                #nodes[k][n]["devs"]["bz_sf"]["min_power"] = number_bz_sf[n] * devs[n]["bz_sf"]["min_power"]
+                #nodes[k][n]["devs"]["bz_sf"]["number_bz_sf"] = number_bz_sf[n].copy()
 
-                if number_bz_sf[n] > 0:
-                    nodes[k][n]["devs"]["bz_sf"]["status"] = "active"
-                else:
-                    nodes[k][n]["devs"]["bz_sf"]["status"] = "no SF FC installed in BES"
+                #if number_bz_sf[n] > 0:
+                #    nodes[k][n]["devs"]["bz_sf"]["status"] = "active"
+                #else:
+                #    nodes[k][n]["devs"]["bz_sf"]["status"] = "no SF FC installed in BES"
 
 
 

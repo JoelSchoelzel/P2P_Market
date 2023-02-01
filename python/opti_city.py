@@ -18,10 +18,12 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
 
 
     # Define subsets
-    heater = ("boiler", "chp", "eh", "hp35", "hp55", "bz", "bz_sf")
+    #heater = ("boiler", "chp", "eh", "hp35", "hp55", "bz", "bz_sf")
+    heater = ("boiler", "chp", "eh", "hp35", "hp55", "bz")
     storage = ("bat", "tes", "ev")
     solar = ("pv",)  # , "stc"
-    device = ("boiler", "chp", "eh", "hp35", "hp55", "bat", "tes", "pv", "bz", "bz_sf")
+    #device = ("boiler", "chp", "eh", "hp35", "hp55", "bat", "tes", "pv", "bz", "bz_sf")
+    device = ("boiler", "chp", "eh", "hp35", "hp55", "bat", "tes", "pv", "bz")
 
 
     # Create list of time steps and list of durations per optimization horizon
@@ -67,7 +69,7 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
                 dhw[param00] = np.mean([nodes[n]["dhw_appended"][param02], nodes[n]["dhw_appended"][param02 + param01 - 1]])
                 COP35[param00] = np.mean([nodes[n]["devs"]["COP_sh35_appended"][param02], nodes[n]["devs"]["COP_sh35_appended"][param02 + param01 - 1]])
                 COP55[param00] = np.mean([nodes[n]["devs"]["COP_sh55_appended"][param02], nodes[n]["devs"]["COP_sh55_appended"][param02 + param01 - 1]])
-                PV_GEN[param00] = np.mean([nodes[n]["pv_power_appended"][param02], nodes[n]["pv_power_appended"][param02 + param01 - 1]])
+                #PV_GEN[param00] = np.mean([nodes[n]["pv_power_appended"][param02], nodes[n]["pv_power_appended"][param02 + param01 - 1]])
                 EV_AVAIL[param00] = np.mean([nodes[n]["ev_avail_appended"][param02], nodes[n]["ev_avail_appended"][param02 + param01 - 1]])
                 EV_DEM_LEAVE[param00] = np.mean([nodes[n]["ev_dem_leave_appended"][param02], nodes[n]["ev_dem_leave_appended"][param02 + param01 - 1]])
 
@@ -77,7 +79,7 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
             "dhw": dhw,
             "COP35": COP35,
             "COP55": COP55,
-            "PV_GEN": PV_GEN,
+            #"PV_GEN": PV_GEN,
             "EV_AVAIL": EV_AVAIL,
             "EV_DEM_LEAVE": EV_DEM_LEAVE,
             }
@@ -144,7 +146,8 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
     for n in nodes:
         power[n] = {}
         heat[n] = {}
-        for dev in ["hp35", "hp55", "chp", "boiler", "bz", "bz_sf"]:
+        #for dev in ["hp35", "hp55", "chp", "boiler", "bz", "bz_sf"]:
+        for dev in ["hp35", "hp55", "chp", "boiler", "bz"]:
 
             power[n][dev] = {}
             heat[n][dev] = {}
@@ -208,7 +211,8 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
         for t in time_steps:
             p_imp[n][t] = model.addVar(vtype="C", name="P_imp_" + str(t))
             y_imp[n][t] = model.addVar(vtype="B", lb=0.0, ub=1.0, name="y_imp_exp_" + str(t))
-        for dev in ("chp", "pv", "bz", "bz_sf"):
+        #for dev in ("chp", "pv", "bz", "bz_sf"):
+        for dev in ("chp", "pv", "bz"):
 
             p_use[n][dev] = {}
             p_sell[n][dev] = {}
@@ -220,7 +224,8 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
     gas = {}
     for n in nodes:
         gas[n] = {}
-        for dev in ["chp", "boiler", "bz", "bz_sf"]:
+        #for dev in ["chp", "boiler", "bz", "bz_sf"]:
+        for dev in ["chp", "boiler", "bz"]:
 
             gas[n][dev] = {}
             for t in time_steps:
@@ -330,7 +335,8 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
     # Determine nominal heat at every timestep
     for n in nodes:
         for t in time_steps:
-            for dev in ["hp35", "hp55", "chp", "boiler", "eh", "bz", "bz_sf"]:
+            #for dev in ["hp35", "hp55", "chp", "boiler", "eh", "bz", "bz_sf"]:
+            for dev in ["hp35", "hp55", "chp", "boiler", "eh", "bz"]:
             #for dev in ["hp35", "hp55", "chp", "boiler", "eh"]:
 
                 if dev == "eh":
@@ -376,27 +382,28 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
                             name="Power_equation_" + dev + "_" + str(t))
 
             # Fuel Cell
-            for dev in ["bz", "bz_sf"]:
+            #for dev in ["bz", "bz_sf"]:
+            for dev in ["bz"]:
                 model.addConstr(heat[n][dev][t] == nodes[n]["devs"][dev]["eta_th"] * gas[n][dev][t],
-                                name="Power_equation_" + dev + "_" + str(t))
+                                name="Heat_equation_" + dev + "_" + str(t))
                 model.addConstr(power[n][dev][t] == nodes[n]["devs"][dev]["eta_el"] * gas[n][dev][t],
                                 name="Power_equation_" + dev + "_" + str(t))
 
             # additional boundary conditions for min/max heat/power operation of Sunfire BZ
-            if nodes[n]["devs"]["bz_sf"]["cap"] > 0:
-                model.addConstr(heat[n]["bz_sf"][t] >= nodes[n]["devs"]["bz_sf"]["min_heat"],
-                                name="min_heat_" + dev + "_t" + str(t) + "_bes" + str(n))
-                model.addConstr(power[n]["bz_sf"][t] >= nodes[n]["devs"]["bz_sf"]["min_power"],
-                                name="min_power_" + dev + "_" + str(t))
-                model.addConstr(power[n]["bz_sf"][t] <= nodes[n]["devs"]["bz_sf"]["max_power"],
-                                name="max_power_" + dev + "_" + str(t))
+            #if nodes[n]["devs"]["bz_sf"]["cap"] > 0:
+            #    model.addConstr(heat[n]["bz_sf"][t] >= nodes[n]["devs"]["bz_sf"]["min_heat"],
+            #                    name="min_heat_" + dev + "_t" + str(t) + "_bes" + str(n))
+            #    model.addConstr(power[n]["bz_sf"][t] >= nodes[n]["devs"]["bz_sf"]["min_power"],
+            #                    name="min_power_" + dev + "_" + str(t))
+            #    model.addConstr(power[n]["bz_sf"][t] <= nodes[n]["devs"]["bz_sf"]["max_power"],
+            #                    name="max_power_" + dev + "_" + str(t))
 
     # Solar components
-    for n in nodes:
-        for dev in solar:
-            for t in time_steps:
-                model.addConstr(power[n][dev][t] == demands[n]["PV_GEN"][t],
-                                name="Solar_electrical_" + dev + "_" + str(t))
+    #for n in nodes:
+    #    for dev in solar:
+    #        for t in time_steps:
+    #            model.addConstr(power[n][dev][t] == demands[n]["PV_GEN"][t],
+    #                            name="Solar_electrical_" + dev + "_" + str(t))
 
     # power of the electric heater
     for n in nodes:
@@ -423,9 +430,11 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
                 soc_prev = soc[n][dev][t - 1]
 
             # Maximal charging
-            model.addConstr(p_ch[n][dev][t] == eta_ch * (heat[n]["chp"][t] + heat[n]["hp35"][t] + heat[n]["bz"][t] + heat[n]["bz_sf"][t]
-                                                         + heat[n]["hp55"][t] + heat[n]["boiler"][t]),
-                                                         name="Heat_charging_" + str(t))
+            #model.addConstr(p_ch[n][dev][t] == eta_ch * (heat[n]["chp"][t] + heat[n]["hp35"][t] + heat[n]["bz"][t] + heat[n]["bz_sf"][t]
+            #                                             + heat[n]["hp55"][t] + heat[n]["boiler"][t]),
+            #                                             name="Heat_charging_" + str(t))
+            model.addConstr(p_ch[n][dev][t] == eta_ch * (heat[n]["chp"][t] + heat[n]["hp35"][t] + heat[n]["bz"][t]
+                                                         + heat[n]["hp55"][t] + heat[n]["boiler"][t]),name="Heat_charging_" + str(t))
             #model.addConstr(p_ch[n][dev][t] == eta_ch * (heat[n]["chp"][t] + heat[n]["hp35"][t]
             #                                         + heat[n]["hp55"][t] + heat[n]["boiler"][t]),
             #            name="Heat_charging_" + str(t))
@@ -519,7 +528,8 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
                             + p_ch[n]["bat"][t] - p_dch[n]["bat"][t]
                             + p_ch[n]["ev"][t] - p_dch[n]["ev"][t]
                             + power[n]["hp35"][t] + power[n]["hp55"][t] + power[n]["eh"][t]
-                            - p_use[n]["chp"][t] - p_use[n]["pv"][t] - p_use[n]["bz"][t] - p_use[n]["bz_sf"][t]
+                            - p_use[n]["chp"][t] - p_use[n]["pv"][t] - p_use[n]["bz"][t]
+                            #- p_use[n]["bz_sf"][t]
                             == p_imp[n][t],
                             name="Electricity_balance_" + str(t))
 
@@ -538,12 +548,13 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
             # TODO: net params
             model.addConstr(y[n]["house_load"][t] * ratedPower >= p_imp[n][t])  # Big M Methode --> Methodik
             model.addConstr(p_imp[n][t] >= 0)
-            model.addConstr((1 - y[n]["house_load"][t]) * ratedPower >= p_sell[n]["pv"][t] + p_sell[n]["chp"][t] + p_sell[n]["bz"][t] + p_sell[n]["bz_sf"][t])
+            #model.addConstr((1 - y[n]["house_load"][t]) * ratedPower >= p_sell[n]["pv"][t] + p_sell[n]["chp"][t] + p_sell[n]["bz"][t] + p_sell[n]["bz_sf"][t])
+            model.addConstr((1 - y[n]["house_load"][t]) * ratedPower >= p_sell[n]["pv"][t] + p_sell[n]["chp"][t] + p_sell[n]["bz"][t])
 
     # Split CHP and PV generation into self-consumed and sold powers
     for n in nodes:
-        for dev in ("chp", "pv", "bz", "bz_sf"):
-        #for dev in ("chp", "pv"):
+        #for dev in ("chp", "pv", "bz", "bz_sf"):
+        for dev in ("chp", "pv", "bz"):
 
             for t in time_steps:
                 model.addConstr(p_sell[n][dev][t] + p_use[n][dev][t] == power[n][dev][t],
@@ -556,9 +567,11 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
         # Residual network electricity demand (Power balance, MW)
         model.addConstr(residual["demand"][t] == sum(p_imp[n][t] for n in nodes))
         model.addConstr(residual["feed_pv"][t] == sum(p_sell[n]["pv"][t] for n in nodes))
-        model.addConstr(residual["feed_chp"][t] == sum(p_sell[n]["chp"][t] + p_sell[n]["bz"][t] + p_sell[n]["bz_sf"][t] for n in nodes))
-        model.addConstr(gas_dom[t] == sum(gas[n]["chp"][t] + gas[n]["boiler"][t] + gas[n]["bz"][t] + gas[n]["bz_sf"][t] for n in nodes),
-                            name="Demand_gas_total")
+        #model.addConstr(residual["feed_chp"][t] == sum(p_sell[n]["chp"][t] + p_sell[n]["bz"][t] + p_sell[n]["bz_sf"][t] for n in nodes))
+        model.addConstr(residual["feed_chp"][t] == sum(p_sell[n]["chp"][t] + p_sell[n]["bz"][t] for n in nodes))
+        #model.addConstr(gas_dom[t] == sum(gas[n]["chp"][t] + gas[n]["boiler"][t] + gas[n]["bz"][t] + gas[n]["bz_sf"][t] for n in nodes),
+        #                    name="Demand_gas_total")
+        model.addConstr(gas_dom[t] == sum(gas[n]["chp"][t] + gas[n]["boiler"][t] + gas[n]["bz"][t] for n in nodes),name = "Demand_gas_total")
 
 
     # %% ENERGY BALANCES: NETWORK AND ENERGY HUB
@@ -573,7 +586,8 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
         model.addConstr(power["to_grid"][t] <= (1 - yTrafo[t]) * ratedPowerTrafo, name="Binary2_" + str(n) + "_" + str(t))
 
         # Gas balance (power)
-        model.addConstr(power["gas_from_grid"][t] == sum(gas[n]["chp"][t] + gas[n]["boiler"][t] + gas[n]["bz"][t] + gas[n]["bz_sf"][t] for n in nodes))
+        #model.addConstr(power["gas_from_grid"][t] == sum(gas[n]["chp"][t] + gas[n]["boiler"][t] + gas[n]["bz"][t] + gas[n]["bz_sf"][t] for n in nodes))
+        model.addConstr(power["gas_from_grid"][t] == sum(gas[n]["chp"][t] + gas[n]["boiler"][t] + gas[n]["bz"][t] for n in nodes))
 
 
     # Total gas amounts taken from grid (Energy amounts, MWh)
@@ -589,118 +603,120 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
     model.Params.MIPFocus = params["gp"]["numeric_focus"]
     IISconstr = []
 
-    try:
 
-        # Execute calculation
-        model.optimize()
-        #        model.write("model.ilp")
+    # Execute calculation
+    model.optimize()
+    #        model.write("model.ilp")
 
-        # Write errorfile if optimization problem is infeasible or unbounded
-        if model.status == gp.GRB.Status.INFEASIBLE or model.status == gp.GRB.Status.INF_OR_UNBD:
+    # Write errorfile if optimization problem is infeasible or unbounded
+    if model.status == gp.GRB.Status.INFEASIBLE or model.status == gp.GRB.Status.INF_OR_UNBD:
 
-            model.computeIIS()
-            f = open('errorfile_hp.txt', 'w')
-            f.write('\nThe following constraint(s) cannot be satisfied:\n')
-            for c in model.getConstrs():
-                if c.IISConstr:
-                    f.write('%s' % c.constrName)
-                    f.write('\n')
-                    IISconstr.append(c.constrName)
-            f.close()
+        model.computeIIS()
+        f = open('errorfile.txt', 'w')
+        f.write('\nThe following constraint(s) cannot be satisfied:\n')
+        for c in model.getConstrs():
+            if c.IISConstr:
+                f.write('%s' % c.constrName)
+                f.write('\n')
+                IISconstr.append(c.constrName)
+        f.close()
 
-        # Retrieve results
-        res_y = {}
-        res_power = {}
-        res_heat = {}
-        res_soc = {}
-        res_p_ch = {}
-        res_p_dch = {}
-        res_p_imp = {}
-        res_gas = {}
-        res_c_dem = {}
-        res_soc_nom = {}
-        res_p_use = {}
-        res_p_sell = {}
-        res_rev = {}
-        for n in nodes:
-            res_y[n] = {}
-            res_power[n] = {}
-            res_heat[n] = {}
-            res_soc[n] = {}
-            res_p_ch[n] = {}
-            res_p_dch[n] = {}
-            res_p_imp[n] = {}
-            res_gas[n] = {}
-            res_c_dem[n] = {}
-            res_soc_nom[n] = {}
-            res_p_use[n] = {}
-            res_p_sell[n] = {}
-            res_rev[n] = {}
+    # Retrieve results
+    res_y = {}
+    res_power = {}
+    res_heat = {}
+    res_soc = {}
+    res_p_ch = {}
+    res_p_dch = {}
+    res_p_imp = {}
+    res_gas = {}
+    res_c_dem = {}
+    res_soc_nom = {}
+    res_p_use = {}
+    res_p_sell = {}
+    res_rev = {}
+    for n in nodes:
+        res_y[n] = {}
+        res_power[n] = {}
+        res_heat[n] = {}
+        res_soc[n] = {}
+        res_p_ch[n] = {}
+        res_p_dch[n] = {}
+        res_p_imp[n] = {}
+        res_gas[n] = {}
+        res_c_dem[n] = {}
+        res_soc_nom[n] = {}
+        res_p_use[n] = {}
+        res_p_sell[n] = {}
+        res_rev[n] = {}
 
-            for dev in ["bat", "ev", "house_load"]:
-                res_y[n][dev] = {(t): y[n][dev][t].X for t in time_steps}
-            for dev in ["hp35", "hp55", "chp", "boiler", "bz", "bz_sf"]:
-                res_power[n][dev] = {(t): power[n][dev][t].X for t in time_steps}
-                res_heat[n][dev] = {(t): heat[n][dev][t].X for t in time_steps}
-            for dev in ["pv"]:
-                res_power[n][dev] = {(t): power[n][dev][t].X for t in time_steps}
-            for dev in storage:
-                res_soc[n][dev] = {(t): soc[n][dev][t].X for t in time_steps}
-            for dev in storage:
-                res_p_ch[n][dev] = {(t): p_ch[n][dev][t].X for t in time_steps}
-                res_p_dch[n][dev] = {(t): p_dch[n][dev][t].X for t in time_steps}
-            for dev in ["boiler", "chp", "bz", "bz_sf"]:
-                res_gas[n][dev] = {(t): gas[n][dev][t].X for t in time_steps}
-            for dev in ["boiler", "chp", "bz", "bz_sf"]:
-                res_c_dem[n][dev] = {(t): params["eco"]["gas"] * gas[n][dev][t].X for t in time_steps}
-            res_c_dem[n]["grid"] = {(t): p_imp[n][t].X * params["eco"]["pr", "el"] for t in time_steps}
-            for dev in ["pv"]:
-                res_rev[n][dev] = {(t): p_sell[n][dev][t].X * params["eco"]["sell_pv"] for t in time_steps}
-            for dev in ["chp", "bz", "bz_sf"]:
-                res_rev[n][dev] = {(t): p_sell[n][dev][t].X * params["eco"]["sell_chp"] for t in time_steps}
-            res_soc_nom[n] = {dev: soc_nom[n][dev] for dev in storage}
-            for dev in ("chp", "pv", "bz", "bz_sf"):
-                res_p_use[n][dev] = {(t): p_use[n][dev][t].X for t in time_steps}
-                res_p_sell[n][dev] = {(t): p_sell[n][dev][t].X for t in time_steps}
-            res_p_imp[n] = {(t): p_imp[n][t].X for t in time_steps}
+        for dev in ["bat", "ev", "house_load"]:
+            res_y[n][dev] = {(t): y[n][dev][t].X for t in time_steps}
+        #for dev in ["hp35", "hp55", "chp", "boiler", "bz", "bz_sf"]:
+        for dev in ["hp35", "hp55", "chp", "boiler", "bz"]:
+            res_power[n][dev] = {(t): power[n][dev][t].X for t in time_steps}
+            res_heat[n][dev] = {(t): heat[n][dev][t].X for t in time_steps}
+        for dev in ["pv"]:
+            res_power[n][dev] = {(t): power[n][dev][t].X for t in time_steps}
+        for dev in storage:
+            res_soc[n][dev] = {(t): soc[n][dev][t].X for t in time_steps}
+        for dev in storage:
+            res_p_ch[n][dev] = {(t): p_ch[n][dev][t].X for t in time_steps}
+            res_p_dch[n][dev] = {(t): p_dch[n][dev][t].X for t in time_steps}
+        #for dev in ["boiler", "chp", "bz", "bz_sf"]:
+        for dev in ["boiler", "chp", "bz"]:
+            res_gas[n][dev] = {(t): gas[n][dev][t].X for t in time_steps}
+        #for dev in ["boiler", "chp", "bz", "bz_sf"]:
+        for dev in ["boiler", "chp", "bz"]:
+            res_c_dem[n][dev] = {(t): params["eco"]["gas"] * gas[n][dev][t].X for t in time_steps}
+        res_c_dem[n]["grid"] = {(t): p_imp[n][t].X * params["eco"]["pr", "el"] for t in time_steps}
+        for dev in ["pv"]:
+            res_rev[n][dev] = {(t): p_sell[n][dev][t].X * params["eco"]["sell_pv"] for t in time_steps}
+        #for dev in ["chp", "bz", "bz_sf"]:
+        for dev in ["chp", "bz"]:
+            res_rev[n][dev] = {(t): p_sell[n][dev][t].X * params["eco"]["sell_chp"] for t in time_steps}
+        res_soc_nom[n] = {dev: soc_nom[n][dev] for dev in storage}
+        #for dev in ("chp", "pv", "bz", "bz_sf"):
+        for dev in ("chp", "pv", "bz"):
+            res_p_use[n][dev] = {(t): p_use[n][dev][t].X for t in time_steps}
+            res_p_sell[n][dev] = {(t): p_sell[n][dev][t].X for t in time_steps}
+        res_p_imp[n] = {(t): p_imp[n][t].X for t in time_steps}
 
-        res_p_to_grid = {(t): power["to_grid"][t].X for t in time_steps}
-        res_p_from_grid = {(t): power["from_grid"][t].X for t in time_steps}
-        res_gas_from_grid = {(t): power["gas_from_grid"][t].X for t in time_steps}
-        res_p_feed_pv = {(t): residual["feed_pv"][t].X for t in time_steps}
-        res_p_feed_chp = {(t): residual["feed_chp"][t].X for t in time_steps}
-        res_p_demand = {(t): residual["demand"][t].X for t in time_steps}
+    res_p_to_grid = {(t): power["to_grid"][t].X for t in time_steps}
+    res_p_from_grid = {(t): power["from_grid"][t].X for t in time_steps}
+    res_gas_from_grid = {(t): power["gas_from_grid"][t].X for t in time_steps}
+    res_p_feed_pv = {(t): residual["feed_pv"][t].X for t in time_steps}
+    res_p_feed_chp = {(t): residual["feed_chp"][t].X for t in time_steps}
+    res_p_demand = {(t): residual["demand"][t].X for t in time_steps}
 
-        obj = model.ObjVal
-        print("Obj: " + str(model.ObjVal))
-        objVal = obj
+    obj = model.ObjVal
+    print("Obj: " + str(model.ObjVal))
+    objVal = obj
 
-        runtime = model.getAttr("Runtime")
-        datetime.datetime.now()
-        #        model.computeIIS()
-        #        model.write("model.ilp")
-        #        print('\nConstraints:')
-        #        for c in model.getConstrs():
-        #            if c.IISConstr:
-        #                print('%s' % c.constrName)
-        #        print('\nBounds:')
-        #        for v in model.getVars():
-        #            if v.IISLB > 0 :
-        #                print('Lower bound: %s' % v.VarName)
-        #            elif v.IISUB > 0:
-        #                print('Upper bound: %s' % v.VarName)
+    runtime = model.getAttr("Runtime")
+    datetime.datetime.now()
+    #        model.computeIIS()
+    #        model.write("model.ilp")
+    #        print('\nConstraints:')
+    #        for c in model.getConstrs():
+    #            if c.IISConstr:
+    #                print('%s' % c.constrName)
+    #        print('\nBounds:')
+    #        for v in model.getVars():
+    #            if v.IISLB > 0 :
+    #                print('Lower bound: %s' % v.VarName)
+    #            elif v.IISUB > 0:
+    #                print('Upper bound: %s' % v.VarName)
 
-        # Return results
-        return (res_y, res_power, res_heat, res_soc,
-                res_p_imp, res_p_ch, res_p_dch, res_p_use, res_p_sell,
-                obj, res_c_dem, res_rev, res_soc_nom, nodes,
-                objVal, runtime, soc_init_rh, dt, demands, res_p_from_grid,
-                res_p_to_grid, res_gas_from_grid, res_p_feed_pv, res_p_demand, res_gas, res_p_feed_chp, 'feasible'), IISconstr
+    # Return results
+    return (res_y, res_power, res_heat, res_soc,
+            res_p_imp, res_p_ch, res_p_dch, res_p_use, res_p_sell,
+            obj, res_c_dem, res_rev, res_soc_nom, nodes,
+            objVal, runtime, soc_init_rh, dt, demands, res_p_from_grid,
+            res_p_to_grid, res_gas_from_grid, res_p_feed_pv, res_p_demand, res_gas, res_p_feed_chp, 'feasible'), IISconstr
 
-    except:
-        print("Error: Presumably, more heat is provided than is needed due to the fuel cell.")
 
-        return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'infeasible'), IISconstr
+    # return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'infeasible'), IISconstr
 
 def compute_initial_values(opti_res, nodes, par_rh, n_opt):
     init_val = {}

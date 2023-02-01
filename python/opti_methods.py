@@ -99,7 +99,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         return opti_res, typeweek_recalc, index
 
 def infeasible_model_adjust_fuel_cell_configuration(k, nodes, options, index_typeweeks, IISconstr):
-
+    '''
     # deactivate Sunfire FC for typeweek with infeasible model
     infeasibleBES = []
     concernedBuildingTypes = []
@@ -124,7 +124,7 @@ def infeasible_model_adjust_fuel_cell_configuration(k, nodes, options, index_typ
     # calculate certain typeweek again (now without Sunfire FC)
     current_index = np.where(np.isin(index_typeweeks, k))[0][-1]
     index_typeweeks.insert(current_index + 1, k)
-
+    '''
     return nodes, index_typeweeks
 
 def decentral_operation(node, params, pars_rh, building_params, init_val, n_opt):

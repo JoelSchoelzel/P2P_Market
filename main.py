@@ -15,12 +15,13 @@ import pickle
 import numpy as np
 import pandas as pd
 import datetime
-import run as DistrictGenerator
+# import run as DistrictGenerator
 import json
 
+
 #import data.time_data as time_data
-#from classes import *
-#from data import *
+from classes import Datahandler
+from data import *
 #from settings import *
 
 def get_inputs(par_rh, options, districtData):
@@ -59,6 +60,12 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
+        "scenario_name": "scenario2",  # name of csv input file
+    }
+
+    '''
+    # Set options for DistrictGenerator
+    options_DG = {
         "scenario_name" : "District_CP03_SFH60_MFH20_TH20_BZ3-4-3", # name of csv input file
         "randomProfile" : False,
         # clustering - True: perform time series clustering, False: use rolling horizon approach
@@ -85,15 +92,24 @@ if __name__ == '__main__':
 
     with open('C:/Users/Arbeit/Documents/WiHi_EBC/districtgenerator_python/settings/user_settings.json','w') as f:
         json.dump(options_DG,f)
-
+    '''
     # create district with load (elec, heat, ..) and generation (pv, bz ..)  profiles as input for MAScity
-    districtData = DistrictGenerator.run_districtgenerator(options_DG)
-    print("Finished district generation (" + str(datetime.datetime.now()) + ").")
+   # districtData = DistrictGenerator.run_districtgenerator(options_DG)
+   # print("Finished district generation (" + str(datetime.datetime.now()) + ").")
+
+    # DistrictGenerator
+    data = Datahandler()
+    data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=True) #(calcUserProfiles=False, saveUserProfiles=True)
+    data.designDevices(saveGenerationProfiles=True)
+    data.clusterProfiles()
+
+    districtData = data
 
     # Set options for MAScity
     options = {"optimization": "central_typeWeeks",   # central, central_typeWeeks or decentral
                "number_typeWeeks": 4, # set 0 in case no type weeks are investigated
-               "full_path_scenario": "C:\\Users\\Arbeit\\Documents\\WiHi_EBC\\districtgenerator_python\\data\\scenarios\\District_CP03_SFH60_MFH20_TH20_BZ3-4-3.csv", # scenario csv
+               #"full_path_scenario": "C:\\Users\\miche\\districtgenerator_python\\data\\scenarios\\scenario4.csv", # scenario csv
+               "full_path_scenario": ("C:\\Users\\miche\\districtgenerator_python\\data\\scenarios\\" + options_DG["scenario_name"] + ".csv"), # scenario csv, name set for DG is used
                # "times": 2688, #8760 * 4,  # whole year 15min resolution
                # "tweeks": 4,  # number of typical weeks
                "Dorfnetz": False,  # grid type # todo: aktuell klappt nur Vorstadtnetz, da bei Dorfnetz noch 1 Gebäude fehlt
@@ -104,8 +120,8 @@ if __name__ == '__main__':
                "grid": False,  # True -> consider grid constraints, False -> dont
                # "dt": 0.25,  # dt in h for rolling horizon
                "discretization_input_data": districtData.time['timeResolution']/3600,  # in h - for: elec, dhw and heat
-               "path_file": "C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/MAScity",
-               "path_results": "C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/results",
+               "path_file": "C:/Users/miche/MAScity", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/MAScity",
+               "path_results":"C:/Users/miche/MAScity/results", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/results",
                "time_zone": districtData.site['timeZone'],  # ---,      time zone
                "location": districtData.site['location'] , # degree,   latitude, longitude of location
                "altitude": districtData.site['altitude'] , # m,        height of location above sea level

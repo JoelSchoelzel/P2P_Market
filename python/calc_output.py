@@ -42,11 +42,15 @@ def compute_out(options, options_DG, par_rh, central_opti_results, weights_typew
 
                 for n in range(options["nb_bes"]):
                     results_ch[k]["power_feed_pv_bes"][n].append(central_opti_results[k][i][8][n]["pv"][t])
-                    results_ch[k]["power_feed_chp_bes"][n].append(central_opti_results[k][i][8][n]["chp"][t] + central_opti_results[k][i][8][n]["bz"][t] +
-                                                                  central_opti_results[k][i][8][n]["bz_sf"][t])
+                    #results_ch[k]["power_feed_chp_bes"][n].append(central_opti_results[k][i][8][n]["chp"][t] + central_opti_results[k][i][8][n]["bz"][t] +
+                    #                                              central_opti_results[k][i][8][n]["bz_sf"][t])
+                    results_ch[k]["power_feed_chp_bes"][n].append(central_opti_results[k][i][8][n]["chp"][t] + central_opti_results[k][i][8][n]["bz"][t])
                     results_ch[k]["power_demand_bes"][n].append(central_opti_results[k][i][4][n][t])
-                    results_ch[k]["gas_from_grid_bes"][n].append(central_opti_results[k][i][24][n]["boiler"][t] + central_opti_results[k][i][24][n]["chp"][t] +
-                                                                 central_opti_results[k][i][24][n]["bz"][t] + central_opti_results[k][i][24][n]["bz_sf"][t])
+                    #results_ch[k]["gas_from_grid_bes"][n].append(central_opti_results[k][i][24][n]["boiler"][t] + central_opti_results[k][i][24][n]["chp"][t] +
+                    #                                             central_opti_results[k][i][24][n]["bz"][t] + central_opti_results[k][i][24][n]["bz_sf"][t])
+                    results_ch[k]["gas_from_grid_bes"][n].append(
+                        central_opti_results[k][i][24][n]["boiler"][t] + central_opti_results[k][i][24][n]["chp"][t] +
+                        central_opti_results[k][i][24][n]["bz"][t])
 
         # distr: district, bes: building energy system
         criteria_typeweeks[k] = {"E_el_from_grid_distr": sum(results_ch[k]["power_from_grid"])/1000 * par_rh["resolution"][0], # kWh
