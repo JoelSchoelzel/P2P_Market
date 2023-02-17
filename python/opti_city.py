@@ -389,6 +389,13 @@ def compute(nodes, params, par_rh, building_param, init_val, n_opt, options):
     #            model.addConstr(power[n][dev][t] == demands[n]["PV_GEN"][t],
     #                            name="Solar_electrical_" + dev + "_" + str(t))
 
+    # set Solar to 0
+    for n in nodes:
+        for dev in solar:
+            for t in time_steps:
+                model.addConstr(power[n][dev][t] == 0,
+                                name="Solar_electrical_" + dev + "_" + str(t))
+
     # power of the electric heater
     for n in nodes:
         for t in time_steps:

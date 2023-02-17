@@ -106,7 +106,7 @@ if __name__ == '__main__':
     districtData = data
 
     # Set options for MAScity
-    options = {"optimization": "central_typeWeeks",   # central, central_typeWeeks or decentral
+    options = {"optimization": "central_typeWeeks",   # central, central_typeWeeks, decentral or decentral_typeWeeks
                "number_typeWeeks": 4, # set 0 in case no type weeks are investigated
                #"full_path_scenario": "C:\\Users\\miche\\districtgenerator_python\\data\\scenarios\\scenario4.csv", # scenario csv
                "full_path_scenario": ("C:\\Users\\miche\\districtgenerator_python\\data\\scenarios\\" + options_DG["scenario_name"] + ".csv"), # scenario csv, name set for DG is used
@@ -134,15 +134,16 @@ if __name__ == '__main__':
     # Set rolling horizon options
     par_rh = {
         # Parameters for operational optimization
-        "n_hours": 36,  # ----,      number of hours of prediction horizon for rolling horizon
-        "n_hours_ov": 35,  # ----,      number of hours of overlap horizon for rolling horizon
+        "n_hours": 36, # ----,      number of hours of prediction horizon for rolling horizon
+        "n_hours_ov": 35, # ----,      number of hours of overlap horizon for rolling horizon
         "n_opt_max": 8760 , #8760  # -----,       maximum number of optimizations
         "month": 0,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data
 
         # Parameters for rolling horizon with aggregated foresight
         "n_blocks": 2,    # ----, number of blocks with different resolution: minimum 2 (control horizon and overlap horizon)
-        "resolution": [0.25, 1],  # h,    time resolution of each resolution block, insert list
+        #"resolution": [0.25, 1],  # h,    time resolution of each resolution block, insert list
+        "resolution": [1, 1],  # h,    time resolution of each resolution block, insert list
         # [0.25, 1] resembles: control horizon with 15min, overlap horizon with 1h discretization
         "overlap_block_duration": [0, 0],} # h, duration of overlap time blocks, insert 0 for default: half of overlap horizon
 
@@ -151,20 +152,39 @@ if __name__ == '__main__':
 
     # Run (rolling horizon) optimization
     if options["optimization"] == "central_typeWeeks":
-        central_opti_results, typeweeks_recalc, typeweeks_indices = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
+        central_opti_results, typeweeks_indices = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
 
-    #elif options["optimization"] == "central":
-    #    central_opti_results = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
+        # Compute plots
+        criteria_typeweeks, criteria_year = output.compute_out(options, options_DG, par_rh, central_opti_results,
+                                                               districtData.weights, params, building_params)
 
-    #elif options["optimization"] == "decentral": # neither adapted to 15min input data nor to clustered data yet
-    #    decentral_opti = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
+        # Safe results
+        with open(options["path_results"] + "/central_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
+            pickle.dump(central_opti_results, fp)
+
+    if options["optimization"] == "decentral_typeWeeks":
+        decentral_opti_results, typeweeks_indices = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
+
+        # Compute plots
+        criteria_typeweeks, criteria_year = output.compute_out_decentral(options, options_DG, par_rh, decentral_opti_results,
+                                                               districtData.weights, params, building_params)
+
+        # Safe results
+        with open(options["path_results"] + "/decentral_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
+            pickle.dump(decentral_opti_results, fp)
+
+    elif options["optimization"] == "central":
+        central_opti_results = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
+
+    elif options["optimization"] == "decentral": # neither adapted to 15min input data nor to clustered data yet
+        decentral_opti = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
 
     # Compute plots
-    criteria_typeweeks, criteria_year = output.compute_out(options, options_DG, par_rh, central_opti_results, districtData.weights, params, building_params)
+    #criteria_typeweeks, criteria_year = output.compute_out(options, options_DG, par_rh, central_opti_results, districtData.weights, params, building_params)
 
     # Safe results
-    with open(options["path_results"] + "/central_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-        pickle.dump(central_opti_results, fp)
+    #with open(options["path_results"] + "/central_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
+    #    pickle.dump(central_opti_results, fp)
 
     # End time (Time measurement)
     time["end"] = datetime.datetime.now()

@@ -468,8 +468,8 @@ def read_demands(options, districtData,par_rh):
                     #    nodes[k][n]["pv_power"][t] = 0
 
                     # Calculation of Coefficient of Power
-                #    nodes[k][n]["devs"]["COP_sh35"][t] = 0.4 * (273.15 + 35) / (35 - nodes[k][n]["T_air"][t])
-                #    nodes[k][n]["devs"]["COP_sh55"][t] = 0.4 * (273.15 + 55) / (55 - nodes[k][n]["T_air"][t])
+                    nodes[k][n]["devs"]["COP_sh35"][t] = 0.4 * (273.15 + 35) / (35 - nodes[k][n]["T_air"][t])
+                    nodes[k][n]["devs"]["COP_sh55"][t] = 0.4 * (273.15 + 55) / (55 - nodes[k][n]["T_air"][t])
 
                 append_demands = True # double data for rolling horizon opti
                 if append_demands:
@@ -661,7 +661,7 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         # CHP FOR MULTI-FAMILY HOUSES
         # TODO: mod_lvl
         devs[n]["chp"] = dict(cap=0.0, eta_th=0.62, eta_el=0.30, mod_lvl=0.6)
-        devs[n]["bz"] = dict(cap=10000000000, eta_th=0.53, eta_el=0.39)
+        devs[n]["bz"] = dict(cap=0.0, eta_th=0.53, eta_el=0.39)
         # ELECTRIC HEATER
         devs[n]["eh"] = dict(cap=0.0)
         # THERMAL ENERGY STORAGE

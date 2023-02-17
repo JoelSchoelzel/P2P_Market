@@ -26,7 +26,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                     print("Starting optimization: n_opt: " + str(n_opt) + ", building:" +str(n) + ".")
                     init_val[n_opt]["building_" + str(n)] = {}
                     opti_res[n_opt][n] = decentral_operation(nodes[n],params, par_rh,
-                                                              building_params.iloc[n],
+                                                              building_params,
                                                               init_val[n_opt]["building_" + str(n)], n_opt)
                     init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
                                                                                          par_rh, n_opt)
@@ -62,7 +62,6 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
 
     elif options["optimization"] == "central_typeWeeks":
         # Start optimizations
-        typeweek_recalc = []     # log all typeweeks that had to be recalculated
 
         index = list(range(options["number_typeWeeks"]))
         for k in index:
@@ -79,37 +78,74 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                     init_val[k][n_opt] = {}
                     opti_res[k][n_opt], IISconstr = central_operation(nodes[k],params, par_rh, building_params,
                                                           init_val[k][n_opt], n_opt, options)
-
-                    if opti_res[k][n_opt][26] == 'infeasible':
-                        nodes, index = infeasible_model_adjust_fuel_cell_configuration(k, nodes, options, index, IISconstr)
-                        typeweek_recalc.append(k)
-                        break
                     init_val[k][n_opt + 1] = init_val_central_operation(opti_res[k][n_opt], nodes[k], par_rh, n_opt)
                 else:
                     print("Starting optimization: type week: " + str(k) + " n_opt: " + str(n_opt) + ".")
                     opti_res[k][n_opt], IISconstr = central_operation(nodes[k], params, par_rh, building_params,
                                                           init_val[k][n_opt], n_opt, options)
 
-                    if opti_res[k][n_opt][26] == 'infeasible':
-                        nodes, index = infeasible_model_adjust_fuel_cell_configuration(k, nodes, options, index, IISconstr)
-                        typeweek_recalc.append(k)
-                        break
                     init_val[k][n_opt + 1] = init_val_central_operation(opti_res[k][n_opt], nodes[k], par_rh, n_opt)
                 print("Finished optimization: type week: " + str(k) + " n_opt: " + str(n_opt) + ". " + str((par_rh["n_opt"]*k + n_opt+1) / (par_rh["n_opt"]* options["number_typeWeeks"]) * 100) + "% of optimizations processed.")
-        return opti_res, typeweek_recalc, index
+        return opti_res, index
+
+    elif options["optimization"] == "decentral_typeWeeks":
+        # Start optimizations
+
+        index = list(range(options["number_typeWeeks"]))
+        for k in index:
+            print(index)
+            init_val[k] = {}
+            opti_res[k] = {}
+            for n_opt in range(par_rh["n_opt"]):
+
+                opti_res[k][n_opt] = {}
+                init_val[k][0] = {}
+                init_val[k][n_opt+1] = {}
+                if n_opt == 0:
+                    for n in range(options["nb_bes"]):
+                        opti_res[k][n_opt][n] = {}
+                        print("Starting optimization: type week: " + str(k)+ " n_opt: " + str(n_opt) + " building " + str(n) + ".")
+                        init_val[k][n_opt]["building_" + str(n)] = {}
+                        opti_res[k][n_opt][n]= decentral_operation(nodes[k][n],params, par_rh, building_params,
+                                                              init_val[k][n_opt]["building_" + str(n)], n_opt, options)
+                        init_val[k][n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[k][n_opt][n], par_rh, n_opt)
+                else:
+                    for n in range(options["nb_bes"]):
+                        opti_res[k][n_opt][n] = {}
+                        print("Starting optimization: type week: " + str(k)+ " n_opt: " + str(n_opt) + " building " + str(n) + ".")
+                        opti_res[k][n_opt][n]= decentral_operation(nodes[k][n], params, par_rh, building_params,
+                                                            init_val[k][n_opt]["building_" + str(n)], n_opt, options)
+                        init_val[k][n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[k][n_opt][n], par_rh, n_opt)
+                print("Finished optimization: type week: " + str(k) + " n_opt: " + str(n_opt) + ". " + str((par_rh["n_opt"]*k + n_opt+1) / (par_rh["n_opt"]* options["number_typeWeeks"]) * 100) + "% of optimizations processed.")
+
+        #change struture of results to be sorted by res instead of building
+        opti_res_new = {}
+        for k in range(options["number_typeWeeks"]):
+            opti_res_new[k] = {}
+            for n_opt in range(par_rh["n_opt"]):
+                opti_res_new[k][n_opt] = {}
+                for i in range(18):
+                    opti_res_new[k][n_opt][i] = {}
+                    for n in range(options["nb_bes"]):
+                        opti_res_new[k][n_opt][i][n] = {}
+                        opti_res_new[k][n_opt][i][n] = opti_res[k][n_opt][n][i]
+
+
+
+        return opti_res_new, index
 
 def infeasible_model_adjust_fuel_cell_configuration(k, nodes, options, index_typeweeks, IISconstr):
 
     return nodes, index_typeweeks
 
-def decentral_operation(node, params, pars_rh, building_params, init_val, n_opt):
+def decentral_operation(node, params, pars_rh, building_params, init_val, n_opt, options):
 
     """
     This function computes a deterministic solution.
     Internally, the results of the subproblem are stored.
     """
            
-    opti_res = decentral_opti.compute(node, params, pars_rh, building_params, init_val, n_opt)
+    opti_res = decentral_opti.compute(node, params, pars_rh, building_params, init_val, n_opt, options)
 
     return opti_res
 
