@@ -127,7 +127,7 @@ def compute_out(options, options_DG, par_rh, central_opti_results, weights_typew
 
 
     criteria = [criteria_typeweeks, criteria_year]
-    with open(options["path_results"] + "/criteria_" + options_DG["scenario_name"] + ".p", 'wb') as fp:
+    with open(options["path_results"] + "/criteria_central_" + options_DG["scenario_name"] + ".p", 'wb') as fp:
         pickle.dump(criteria, fp)
 
     # create dataframe
@@ -259,7 +259,7 @@ def compute_out_decentral(options, options_DG, par_rh, decentral_opti_results, w
 
 
     criteria = [criteria_typeweeks, criteria_year]
-    with open(options["path_results"] + "/criteria_" + options_DG["scenario_name"] + ".p", 'wb') as fp:
+    with open(options["path_results"] + "/criteria_decentral_" + options_DG["scenario_name"] + ".p", 'wb') as fp:
         pickle.dump(criteria, fp)
 
     # create dataframe
