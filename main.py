@@ -106,10 +106,11 @@ if __name__ == '__main__':
     districtData = data
 
     # Set options for MAScity
-    options = {"optimization": "central_typeWeeks",   # central, central_typeWeeks, decentral or decentral_typeWeeks
+    options = {"optimization": "P2P_typeWeeks",   # P2P, central, central_typeWeeks, decentral or decentral_typeWeeks
+               "bid_strategy": "zero" , # zero for zero-intelligence
                "number_typeWeeks": 4, # set 0 in case no type weeks are investigated
                #"full_path_scenario": "C:\\Users\\miche\\districtgenerator_python\\data\\scenarios\\scenario4.csv", # scenario csv
-               "full_path_scenario": ("C:\\Users\\miche\\districtgenerator_python\\data\\scenarios\\" + options_DG["scenario_name"] + ".csv"), # scenario csv, name set for DG is used
+               "full_path_scenario": ("D:\\EBC\\districtgenerator_python\\data\\scenarios\\" + options_DG["scenario_name"] + ".csv"), # scenario csv, name set for DG is used
                # "times": 2688, #8760 * 4,  # whole year 15min resolution
                # "tweeks": 4,  # number of typical weeks
                "Dorfnetz": False,  # grid type # todo: aktuell klappt nur Vorstadtnetz, da bei Dorfnetz noch 1 Gebäude fehlt
@@ -120,12 +121,12 @@ if __name__ == '__main__':
                "grid": False,  # True -> consider grid constraints, False -> dont
                # "dt": 0.25,  # dt in h for rolling horizon
                "discretization_input_data": districtData.time['timeResolution']/3600,  # in h - for: elec, dhw and heat
-               "path_file": "C:/Users/miche/MAScity", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/MAScity",
-               "path_results":"C:/Users/miche/MAScity/results", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/results",
+               "path_file": "D:/EBC/MAScity", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/MAScity",
+               "path_results":"D:/EBC/MAScity/results", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/results",
                "time_zone": districtData.site['timeZone'],  # ---,      time zone
                "location": districtData.site['location'] , # degree,   latitude, longitude of location
                "altitude": districtData.site['altitude'] , # m,        height of location above sea level
-    }
+              }
 
     # load heating devs per building
     #scenarios = scenarios.get_scenarios(options)  # Stadtnetz: 195 scenarios
@@ -178,6 +179,19 @@ if __name__ == '__main__':
 
     elif options["optimization"] == "decentral": # neither adapted to 15min input data nor to clustered data yet
         decentral_opti = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
+
+    if options["optimization"] == "P2P_typeWeeks":
+        opti_results, typeweeks_indices, mar_dict, trade_res = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
+                                                                                                building_params, params)
+
+        # Compute plots
+        criteria_typeweeks, criteria_year = output.compute_out_P2P(options, options_DG, par_rh, opti_results,
+                                                    districtData.weights, params, building_params, trade_res, mar_dict)
+
+
+        # Safe results
+        with open(options["path_results"] + "/P2P_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
+            pickle.dump(opti_results, fp)
 
     # Compute plots
     #criteria_typeweeks, criteria_year = output.compute_out(options, options_DG, par_rh, central_opti_results, districtData.weights, params, building_params)
