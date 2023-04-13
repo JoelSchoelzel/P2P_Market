@@ -146,6 +146,11 @@ def cost_and_rev(trans, res):
         res["cost"][trans[i]["buyer"]] += (trans[i]["quantity"] * trans[i]["price"])
         res["el_from_distr"][trans[i]["buyer"]] += trans[i]["quantity"]
         res["el_to_distr"][trans[i]["seller"]] += trans[i]["quantity"]
+
+    if len(trans) > 0:
+        res["average_trade_price"] = sum(res["cost"].values()) / sum(res["el_from_distr"].values())
+        res["total_cost_trades"] = sum(res["cost"].values())
+
     return res
 
 

@@ -207,12 +207,16 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                     trade_res[k][n_opt][cat] = {}
                     for nb in range(options["nb_bes"]):
                         trade_res[k][n_opt][cat][nb] = 0
+                trade_res[k][n_opt]["average_trade_price"] = 0
+                trade_res[k][n_opt]["total_cost_trades"] = 0
+
 
                 #calculate cost and revenue of transactions
                 trade_res[k][n_opt] = mar_pre.cost_and_rev(mar_dict[k]["transactions"][n_opt], trade_res[k][n_opt])
 
                 #clear book by buying and selling from and to grid
                 trade_res[k][n_opt], mar_dict[k]["sorted_bids"][n_opt] = mar_pre.clear_book(trade_res[k][n_opt], mar_dict[k]["sorted_bids"][n_opt], params)
+
 
 
         #change struture of results to be sorted by res instead of building

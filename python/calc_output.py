@@ -273,8 +273,11 @@ def compute_out_P2P(options, options_DG, par_rh, decentral_opti_results, weights
         results_ch[k] = {"power_from_grid": [],
                          "power_to_grid": [],
                          "power_traded": [],
-                         "cost_el" : [],
+                         "cost_el": [],
+                         "cost_traded_el": [],
                          "revenue_el": [],
+                         "average_price_el": [],
+                         "average_trade_price_el": [],
                          "gas_from_grid": [],
                          "power_feed": [],
                          "power_demand": [],
@@ -312,6 +315,9 @@ def compute_out_P2P(options, options_DG, par_rh, decentral_opti_results, weights
                     options["nb_bes"])))
                 results_ch[k]["revenue_el"].append(sum(trade_res[k][i]["revenue"][n] for n in range(
                     options["nb_bes"])))
+                results_ch[k]["average_trade_price_el"].append(trade_res[k][i]["average_trade_price"])
+                results_ch[k]["cost_traded_el"].append(trade_res[k][i]["total_cost_trades"])
+
 
                 for n in range(options["nb_bes"]):
                     results_ch[k]["power_feed_pv_bes"][n].append(decentral_opti_results[k][i][8][n]["pv"][t])
@@ -327,6 +333,9 @@ def compute_out_P2P(options, options_DG, par_rh, decentral_opti_results, weights
             "E_el_traded": sum(results_ch[k]["power_traded"]) / 1000 * par_rh["resolution"][0],
             "cost_el": sum(results_ch[k]["cost_el"]) / 1000 * par_rh["resolution"][0],
             "revenue_el": sum(results_ch[k]["revenue_el"]) / 1000 * par_rh["resolution"][0],
+            "cost_traded_el": sum(results_ch[k]["cost_traded_el"]) / 1000 * par_rh["resolution"][0],
+            "average_price_el": (sum(results_ch[k]["cost_el"]) / sum(results_ch[k]["power_demand"])) * par_rh["resolution"][0], #average price considering traded and externally bought
+            "average_trade_price_el": (sum(results_ch[k]["cost_traded_el"]) / sum(results_ch[k]["power_traded"])) * par_rh["resolution"][0],
             "E_gas_from_grid_distr": sum(results_ch[k]["gas_from_grid"]) / 1000 * par_rh["resolution"][0],
             "E_el_feed_distr": sum(results_ch[k]["power_feed"]) / 1000 * par_rh["resolution"][0],
             "E_el_demand_distr": sum(results_ch[k]["power_demand"]) / 1000 * par_rh["resolution"][0],
@@ -382,6 +391,13 @@ def compute_out_P2P(options, options_DG, par_rh, decentral_opti_results, weights
                            range(options["number_typeWeeks"])),
         "revenue_el": sum(criteria_typeweeks[k]["revenue_el"] * weights_typeweeks[k] for k in
                        range(options["number_typeWeeks"])),
+
+        #weights_typeweeks not considered for average prices yet
+        "average_price_el": sum(criteria_typeweeks[k]["cost_el"] for k in range(options["number_typeWeeks"])) /
+                            sum(criteria_typeweeks[k]["E_el_demand_distr"] for k in range(options["number_typeWeeks"])),
+        "average_trade_price_el": sum(criteria_typeweeks[k]["cost_traded_el"] for k in range(options["number_typeWeeks"]))/
+                                  sum(criteria_typeweeks[k]["E_el_traded"] for k in range(options["number_typeWeeks"])),
+
         "E_gas_from_grid_distr": sum(criteria_typeweeks[k]["E_gas_from_grid_distr"] * weights_typeweeks[k] for k in
                                      range(options["number_typeWeeks"])),
         "E_el_feed_distr": sum(criteria_typeweeks[k]["E_el_feed_distr"] * weights_typeweeks[k] for k in

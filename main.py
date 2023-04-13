@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name": "scenario3",  # name of csv input file
+        "scenario_name": "scenario4",  # name of csv input file
     }
 
     '''
@@ -124,8 +124,8 @@ if __name__ == '__main__':
                "path_file": "D:/EBC/MAScity", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/MAScity",
                "path_results":"D:/EBC/MAScity/results", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/results",
                "time_zone": districtData.site['timeZone'],  # ---,      time zone
-               "location": districtData.site['location'] , # degree,   latitude, longitude of location
-               "altitude": districtData.site['altitude'] , # m,        height of location above sea level
+               "location": districtData.site['location'], # degree,   latitude, longitude of location
+               "altitude": districtData.site['altitude'], # m,        height of location above sea level
               }
 
     # load heating devs per building
