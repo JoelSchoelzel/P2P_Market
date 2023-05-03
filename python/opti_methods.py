@@ -31,15 +31,15 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                     init_val[n_opt]["building_" + str(n)] = {}
                     opti_res[n_opt][n] = decentral_operation(nodes[n],params, par_rh,
                                                               building_params,
-                                                              init_val[n_opt]["building_" + str(n)], n_opt)
+                                                              init_val[n_opt]["building_" + str(n)], n_opt, options)
                     init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
                                                                                          par_rh, n_opt)
             else:
                 for n in range(options["nb_bes"]):
                     print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(n) + ".")
                     opti_res[n_opt][n] = decentral_operation(nodes[n], params, par_rh,
-                                                              building_params.iloc[n],
-                                                              init_val[n_opt]["building_" + str(n)], n_opt)
+                                                              building_params,
+                                                              init_val[n_opt]["building_" + str(n)], n_opt, options)
                     init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n], par_rh, n_opt)
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) + "% of optimizations processed.")
         return opti_res
@@ -134,9 +134,91 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                         opti_res_new[k][n_opt][i][n] = {}
                         opti_res_new[k][n_opt][i][n] = opti_res[k][n_opt][n][i]
 
-
-
         return opti_res_new, index
+
+    elif options["optimization"] == "P2P":
+
+        bid_strategy = "zero"
+
+        # range of prices
+        p_max = params["eco"]["pr", "el"]
+        p_min = params["eco"]["sell_chp"]
+
+        # compute market agents for prosumer
+        mar_agent_bes = []
+        for n in range(options["nb_bes"]):
+            mar_agent_bes.append(bd.mar_agent_bes(p_max, p_min, par_rh))
+
+        # needed market dicts
+        mar_dict = mar_pre.dict_for_market_data(par_rh)
+
+        # create trade_res to store results
+        trade_res = {}
+
+
+        # Start optimizations
+        for n_opt in range(par_rh["n_opt"]):
+            opti_res[n_opt] = {}
+            init_val[0] = {}
+            init_val[n_opt+1] = {}
+            trade_res[n_opt] = {}
+
+            if n_opt == 0:
+                for n in range(options["nb_bes"]):
+                    print("Starting optimization: n_opt: " + str(n_opt) + ", building:" +str(n) + ".")
+                    init_val[n_opt]["building_" + str(n)] = {}
+                    opti_res[n_opt][n] = decentral_operation(nodes[n],params, par_rh,
+                                                              building_params,
+                                                              init_val[n_opt]["building_" + str(n)], n_opt, options)
+                    init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
+                                                                                         par_rh, n_opt)
+            else:
+                for n in range(options["nb_bes"]):
+                    print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(n) + ".")
+                    opti_res[n_opt][n] = decentral_operation(nodes[n], params, par_rh, building_params,
+                                                             init_val[n_opt]["building_" + str(n)], n_opt, options)
+                    if n_opt < par_rh["n_opt"] - 1:
+                        init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n], par_rh, n_opt)
+                    else:
+                        init_val[n_opt + 1] = 0
+            print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) + "% of optimizations processed.")
+
+            # compute bids
+            mar_dict["bid"][n_opt] = mar_pre.compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, options)
+            # seperate bids in buying and selling, sort by price
+            mar_dict["sorted_bids"][n_opt] = {}
+            mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt])
+
+            # run the auction
+            mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.single_round(
+                mar_dict["sorted_bids"][n_opt])
+
+            # create categories in trade_res and set to 0
+            for cat in ("revenue", "cost", "el_to_distr", "el_from_distr", "el_to_grid", "el_from_grid"):
+                trade_res[n_opt][cat] = {}
+                for nb in range(options["nb_bes"]):
+                    trade_res[n_opt][cat][nb] = 0
+            trade_res[n_opt]["average_trade_price"] = 0
+            trade_res[n_opt]["total_cost_trades"] = 0
+
+            # calculate cost and revenue of transactions
+            trade_res[n_opt] = mar_pre.cost_and_rev(mar_dict["transactions"][n_opt], trade_res[n_opt])
+
+            # clear book by buying and selling from and to grid
+            trade_res[n_opt], mar_dict["sorted_bids"][n_opt] = mar_pre.clear_book(trade_res[n_opt],
+                                                                                        mar_dict["sorted_bids"][
+                                                                                            n_opt], params)
+        # change struture of results to be sorted by res instead of building
+        opti_res_new = {}
+        for n_opt in range(par_rh["n_opt"]):
+            opti_res_new[n_opt] = {}
+            for i in range(18):
+                opti_res_new[n_opt][i] = {}
+                for n in range(options["nb_bes"]):
+                    opti_res_new[n_opt][i][n] = {}
+                    opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]
+
+        return opti_res_new, mar_dict, trade_res
 
     elif options["optimization"] == "P2P_typeWeeks":
 
@@ -169,6 +251,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             init_val[k] = {}
             opti_res[k] = {}
             trade_res[k] = {}
+
             for n_opt in range(par_rh["n_opt"]):
 
                 opti_res[k][n_opt] = {}
@@ -230,7 +313,6 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                     for n in range(options["nb_bes"]):
                         opti_res_new[k][n_opt][i][n] = {}
                         opti_res_new[k][n_opt][i][n] = opti_res[k][n_opt][n][i]
-
 
 
         return opti_res_new, index, mar_dict, trade_res
