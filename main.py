@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name": "scenario3",  # name of csv input file
+        "scenario_name": "scenario2",  # name of csv input file
     }
 
     '''
@@ -138,7 +138,7 @@ if __name__ == '__main__':
         "n_hours": 36, # ----,      number of hours of prediction horizon for rolling horizon
         "n_hours_ov": 35, # ----,      number of hours of overlap horizon for rolling horizon
         "n_opt_max": 8760 , #8760  # -----,       maximum number of optimizations
-        "month": 0,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
+        "month": 1,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data
 
         # Parameters for rolling horizon with aggregated foresight
@@ -181,7 +181,7 @@ if __name__ == '__main__':
         decentral_opti = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
 
     elif options["optimization"] == "P2P":
-        opti_results, mar_dict, trade_res = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
+        opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
                                                                                                 building_params, params)
 
         # Compute plots
@@ -191,6 +191,8 @@ if __name__ == '__main__':
         # Safe results
         with open(options["path_results"] + "/P2P_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
             pickle.dump(opti_results, fp)
+        with open(options["path_results"] + "/P2P_characteristics/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
+            pickle.dump(characteristics, fp)
 
     elif options["optimization"] == "P2P_typeWeeks":
         opti_results, typeweeks_indices, mar_dict, trade_res = opti_methods.rolling_horizon_opti(options, nodes, par_rh,

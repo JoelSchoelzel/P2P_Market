@@ -13,6 +13,7 @@ import python.opti_city as central_opti
 import python.market_preprocessing as mar_pre
 import python.bidding_strategies as bd
 import python.auction as auction
+import python.characteristics as characs
 
 def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
     # Run rolling horizon
@@ -155,6 +156,12 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         # create trade_res to store results
         trade_res = {}
 
+        #calculate characteristics
+        print("Calculate characteristics...")
+        characteristics = characs.calc_characs(nodes, options, par_rh)
+        print("Finished calculating characteristics!")
+
+
 
         # Start optimizations
         for n_opt in range(par_rh["n_opt"]):
@@ -218,7 +225,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                     opti_res_new[n_opt][i][n] = {}
                     opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]
 
-        return opti_res_new, mar_dict, trade_res
+        return opti_res_new, mar_dict, trade_res, characteristics
 
     elif options["optimization"] == "P2P_typeWeeks":
 
