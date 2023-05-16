@@ -1,8 +1,8 @@
-import numpy as np
-
-
+import datetime
+import pickle
 # calculate characteristics according to Stinner et al.,
 # "https://linkinghub.elsevier.com/retrieve/pii/S0306261916311424"
+
 
 def calc_characs(nodes, options, par_rh):
 
@@ -30,8 +30,6 @@ def calc_characs(nodes, options, par_rh):
             "energy_delayed": {},
         }
 
-    for n in range(options["nb_bes"]):
-
         ### heat
 
         #alpha_th
@@ -45,7 +43,7 @@ def calc_characs(nodes, options, par_rh):
         alpha_th = dQ_EHG_nom / dQ_build_nom
         characs[n]["alpha_th"] = alpha_th
 
-        #beta_th
+        # beta_th
         # storage capacity
         Q_stor_avg = nodes[n]["devs"]["tes"]["cap"]
 
@@ -72,8 +70,7 @@ def calc_characs(nodes, options, par_rh):
         # nominal heat load, half of DHW is covered by EH already
         dQ_build_nom = max(nodes[n]["heat"][n_opt] + (0.5 * nodes[n]["dhw"][n_opt]) for n_opt in range(par_rh["n_opt"]))
 
-        # last time steps not considered to avoid problems caused by missing data
-        for n_opt in range(par_rh["n_opt"]-36):
+        for n_opt in range(par_rh["n_opt"]):
 
             ### temporal flexibility
 
@@ -91,6 +88,9 @@ def calc_characs(nodes, options, par_rh):
                 else:
                     tau_forced += (nodes[n]["devs"]["tes"]["cap"] - charge) / max_charging
                     charge = nodes[n]["devs"]["tes"]["cap"]
+                # check whether end of data is reached
+                if n_opt + tau_forced >= par_rh["n_opt"]:
+                    break
 
             characs[n]["tau_forced"][n_opt] = tau_forced
 
@@ -119,6 +119,9 @@ def calc_characs(nodes, options, par_rh):
                 else:
                     tau_delayed += charge / discharging
                     charge = 0
+                # check whether end of data is reached
+                if n_opt + tau_delayed >= par_rh["n_opt"]:
+                    break
 
             characs[n]["tau_delayed"][n_opt] = tau_delayed
 
@@ -149,8 +152,9 @@ def calc_characs(nodes, options, par_rh):
             characs[n]["alpha_el_flex_forced"][n_opt] = alpha_el_flex_forced
             characs[n]["alpha_el_flex_delayed"][n_opt] = alpha_el_flex_delayed
 
-        # last time steps not considered to avoid problems caused by missing data
-        for n_opt in range(par_rh["n_opt"] - 72):
+        print("Part 1 finished.")
+
+        for n_opt in range(par_rh["n_opt"]):
 
             # average and cycle power flexibility
             energy_forced = 0
@@ -158,9 +162,15 @@ def calc_characs(nodes, options, par_rh):
             while i < characs[n]["tau_forced"][n_opt] - 1:
                 energy_forced += characs[n]["power_flex_forced"][n_opt + i]
                 i += 1
+                # check whether end of data is reached
+                if n_opt + i >= par_rh["n_opt"]-1:
+                    break
             energy_forced += characs[n]["power_flex_forced"][n_opt + i] * (characs[n]["tau_forced"][n_opt] - i)
-
-            power_cycle_forced = energy_forced / (characs[n]["tau_forced"][n_opt] + characs[n]["tau_delayed"][n_opt] + int(characs[n]["tau_forced"][n_opt]))
+            # check whether cycle is within data, otherwise tau_delayed of n_opt instead of (n_opt + tau_forced) is used
+            if n_opt + int(characs[n]["tau_forced"][n_opt]) < par_rh["n_opt"]:
+                power_cycle_forced = energy_forced / (characs[n]["tau_forced"][n_opt] + characs[n]["tau_delayed"][n_opt + int(characs[n]["tau_forced"][n_opt])])
+            else:
+                power_cycle_forced = energy_forced / (characs[n]["tau_forced"][n_opt] + characs[n]["tau_delayed"][n_opt])
             power_avg_forced = energy_forced / characs[n]["tau_forced"][n_opt]
 
             energy_delayed = 0
@@ -168,8 +178,15 @@ def calc_characs(nodes, options, par_rh):
             while i < characs[n]["tau_delayed"][n_opt] - 1:
                 energy_delayed += characs[n]["power_flex_delayed"][n_opt + i]
                 i += 1
+                # check whether end of data is reached
+                if n_opt + i >= par_rh["n_opt"] - 1:
+                    break
             energy_delayed += characs[n]["power_flex_delayed"][n_opt + i] * (characs[n]["tau_delayed"][n_opt] - i)
-            power_cycle_delayed = energy_delayed / (characs[n]["tau_delayed"][n_opt] + characs[n]["tau_forced"][n_opt] + int(characs[n]["tau_delayed"][n_opt]))
+            # check whether cycle is within data, otherwise tau_forced of n_opt instead of (n_opt + tau_delayed) is used
+            if n_opt + int(characs[n]["tau_delayed"][n_opt]) < par_rh["n_opt"]:
+                power_cycle_delayed = energy_delayed / (characs[n]["tau_delayed"][n_opt] + characs[n]["tau_forced"][n_opt + int(characs[n]["tau_delayed"][n_opt])])
+            else:
+                power_cycle_delayed = energy_delayed / (characs[n]["tau_delayed"][n_opt] + characs[n]["tau_forced"][n_opt])
             power_avg_delayed = energy_delayed / characs[n]["tau_delayed"][n_opt]
 
             characs[n]["power_avg_forced"][n_opt] = power_avg_forced
@@ -187,5 +204,11 @@ def calc_characs(nodes, options, par_rh):
             characs[n]["beta_el_forced"][n_opt] = beta_el_forced
             characs[n]["beta_el_delayed"][n_opt] = beta_el_delayed
 
+            print("Finished building: " + str(n) + ", n_opt: " + str(n_opt) + ".")
+
+        print("Building " + str(n) + " finished.")
+
+    #with open(options["path_results"] + "/P2P_characteristics/" + datetime.datetime.now().strftime("%m-%d-%H-%M") + ".p",
+    #          'wb') as fp: pickle.dump(characs, fp)
 
     return characs
