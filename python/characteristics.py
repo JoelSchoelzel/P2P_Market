@@ -171,7 +171,10 @@ def calc_characs(nodes, options, par_rh):
                 power_cycle_forced = energy_forced / (characs[n]["tau_forced"][n_opt] + characs[n]["tau_delayed"][n_opt + int(characs[n]["tau_forced"][n_opt])])
             else:
                 power_cycle_forced = energy_forced / (characs[n]["tau_forced"][n_opt] + characs[n]["tau_delayed"][n_opt])
-            power_avg_forced = energy_forced / characs[n]["tau_forced"][n_opt]
+            if characs[n]["tau_forced"][n_opt] > 0:
+                power_avg_forced = energy_forced / characs[n]["tau_forced"][n_opt]
+            else:
+                power_avg_forced = 0
 
             energy_delayed = 0
             i = 0
@@ -196,19 +199,17 @@ def calc_characs(nodes, options, par_rh):
             characs[n]["energy_forced"][n_opt] = energy_forced
             characs[n]["energy_delayed"][n_opt] = energy_delayed
 
-            Q_SH = sum(nodes[n]["heat"][n_opt] for n_opt in range(par_rh["n_opt"]))
-            Q_DHW = sum(nodes[n]["dhw"][n_opt] for n_opt in range(par_rh["n_opt"]))
             beta_el_forced = energy_forced * par_rh["n_opt"] / (Q_SH + Q_DHW)
             beta_el_delayed = energy_delayed * par_rh["n_opt"] / (Q_SH + Q_DHW)
 
             characs[n]["beta_el_forced"][n_opt] = beta_el_forced
             characs[n]["beta_el_delayed"][n_opt] = beta_el_delayed
 
-            print("Finished building: " + str(n) + ", n_opt: " + str(n_opt) + ".")
+            print("Calculating flexibility. Finished building: " + str(n) + ", n_opt: " + str(n_opt) + ".")
 
         print("Building " + str(n) + " finished.")
 
-    #with open(options["path_results"] + "/P2P_characteristics/" + datetime.datetime.now().strftime("%m-%d-%H-%M") + ".p",
-    #          'wb') as fp: pickle.dump(characs, fp)
+    with open(options["path_results"] + "/P2P_characteristics/" + datetime.datetime.now().strftime("%m-%d-%H-%M") + ".p",
+              'wb') as fp: pickle.dump(characs, fp)
 
     return characs

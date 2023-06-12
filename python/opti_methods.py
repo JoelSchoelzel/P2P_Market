@@ -194,10 +194,10 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             mar_dict["bid"][n_opt] = mar_pre.compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, options)
             # seperate bids in buying and selling, sort by price
             mar_dict["sorted_bids"][n_opt] = {}
-            mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt])
+            mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt], options, characteristics, n_opt)
 
             # run the auction
-            mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.single_round(
+            mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.multi_round(
                 mar_dict["sorted_bids"][n_opt])
 
             # create categories in trade_res and set to 0
@@ -212,9 +212,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             trade_res[n_opt] = mar_pre.cost_and_rev(mar_dict["transactions"][n_opt], trade_res[n_opt])
 
             # clear book by buying and selling from and to grid
-            trade_res[n_opt], mar_dict["sorted_bids"][n_opt] = mar_pre.clear_book(trade_res[n_opt],
-                                                                                        mar_dict["sorted_bids"][
-                                                                                            n_opt], params)
+            trade_res[n_opt], mar_dict["sorted_bids"][n_opt] = mar_pre.clear_book(trade_res[n_opt], mar_dict["sorted_bids"][n_opt][len(mar_dict["sorted_bids"][n_opt])-1], params)
+
         # change struture of results to be sorted by res instead of building
         opti_res_new = {}
         for n_opt in range(par_rh["n_opt"]):

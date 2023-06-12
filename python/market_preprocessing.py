@@ -4,11 +4,11 @@ import numpy as np
 
 def dict_for_market_data(pars_rh):
 
-    mar_dict = {}
-
-    mar_dict["transactions"] = {}
-    mar_dict["bid"] = {}
-    mar_dict["sorted_bids"] = {}
+    mar_dict = {
+        "transactions": {},
+        "bid": {},
+        "sorted_bids": {}
+        }
 
     #mar_dict["markets"] = {}
     #mar_dict["dem_total"] = np.zeros(8760)
@@ -97,39 +97,62 @@ def compute_bids(opti_res, pars_rh, mar_agent_prosumer, n_opt, options):
     return bid
 
 
-def sort_bids(bid):
+def sort_bids(bid, options, characs, n_opt):
 
     buy_list = {}
     sell_list = {}
 
-    #sort by buy or sell
+    # sort by buy or sell
     for n in range(len(bid)):
 
-        #don't consider bids with zero quantity
+        # don't consider bids with zero quantity
         if float(bid["bes_" + str(n)][1]) != 0.0:
 
-            #add buying bids to buy_list
+            # add buying bids to buy_list
             if bid["bes_" + str(n)][2] == "True":
                 i = len(buy_list)
-                buy_list[i] = {}
-                buy_list[i]["price"] = bid["bes_" + str(n)][0]
-                buy_list[i]["quantity"] = bid["bes_" + str(n)][1]
-                buy_list[i]["building"] = bid["bes_" + str(n)][3]
+                buy_list[i] = {
+                    "price": bid["bes_" + str(n)][0],
+                    "quantity": bid["bes_" + str(n)][1],
+                    "building": bid["bes_" + str(n)][3]
+                }
+
             # add selling bids to sell_list
             if bid["bes_" + str(n)][2] == "False":
                 i = len(sell_list)
-                sell_list[i] = {}
-                sell_list[i]["price"] = bid["bes_" + str(n)][0]
-                sell_list[i]["quantity"] = bid["bes_" + str(n)][1]
-                sell_list[i]["building"] = bid["bes_" + str(n)][3]
+                sell_list[i] = {
+                    "price": bid["bes_" + str(n)][0],
+                    "quantity": bid["bes_" + str(n)][1],
+                    "building": bid["bes_" + str(n)][3]
+                }
 
-    #sort lists by price
-    sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["price"], reverse=True)
-    sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["price"])
+    if options["crit_prio"] == "price":
+        # sort lists by price
+        if options["descending"]:
+            # highest paying and lowest asking first
+            sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["price"], reverse=True)
+            sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["price"])
+        else:
+            # lowest paying and highest asking first
+            sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["price"])
+            sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["price"], reverse=True)
 
-    bids = {}
-    bids["buy"] = {}
-    bids["sell"] = {}
+    else:
+        for i in range(len(buy_list)):
+            buy_list[i]["crit"] = characs[buy_list[i]["building"]][options["crit_prio"]][n_opt]
+        for i in range(len(sell_list)):
+            sell_list[i]["crit"] = characs[sell_list[i]["building"]][options["crit_prio"]][n_opt]
+
+        if options["descending"]:
+            sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["crit"], reverse=True)
+            sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["crit"], reverse=True)
+        else:
+            sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["crit"])
+            sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["crit"])
+    bids = {
+        "buy": {},
+        "sell": {}
+    }
 
     for i in range(len(sorted_buy_list)):
         bids["buy"][i] = sorted_buy_list[i][1]
