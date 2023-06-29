@@ -51,7 +51,6 @@ def get_inputs(par_rh, options, districtData):
     return nodes, building_params, params, devs, net_data, par_rh
 
 
-
 if __name__ == '__main__':
     # Start time (time measurement)
     time = {}
@@ -112,7 +111,6 @@ if __name__ == '__main__':
                "descending": True, # True: highest value of chosen has highest priority, False: lowest
 
                "number_typeWeeks": 0, # set 0 in case no type weeks are investigated
-               #"full_path_scenario": "C:\\Users\\miche\\districtgenerator_python\\data\\scenarios\\scenario4.csv", # scenario csv
                "full_path_scenario": ("D:\\EBC\\districtgenerator_python\\data\\scenarios\\" + options_DG["scenario_name"] + ".csv"), # scenario csv, name set for DG is used
                # "times": 2688, #8760 * 4,  # whole year 15min resolution
                # "tweeks": 4,  # number of typical weeks
@@ -124,8 +122,8 @@ if __name__ == '__main__':
                "grid": False,  # True -> consider grid constraints, False -> dont
                # "dt": 0.25,  # dt in h for rolling horizon
                "discretization_input_data": districtData.time['timeResolution']/3600,  # in h - for: elec, dhw and heat
-               "path_file": "D:/EBC/MAScity", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/MAScity",
-               "path_results":"D:/EBC/MAScity/results", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/results",
+               "path_file": "D:/EBC/P2P_Market", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/MAScity",
+               "path_results":"D:/EBC/P2P_Market/results", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/results",
                "time_zone": districtData.site['timeZone'],  # ---,      time zone
                "location": districtData.site['location'], # degree,   latitude, longitude of location
                "altitude": districtData.site['altitude'], # m,        height of location above sea level
@@ -155,44 +153,15 @@ if __name__ == '__main__':
     nodes, building_params, params, devs_pre_opti, net_data, par_rh = get_inputs(par_rh, options, districtData)
 
     # Run (rolling horizon) optimization
-    if options["optimization"] == "central_typeWeeks":
-        central_opti_results, typeweeks_indices = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
-
-        # Compute plots
-        criteria_typeweeks, criteria_year = output.compute_out(options, options_DG, par_rh, central_opti_results,
-                                                               districtData.weights, params, building_params)
-
-        # Safe results
-        with open(options["path_results"] + "/central_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-            pickle.dump(central_opti_results, fp)
-
-    if options["optimization"] == "decentral_typeWeeks":
-        decentral_opti_results, typeweeks_indices = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
-
-        # Compute plots
-        criteria_typeweeks, criteria_year = output.compute_out_decentral(options, options_DG, par_rh, decentral_opti_results,
-                                                               districtData.weights, params, building_params)
-
-        # Safe results
-        with open(options["path_results"] + "/decentral_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-            pickle.dump(decentral_opti_results, fp)
-
-    elif options["optimization"] == "central":
-        central_opti_results = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
-
-    elif options["optimization"] == "decentral": # neither adapted to 15min input data nor to clustered data yet
-        decentral_opti = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
-
-    elif options["optimization"] == "P2P":
+    if options["optimization"] == "P2P":
         opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
                                                                                                 building_params, params)
-
 
         # Compute plots
         criteria = output.compute_out_P2P(options, options_DG, par_rh, opti_results, params, building_params,
                                                trade_res, mar_dict)
 
-        # Safe results
+        # Save results
         with open(options["path_results"] + "/P2P_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
             pickle.dump(opti_results, fp)
         with open(options["path_results"] + "/P2P_characteristics/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
@@ -208,17 +177,9 @@ if __name__ == '__main__':
         criteria_typeweeks, criteria_year = output.compute_out_P2P_typeWeeks(options, options_DG, par_rh, opti_results,
                                                     districtData.weights, params, building_params, trade_res, mar_dict)
 
-
-        # Safe results
+        # Save results
         with open(options["path_results"] + "/P2P_typeWeeks_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
             pickle.dump(opti_results, fp)
-
-    # Compute plots
-    #criteria_typeweeks, criteria_year = output.compute_out(options, options_DG, par_rh, central_opti_results, districtData.weights, params, building_params)
-
-    # Safe results
-    #with open(options["path_results"] + "/central_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-    #    pickle.dump(central_opti_results, fp)
 
     # End time (Time measurement)
     time["end"] = datetime.datetime.now()
