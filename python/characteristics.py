@@ -62,13 +62,10 @@ def calc_characs(nodes, options, par_rh):
         ### elec
 
         # maximum power that can be generated
-        power_max = nodes[n]["devs"]["chp"]["cap"] * nodes[n]["devs"]["chp"]["eta_th"]
+        power_max = nodes[n]["devs"]["chp"]["cap"] / nodes[n]["devs"]["chp"]["eta_th"] * nodes[n]["devs"]["chp"]["eta_el"]
 
         # minimum power that can be generated
         power_min = 0
-
-        # nominal heat load, half of DHW is covered by EH already
-        dQ_build_nom = max(nodes[n]["heat"][n_opt] + (0.5 * nodes[n]["dhw"][n_opt]) for n_opt in range(par_rh["n_opt"]))
 
         for n_opt in range(par_rh["n_opt"]):
 
@@ -104,12 +101,14 @@ def calc_characs(nodes, options, par_rh):
                 if (sum(nodes[n]["devs"][dev]["cap"] for dev in heaters) - nodes[n]["heat"][n_opt - i] - (0.5 * nodes[n]["dhw"][n_opt - i])) < 0:
                     fully_charged = False
             charge = nodes[n]["devs"]["tes"]["cap"]
+            # determine the maximum possible charge when demand was greater than max production at any point
             if not fully_charged:
-                for i in range(5):
+                for i in range(24):
                     charge += sum(nodes[n]["devs"][dev]["cap"] for dev in heaters) - nodes[n]["heat"][n_opt - i] - (0.5 * nodes[n]["dhw"][n_opt - i])
-                    if charge < 0:
+                    if charge >= nodes[n]["devs"]["tes"]["cap"]:
+                        charge = nodes[n]["devs"]["tes"]["cap"]
+                    elif charge < 0:
                         charge = 0
-
             tau_delayed = 0
             while charge > 0:
                 discharging = nodes[n]["heat"][n_opt + tau_delayed] + (0.5 * nodes[n]["dhw"][n_opt + tau_delayed])
