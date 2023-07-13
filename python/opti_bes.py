@@ -520,6 +520,7 @@ def initial_values_flex(opti_res, par_rh, n_opt, nodes, options, trade_res, prev
 
     t = par_rh["hour_start"][n_opt]
 
+    # create list of all heaters, also those with capacity of 0
     heaters = list(opti_res[0][2].keys())
 
     init_val = {}
@@ -528,6 +529,7 @@ def initial_values_flex(opti_res, par_rh, n_opt, nodes, options, trade_res, prev
 
         init_val["building_" + str(n)] = {"soc": {"tes": {}, "bat": {}, "ev": {}}}
 
+        # if it's the first timestep, storages are set to initial values of 50%/75%
         if t == par_rh["month_start"][par_rh["month"]]:
             soc_prev = {
                 "tes": nodes[n]["devs"]["tes"]["cap"] * 0.5,
@@ -535,6 +537,7 @@ def initial_values_flex(opti_res, par_rh, n_opt, nodes, options, trade_res, prev
                 "ev": nodes[n]["devs"]["ev"]["cap"] * 0.75
             }
 
+        # otherwise use initial values calculated in previous step
         else:
             soc_prev = prev_init_val["building_" + str(n)]["soc"]
 
@@ -544,15 +547,21 @@ def initial_values_flex(opti_res, par_rh, n_opt, nodes, options, trade_res, prev
         eta_ch = nodes[n]["devs"]["tes"]["eta_ch"]
         eta_dch = nodes[n]["devs"]["tes"]["eta_dch"]
 
+        # demand/surplus which hasn't been fulfilled during trading and hasn't been sold/bought from grid
+        # this is the difference between the result of optimization and the real result after trading etc.
         unfulfilled_dem = opti_res[n][4][t] - trade_res["el_from_distr"][n] - trade_res["el_from_grid"][n]
         unfulfilled_plus = (opti_res[n][8]["chp"][t] + opti_res[n][8]["pv"][t] - trade_res["el_to_distr"][n] -
                             trade_res["el_to_grid"][n])
 
+        # if heat pumps exist: if demand isn't fully fulfilled, less heat is produce because of missing electricity
+        # therefore the TES is charged less
         if nodes[n]["devs"]["hp35"]["exists"] + nodes[n]["devs"]["hp55"]["exists"] > 0:
             charge_tes = eta_ch * (sum(opti_res[n][2][dev][t] for dev in heaters) - unfulfilled_dem *
                                    (nodes[n]["devs"]["hp35"]["exists"] * nodes[n]["devs"]["COP_sh35"][n_opt] +
                                     nodes[n]["devs"]["hp55"]["exists"] * nodes[n]["devs"]["COP_sh55"][n_opt]))
 
+        # if CHP exists: if surplus wasn't fully sold, less electricity and therefore less heat is produced
+        # therefore the TES is charged less
         elif nodes[n]["devs"]["chp"]["cap"] > 0:
             charge_tes = eta_ch * (sum(opti_res[n][2][dev][t] for dev in heaters) - unfulfilled_plus *
                                    nodes[n]["devs"]["chp"]["eta_th"] / nodes[n]["devs"]["chp"]["eta_el"])
@@ -560,12 +569,15 @@ def initial_values_flex(opti_res, par_rh, n_opt, nodes, options, trade_res, prev
         else:
             charge_tes = eta_ch * sum(opti_res[n][2][dev][t] for dev in heaters)
 
+        # TES is discharged by required heat and 50% of required heat for dhw
         discharge_tes = (1 / eta_dch) * (nodes[n]["heat"][n_opt] + 0.5 * nodes[n]["dhw"][n_opt])
 
+        # new initial value is previous minus the losses (eta_tes) plus difference between charge and discharge
         init_val["building_" + str(n)]["soc"]["tes"] = soc_prev["tes"] * eta_tes + (
                                                        par_rh["duration"][n_opt][t] * (charge_tes - discharge_tes))
 
-        # BAT
+        # BAT & EV
+        # TODO
         init_val["building_" + str(n)]["soc"]["bat"] = 0
         init_val["building_" + str(n)]["soc"]["ev"] = 0
 

@@ -37,6 +37,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         # needed market dicts
         mar_dict = mar_pre.dict_for_market_data(par_rh)
 
+        # create bes for each building
         bes = mar_pre.bes(par_rh, options["nb_bes"])
 
         # create trade_res to store results
@@ -74,7 +75,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
 
             # compute bids
             mar_dict["bid"][n_opt], bes = mar_pre.compute_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt, options, nodes, init_val)
-            # seperate bids in buying and selling, sort by price
+            # separate bids in buying and selling, sort by price
             mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt], options, characteristics, n_opt)
 
             # run the auction

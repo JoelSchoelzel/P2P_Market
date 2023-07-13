@@ -170,10 +170,12 @@ def sort_bids(bid, options, characs, n_opt):
 
 def cost_and_rev_trans(trans, res):
 
+    # calculate revenue and cost by adding quantity*price of each transaction
     for i in range(len(trans)):
         res["revenue"][trans[i]["seller"]] += (trans[i]["quantity"] * trans[i]["price"])
         res["cost"][trans[i]["buyer"]] += (trans[i]["quantity"] * trans[i]["price"])
 
+    # calculate average trade price and total cost of all trades made in this n_opt
     if len(trans) > 0:
         res["average_trade_price"] = sum(res["cost"].values()) / sum(res["el_from_distr"].values())
         res["total_cost_trades"] = sum(res["cost"].values())
@@ -198,6 +200,7 @@ def clear_book(res, bids, params):
 
 def traded_volume(transaction, res):
 
+    # add volumes traded within the district
     for i in range(len(transaction)):
         res["el_from_distr"][transaction[i]["buyer"]] += transaction[i]["quantity"]
         res["el_to_distr"][transaction[i]["seller"]] += transaction[i]["quantity"]
@@ -208,11 +211,15 @@ def traded_volume(transaction, res):
 def grid_demands(bes, trade_res, options, bids, n_opt):
 
     for n in range(options["nb_bes"]):
+        # only buying bids
         if bids["bes_" + str(n)][2] == "True":
+            # check whether unflexible demand has been fulfilled, otherwise add remaining unflexible demand to grid_dem
             if bes[n]["unflex"][n_opt] > trade_res["el_from_distr"][n]:
                 bes[n]["grid_dem"][n_opt] = bes[n]["unflex"][n_opt] - trade_res["el_from_distr"][n]
 
+        # only selling bids
         if bids["bes_" + str(n)][2] == "False":
+            # check whether unflexible surplus has been sold, otherwise add remaining unflexible surplus to grid_dem
             if bes[n]["unflex"][n_opt] > trade_res["el_to_distr"][n]:
                 bes[n]["grid_gen"][n_opt] = bes[n]["unflex"][n_opt] - trade_res["el_to_distr"][n]
     return bes
@@ -221,10 +228,12 @@ def grid_demands(bes, trade_res, options, bids, n_opt):
 def cost_and_rev_grid(bes, trade_res, options, n_opt, eco):
 
     for n in range(options["nb_bes"]):
+        # add volume and revenue of elec sold to grid
         if bes[n]["grid_gen"][n_opt] > 0:
             trade_res["el_to_grid"][n] = bes[n]["grid_gen"][n_opt]
             trade_res["revenue"][n] += bes[n]["grid_gen"][n_opt] * eco["sell_chp"]
 
+        # add volume and cost of elec bought from grid
         elif bes[n]["grid_dem"][n_opt] > 0:
             trade_res["el_from_grid"][n] = bes[n]["grid_dem"][n_opt]
             trade_res["cost"][n] += bes[n]["grid_dem"][n_opt] * eco["pr", "el"]
