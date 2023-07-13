@@ -12,16 +12,20 @@ class mar_agent_bes(object):
         self.dt = par_rh["duration"][0][0]
         self.soc_nom_tes = node["devs"]["tes"]["cap"]
 
-    def compute_hp_bids(self, p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp):
+    def compute_hp_bids(self, p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp, options):
 
-        # calculate unflexible bids
-        soc_set_min = (dem_heat + 0.5 * dem_dhw) * self.dt
-        if self.soc_nom_tes == 0 or soc <= soc_set_min:
-            unflex = p_imp
-        elif p_imp > power_hp:
-            unflex = p_imp - power_hp
+        # calculate unflexible bids if flexible demands are enabled
+        if options["flexible_demands"]:
+            soc_set_min = (dem_heat + 0.5 * dem_dhw) * self.dt
+            if self.soc_nom_tes == 0 or soc <= soc_set_min:
+                unflex = p_imp
+            elif p_imp > power_hp:
+                unflex = p_imp - power_hp
+            else:
+                unflex = 0
+        # if flexible demands are disabled, everything is unflexible
         else:
-            unflex = 0
+            unflex = p_imp
 
         # compute bids with zero-intelligence
         if bid_strategy == "zero":
@@ -35,11 +39,17 @@ class mar_agent_bes(object):
 
         return [p, q, buying, n], unflex
 
-    def compute_chp_bids(self, chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc):
+    def compute_chp_bids(self, chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc, options):
 
-        # calculate unflexible bids
-        soc_set_min = (dem_heat + 0.5 * dem_dhw) * self.dt
-        if self.soc_nom_tes == 0 or soc <= soc_set_min:
+        unflex = 0
+
+        # calculate unflexible bids if flexible demands are enabled
+        if options["flexible_demands"]:
+            soc_set_min = (dem_heat + 0.5 * dem_dhw) * self.dt
+            if self.soc_nom_tes == 0 or soc <= soc_set_min:
+                unflex = chp_sell
+        # if flexible demands are disabled, everything is unflexible
+        else:
             unflex = chp_sell
 
         # compute bids with zero-intelligence
