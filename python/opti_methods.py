@@ -32,10 +32,12 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         # compute market agents for prosumer
         mar_agent_bes = []
         for n in range(options["nb_bes"]):
-            mar_agent_bes.append(bd.mar_agent_bes(p_max, p_min, par_rh))
+            mar_agent_bes.append(bd.mar_agent_bes(p_max, p_min, par_rh, nodes[n]))
 
         # needed market dicts
         mar_dict = mar_pre.dict_for_market_data(par_rh)
+
+        bes = mar_pre.bes(par_rh, options["nb_bes"])
 
         # create trade_res to store results
         trade_res = {}
@@ -71,14 +73,17 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) + "% of optimizations processed.")
 
             # compute bids
-            mar_dict["bid"][n_opt] = mar_pre.compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, options)
+            mar_dict["bid"][n_opt], bes = mar_pre.compute_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt, options, nodes, init_val)
             # seperate bids in buying and selling, sort by price
-            mar_dict["sorted_bids"][n_opt] = {}
             mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt], options, characteristics, n_opt)
 
             # run the auction
-            mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.multi_round(
-                mar_dict["sorted_bids"][n_opt])
+            if options["multi_round"]:
+                mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.multi_round(
+                    mar_dict["sorted_bids"][n_opt])
+            else:
+                mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.single_round(
+                    mar_dict["sorted_bids"][n_opt])
 
             # create categories in trade_res and set to 0
             for cat in ("revenue", "cost", "el_to_distr", "el_from_distr", "el_to_grid", "el_from_grid"):
@@ -88,13 +93,26 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             trade_res[n_opt]["average_trade_price"] = 0
             trade_res[n_opt]["total_cost_trades"] = 0
 
+            # calculate traded volume
+            trade_res[n_opt] = mar_pre.traded_volume(mar_dict["transactions"][n_opt], trade_res[n_opt])
+
             # calculate cost and revenue of transactions
-            trade_res[n_opt] = mar_pre.cost_and_rev(mar_dict["transactions"][n_opt], trade_res[n_opt])
+            trade_res[n_opt] = mar_pre.cost_and_rev_trans(mar_dict["transactions"][n_opt], trade_res[n_opt])
+
+            # calculate needs and surpluses that needs to be fulfilled by grid
+            bes = mar_pre.grid_demands(bes, trade_res[n_opt], options, mar_dict["bid"][n_opt], n_opt)
+
+            # calculate volume, cost and revenue of buying/selling to grid
+            trade_res[n_opt] = mar_pre.cost_and_rev_grid(bes, trade_res[n_opt], options, n_opt, params["eco"])
+
+            # calculate new initial values, considering unfulfilled demands
+            if options["flexible_demands"]:
+                init_val[n_opt + 1] = decentral_opti.initial_values_flex(opti_res[n_opt], par_rh, n_opt, nodes, options, trade_res[n_opt], init_val[n_opt])
 
             # clear book by buying and selling from and to grid
-            trade_res[n_opt], mar_dict["sorted_bids"][n_opt] = mar_pre.clear_book(trade_res[n_opt], mar_dict["sorted_bids"][n_opt][len(mar_dict["sorted_bids"][n_opt])-1], params)
+            #trade_res[n_opt], mar_dict["sorted_bids"][n_opt] = mar_pre.clear_book(trade_res[n_opt], mar_dict["sorted_bids"][n_opt][len(mar_dict["sorted_bids"][n_opt])-1], params)
 
-        # change struture of results to be sorted by res instead of building
+        # change structure of results to be sorted by res instead of building
         opti_res_new = {}
         for n_opt in range(par_rh["n_opt"]):
             opti_res_new[n_opt] = {}
@@ -164,7 +182,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
 
                 # compute bids
                 mar_dict[k]["bid"][n_opt] = mar_pre.compute_bids( opti_res[k][n_opt], par_rh, mar_agent_bes, n_opt, options)
-                # seperate bids in buying and selling, sort by price
+
+                # separate bids in buying and selling and sort them
                 mar_dict[k]["sorted_bids"][n_opt] = {}
                 mar_dict[k]["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict[k]["bid"][n_opt])
 
@@ -185,7 +204,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                 # clear book by buying and selling from and to grid
                 trade_res[k][n_opt], mar_dict[k]["sorted_bids"][n_opt] = mar_pre.clear_book(trade_res[k][n_opt], mar_dict[k]["sorted_bids"][n_opt], params)
 
-        # change struture of results to be sorted by res instead of building
+        # change structure of results to be sorted by res instead of building
         opti_res_new = {}
         for k in range(options["number_typeWeeks"]):
             opti_res_new[k] = {}

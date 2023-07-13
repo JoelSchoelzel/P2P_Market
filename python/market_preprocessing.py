@@ -46,7 +46,6 @@ def dict_for_market_data(pars_rh):
         #mar_dict["mar_op"][n_opt] = {} # operation after market clearing
         #mar_dict["propensities"][n_opt] = {}
 
-
     return mar_dict
 
 
@@ -54,20 +53,20 @@ def bes(pars_rh, numb_bes):
 
     bes = {}
     for n in range(numb_bes):
-        bes[n] = dict(adj_op = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        tra_dem = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        tra_dem_unflex = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        tra_gen = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        plus_gen = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        grid_dem = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        grid_gen = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        hp_dem = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        unflex = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])))
+        bes[n] = dict(adj_op = np.zeros(pars_rh["n_opt"]),
+        tra_dem = np.zeros(pars_rh["n_opt"]),
+        tra_dem_unflex = np.zeros(pars_rh["n_opt"]),
+        tra_gen = np.zeros(pars_rh["n_opt"]),
+        plus_gen = np.zeros(pars_rh["n_opt"]),
+        grid_dem = np.zeros(pars_rh["n_opt"]),
+        grid_gen = np.zeros(pars_rh["n_opt"]),
+        hp_dem = np.zeros(pars_rh["n_opt"]),
+        unflex = np.zeros(pars_rh["n_opt"]))
 
     return bes
 
 
-def compute_bids(opti_res, pars_rh, mar_agent_prosumer, n_opt, options):
+def compute_bids(bes, opti_res, pars_rh, mar_agent_prosumer, n_opt, options, nodes, init_val):
 
 
     bid = {}
@@ -79,22 +78,29 @@ def compute_bids(opti_res, pars_rh, mar_agent_prosumer, n_opt, options):
         chp_sell = opti_res[n][8]["chp"][t]
         bid_strategy = options["bid_strategy"]
 
+        dem_heat = nodes[n]["heat"][n_opt]
+        dem_dhw = nodes[n]["dhw"][n_opt]
+        if n_opt == 0:
+            soc = opti_res[n][3]["tes"][t]
+        else:
+            soc = init_val[n_opt]["building_" + str(n)]["soc"]["tes"]
 
+        power_hp = max(opti_res[n][1]["hp35"][t], opti_res[n][1]["hp55"][t])
 
         # compute bids
         if p_imp > 0.0:
-            bid["bes_" + str(n)] = mar_agent_prosumer[n].compute_hp_bids(p_imp, n, bid_strategy)
+            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_hp_bids(p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp)
             #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = bid["bes_" + str(n)][1]
 
         elif chp_sell > 0:
-            bid["bes_" + str(n)] = mar_agent_prosumer[n].compute_chp_bids(chp_sell, n, bid_strategy)
+            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_chp_bids(chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc)
             #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = 0
 
         else:
-            bid["bes_" + str(n)] = mar_agent_prosumer[n].compute_empty_bids(n)
+            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_empty_bids(n)
             #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = 0
 
-    return bid
+    return bid, bes
 
 
 def sort_bids(bid, options, characs, n_opt):
@@ -162,13 +168,11 @@ def sort_bids(bid, options, characs, n_opt):
     return bids
 
 
-def cost_and_rev(trans, res):
+def cost_and_rev_trans(trans, res):
 
     for i in range(len(trans)):
         res["revenue"][trans[i]["seller"]] += (trans[i]["quantity"] * trans[i]["price"])
         res["cost"][trans[i]["buyer"]] += (trans[i]["quantity"] * trans[i]["price"])
-        res["el_from_distr"][trans[i]["buyer"]] += trans[i]["quantity"]
-        res["el_to_distr"][trans[i]["seller"]] += trans[i]["quantity"]
 
     if len(trans) > 0:
         res["average_trade_price"] = sum(res["cost"].values()) / sum(res["el_from_distr"].values())
@@ -190,3 +194,39 @@ def clear_book(res, bids, params):
         bids["sell"][i]["quantity"] = 0
 
     return res, bids
+
+
+def traded_volume(transaction, res):
+
+    for i in range(len(transaction)):
+        res["el_from_distr"][transaction[i]["buyer"]] += transaction[i]["quantity"]
+        res["el_to_distr"][transaction[i]["seller"]] += transaction[i]["quantity"]
+
+    return res
+
+
+def grid_demands(bes, trade_res, options, bids, n_opt):
+
+    for n in range(options["nb_bes"]):
+        if bids["bes_" + str(n)][2] == "True":
+            if bes[n]["unflex"][n_opt] > trade_res["el_from_distr"][n]:
+                bes[n]["grid_dem"][n_opt] = bes[n]["unflex"][n_opt] - trade_res["el_from_distr"][n]
+
+        if bids["bes_" + str(n)][2] == "False":
+            if bes[n]["unflex"][n_opt] > trade_res["el_to_distr"][n]:
+                bes[n]["grid_gen"][n_opt] = bes[n]["unflex"][n_opt] - trade_res["el_to_distr"][n]
+    return bes
+
+
+def cost_and_rev_grid(bes, trade_res, options, n_opt, eco):
+
+    for n in range(options["nb_bes"]):
+        if bes[n]["grid_gen"][n_opt] > 0:
+            trade_res["el_to_grid"][n] = bes[n]["grid_gen"][n_opt]
+            trade_res["revenue"][n] += bes[n]["grid_gen"][n_opt] * eco["sell_chp"]
+
+        elif bes[n]["grid_dem"][n_opt] > 0:
+            trade_res["el_from_grid"][n] = bes[n]["grid_dem"][n_opt]
+            trade_res["cost"][n] += bes[n]["grid_dem"][n_opt] * eco["pr", "el"]
+
+    return trade_res

@@ -59,7 +59,7 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name": "scenario3",  # name of csv input file
+        "scenario_name": "scenario4",  # name of csv input file
     }
 
     '''
@@ -106,9 +106,11 @@ if __name__ == '__main__':
 
     # Set options for MAScity
     options = {"optimization": "P2P",   # P2P, P2P_typeWeeks, central, central_typeWeeks, decentral or decentral_typeWeeks
-               "bid_strategy": "zero" , # zero for zero-intelligence
+               "bid_strategy": "zero",  # zero for zero-intelligence
                "crit_prio": "alpha_el_flex_delayed", # criteria to assign priority for trading: price, alpha_el_flex_delayed
-               "descending": True, # True: highest value of chosen has highest priority, False: lowest
+               "descending": True,  # True: highest value of chosen has highest priority, False: lowest
+               "multi_round": False,  # True: multiple trading rounds, False: single trading round
+               "flexible_demands": False,  # True: flexible demands aren't necessarily fulfilled every step
 
                "number_typeWeeks": 0, # set 0 in case no type weeks are investigated
                "full_path_scenario": ("D:\\EBC\\districtgenerator_python\\data\\scenarios\\" + options_DG["scenario_name"] + ".csv"), # scenario csv, name set for DG is used
@@ -161,13 +163,17 @@ if __name__ == '__main__':
         criteria = output.compute_out_P2P(options, options_DG, par_rh, opti_results, params, building_params,
                                                trade_res, mar_dict)
 
-        # Save results
-        with open(options["path_results"] + "/P2P_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-            pickle.dump(opti_results, fp)
-        with open(options["path_results"] + "/P2P_characteristics/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-            pickle.dump(characteristics, fp)
-        with open(options["path_results"] + "/P2P_mar_dict/" + options_DG["scenario_name"] + "_" + options["crit_prio"] + ".p", 'wb') as fp:
-            pickle.dump(mar_dict, fp)
+        try:
+            # Save results
+            with open(options["path_results"] + "/P2P_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
+                pickle.dump(opti_results, fp)
+            with open(options["path_results"] + "/P2P_characteristics/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
+                pickle.dump(characteristics, fp)
+            with open(options["path_results"] + "/P2P_mar_dict/" + options_DG["scenario_name"] + "_" + options["crit_prio"] + ".p", 'wb') as fp:
+                pickle.dump(mar_dict, fp)
+
+        except Exception as e:
+            print("Error while trying to save:", str(e))
 
     elif options["optimization"] == "P2P_typeWeeks":
         opti_results, typeweeks_indices, mar_dict, trade_res = opti_methods.rolling_horizon_opti(options, nodes, par_rh,

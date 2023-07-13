@@ -505,7 +505,6 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             objVal, runtime, soc_init_rh, res_gas_sum)
 
 
-
 def compute_initial_values(opti_bes, par_rh, n_opt):
 
     init_val = {}
@@ -513,5 +512,61 @@ def compute_initial_values(opti_bes, par_rh, n_opt):
     # initial SOCs
     for dev in ["tes", "bat", "ev"]:
         init_val["soc"][dev] = opti_bes[3][dev][par_rh["hour_start"][n_opt] + par_rh["n_hours"] - par_rh["n_hours_ov"]]
+
+    return init_val
+
+
+def initial_values_flex(opti_res, par_rh, n_opt, nodes, options, trade_res, prev_init_val):
+
+    t = par_rh["hour_start"][n_opt]
+
+    heaters = list(opti_res[0][2].keys())
+
+    init_val = {}
+
+    for n in range(options["nb_bes"]):
+
+        init_val["building_" + str(n)] = {"soc": {"tes": {}, "bat": {}, "ev": {}}}
+
+        if t == par_rh["month_start"][par_rh["month"]]:
+            soc_prev = {
+                "tes": nodes[n]["devs"]["tes"]["cap"] * 0.5,
+                "bat": nodes[n]["devs"]["bat"]["cap"] * 0.5,
+                "ev": nodes[n]["devs"]["ev"]["cap"] * 0.75
+            }
+
+        else:
+            soc_prev = prev_init_val["building_" + str(n)]["soc"]
+
+        # TES
+
+        eta_tes = nodes[n]["devs"]["tes"]["eta_tes"]
+        eta_ch = nodes[n]["devs"]["tes"]["eta_ch"]
+        eta_dch = nodes[n]["devs"]["tes"]["eta_dch"]
+
+        unfulfilled_dem = opti_res[n][4][t] - trade_res["el_from_distr"][n] - trade_res["el_from_grid"][n]
+        unfulfilled_plus = (opti_res[n][8]["chp"][t] + opti_res[n][8]["pv"][t] - trade_res["el_to_distr"][n] -
+                            trade_res["el_to_grid"][n])
+
+        if nodes[n]["devs"]["hp35"]["exists"] + nodes[n]["devs"]["hp55"]["exists"] > 0:
+            charge_tes = eta_ch * (sum(opti_res[n][2][dev][t] for dev in heaters) - unfulfilled_dem *
+                                   (nodes[n]["devs"]["hp35"]["exists"] * nodes[n]["devs"]["COP_sh35"][n_opt] +
+                                    nodes[n]["devs"]["hp55"]["exists"] * nodes[n]["devs"]["COP_sh55"][n_opt]))
+
+        elif nodes[n]["devs"]["chp"]["cap"] > 0:
+            charge_tes = eta_ch * (sum(opti_res[n][2][dev][t] for dev in heaters) - unfulfilled_plus *
+                                   nodes[n]["devs"]["chp"]["eta_th"] / nodes[n]["devs"]["chp"]["eta_el"])
+
+        else:
+            charge_tes = eta_ch * sum(opti_res[n][2][dev][t] for dev in heaters)
+
+        discharge_tes = (1 / eta_dch) * (nodes[n]["heat"][n_opt] + 0.5 * nodes[n]["dhw"][n_opt])
+
+        init_val["building_" + str(n)]["soc"]["tes"] = soc_prev["tes"] * eta_tes + (
+                                                       par_rh["duration"][n_opt][t] * (charge_tes - discharge_tes))
+
+        # BAT
+        init_val["building_" + str(n)]["soc"]["bat"] = 0
+        init_val["building_" + str(n)]["soc"]["ev"] = 0
 
     return init_val
