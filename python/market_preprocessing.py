@@ -144,11 +144,14 @@ def sort_bids(bid, options, characs, n_opt):
             sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["price"], reverse=True)
 
     else:
+        # add the delayed flexibility of the chosen characteristic as crit for all buying bids
         for i in range(len(buy_list)):
-            buy_list[i]["crit"] = characs[buy_list[i]["building"]][options["crit_prio"]][n_opt]
+            buy_list[i]["crit"] = characs[buy_list[i]["building"]][options["crit_prio"]+"_delayed"][n_opt]
+        # add the forced flexibility of the chosen characteristic as crit for all selling bids
         for i in range(len(sell_list)):
-            sell_list[i]["crit"] = characs[sell_list[i]["building"]][options["crit_prio"]][n_opt]
+            sell_list[i]["crit"] = characs[sell_list[i]["building"]][options["crit_prio"]+"_forced"][n_opt]
 
+        # sort the bids by crit, highest first if "descending" is True in options, otherwise lowest first
         if options["descending"]:
             sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["crit"], reverse=True)
             sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["crit"], reverse=True)

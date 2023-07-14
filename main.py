@@ -107,8 +107,8 @@ if __name__ == '__main__':
     # Set options for MAScity
     options = {"optimization": "P2P",   # P2P, P2P_typeWeeks, central, central_typeWeeks, decentral or decentral_typeWeeks
                "bid_strategy": "zero",  # zero for zero-intelligence
-               "crit_prio": "alpha_el_flex_delayed", # criteria to assign priority for trading: price, alpha_el_flex_delayed
-               "descending": True,  # True: highest value of chosen has highest priority, False: lowest
+               "crit_prio": "alpha_el_flex", # criteria to assign priority for trading: price, alpha_el_flex, ...
+               "descending": False,  # True: highest value of chosen has highest priority, False: lowest
                "multi_round": False,  # True: multiple trading rounds, False: single trading round
                "flexible_demands": False,  # True: flexible demands aren't necessarily fulfilled every step
 
