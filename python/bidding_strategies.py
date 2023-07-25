@@ -2,6 +2,8 @@ import numpy as np
 
 
 class mar_agent_bes(object):
+    """Market agent for each building energy system (BES) that creates the bids."""
+
     def __init__(self, p_max, p_min, par_rh, node):
         self.p_min = p_min
         self.p_max = p_max
@@ -13,6 +15,7 @@ class mar_agent_bes(object):
         self.soc_nom_tes = node["devs"]["tes"]["cap"]
 
     def compute_hp_bids(self, p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp, options):
+        """Compute the bid when electricity for the heat pump needs to be bought."""
 
         # calculate unflexible bids if flexible demands are enabled
         if options["flexible_demands"]:
@@ -40,6 +43,7 @@ class mar_agent_bes(object):
         return [p, q, buying, n], unflex
 
     def compute_chp_bids(self, chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc, options):
+        """Compute the bid when electricity from the CHP needs to be sold."""
 
         unflex = 0
 
@@ -63,6 +67,7 @@ class mar_agent_bes(object):
         return [p, q, buying, n], unflex
 
     def compute_empty_bids(self, n):
+        """Create an empty bid when no electricity needs to be bought or sold."""
 
         p = 0
         q = 0

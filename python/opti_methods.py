@@ -23,13 +23,11 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
 
     if options["optimization"] == "P2P":
 
-        bid_strategy = "zero"
+        # range of prices for bids
+        p_max = params["eco"]["pr", "el"]  # price for electricity bought from gird
+        p_min = params["eco"]["sell_chp"]  # price for electricity from CHP sold to grid
 
-        # range of prices
-        p_max = params["eco"]["pr", "el"]
-        p_min = params["eco"]["sell_chp"]
-
-        # compute market agents for prosumer
+        # compute market agents for prosumers
         mar_agent_bes = []
         for n in range(options["nb_bes"]):
             mar_agent_bes.append(bd.mar_agent_bes(p_max, p_min, par_rh, nodes[n]))
@@ -55,33 +53,36 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
 
             if n_opt == 0:
                 for n in range(options["nb_bes"]):
-                    print("Starting optimization: n_opt: " + str(n_opt) + ", building:" +str(n) + ".")
+                    print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(n) + ".")
                     init_val[n_opt]["building_" + str(n)] = {}
-                    opti_res[n_opt][n] = decentral_operation(nodes[n],params, par_rh,
-                                                              building_params,
-                                                              init_val[n_opt]["building_" + str(n)], n_opt, options)
+                    opti_res[n_opt][n] = decentral_operation(nodes[n], params, par_rh, building_params,
+                                                             init_val[n_opt]["building_" + str(n)], n_opt, options)
                     init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
-                                                                                         par_rh, n_opt)
+                                                                                             par_rh, n_opt)
             else:
                 for n in range(options["nb_bes"]):
                     print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(n) + ".")
                     opti_res[n_opt][n] = decentral_operation(nodes[n], params, par_rh, building_params,
                                                              init_val[n_opt]["building_" + str(n)], n_opt, options)
                     if n_opt < par_rh["n_opt"] - 1:
-                        init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n], par_rh, n_opt)
+                        init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
+                                                                                                 par_rh, n_opt)
                     else:
                         init_val[n_opt + 1] = 0
-            print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) + "% of optimizations processed.")
+            print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) +
+                  "% of optimizations processed.")
 
             # compute bids
-            mar_dict["bid"][n_opt], bes = mar_pre.compute_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt, options, nodes, init_val)
+            mar_dict["bid"][n_opt], bes = mar_pre.compute_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,
+                                                               options, nodes, init_val)
             # separate bids in buying and selling, sort by price
             mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt], options, characteristics, n_opt)
 
-            # run the auction
+            # run the auction with multiple trading rounds if "multi_round" is True in options
             if options["multi_round"]:
                 mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.multi_round(
                     mar_dict["sorted_bids"][n_opt])
+            # otherwise run the auction with a single trading round
             else:
                 mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.single_round(
                     mar_dict["sorted_bids"][n_opt])
@@ -100,7 +101,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             # calculate cost and revenue of transactions
             trade_res[n_opt] = mar_pre.cost_and_rev_trans(mar_dict["transactions"][n_opt], trade_res[n_opt])
 
-            # calculate needs and surpluses that needs to be fulfilled by grid
+            # calculate needs and surpluses that need to be fulfilled by grid
             bes = mar_pre.grid_demands(bes, trade_res[n_opt], options, mar_dict["bid"][n_opt], n_opt)
 
             # calculate volume, cost and revenue of buying/selling to grid
@@ -108,12 +109,11 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
 
             # calculate new initial values, considering unfulfilled demands
             if options["flexible_demands"]:
-                init_val[n_opt + 1] = decentral_opti.initial_values_flex(opti_res[n_opt], par_rh, n_opt, nodes, options, trade_res[n_opt], init_val[n_opt])
-
-            # clear book by buying and selling from and to grid
-            #trade_res[n_opt], mar_dict["sorted_bids"][n_opt] = mar_pre.clear_book(trade_res[n_opt], mar_dict["sorted_bids"][n_opt][len(mar_dict["sorted_bids"][n_opt])-1], params)
+                init_val[n_opt + 1] = decentral_opti.initial_values_flex(opti_res[n_opt], par_rh, n_opt, nodes, options,
+                                                                         trade_res[n_opt], init_val[n_opt])
 
         # change structure of results to be sorted by res instead of building
+        # from opti_res[n_opt][building][result category] to new_opti_res[n_opt][result category][building]
         opti_res_new = {}
         for n_opt in range(par_rh["n_opt"]):
             opti_res_new[n_opt] = {}
@@ -126,6 +126,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         return opti_res_new, mar_dict, trade_res, characteristics
 
     elif options["optimization"] == "P2P_typeWeeks":
+        # runs optimization for type weeks instead of whole month/year
+        # TODO: implement changes made to opti for whole year such as flexible demands and multi round trading
 
         bid_strategy = "zero"
 

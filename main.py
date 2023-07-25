@@ -19,10 +19,10 @@ import datetime
 import json
 
 
-#import data.time_data as time_data
+# import data.time_data as time_data
 from classes import Datahandler
 from data import *
-#from settings import *
+# from settings import *
 
 def get_inputs(par_rh, options, districtData):
     ### Load Params
@@ -105,30 +105,31 @@ if __name__ == '__main__':
     districtData = data
 
     # Set options for MAScity
-    options = {"optimization": "P2P",   # P2P, P2P_typeWeeks, central, central_typeWeeks, decentral or decentral_typeWeeks
+    options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
                "bid_strategy": "zero",  # zero for zero-intelligence
-               "crit_prio": "alpha_el_flex", # criteria to assign priority for trading: price, alpha_el_flex, ...
-               "descending": False,  # True: highest value of chosen has highest priority, False: lowest
-               "multi_round": False,  # True: multiple trading rounds, False: single trading round
-               "flexible_demands": False,  # True: flexible demands aren't necessarily fulfilled every step
+               "crit_prio": "alpha_el_flex",  # criteria to assign priority for trading: price, alpha_el_flex, ...
+               "descending": True,  # True: highest value of chosen has highest priority, False: lowest
+               "multi_round": True,  # True: multiple trading rounds, False: single trading round
+               "flexible_demands": True,  # True: flexible demands aren't necessarily fulfilled every step
 
-               "number_typeWeeks": 0, # set 0 in case no type weeks are investigated
-               "full_path_scenario": ("D:\\EBC\\districtgenerator_python\\data\\scenarios\\" + options_DG["scenario_name"] + ".csv"), # scenario csv, name set for DG is used
+               "number_typeWeeks": 0,  # set 0 in case no type weeks are investigated
+               "full_path_scenario": ("D:\\EBC\\districtgenerator_python\\data\\scenarios\\" +
+                                      options_DG["scenario_name"] + ".csv"),  # scenario csv, name set for DG is used
                # "times": 2688, #8760 * 4,  # whole year 15min resolution
                # "tweeks": 4,  # number of typical weeks
                "Dorfnetz": False,  # grid type # todo: aktuell klappt nur Vorstadtnetz, da bei Dorfnetz noch 1 Gebäude fehlt
                "neighborhood": "district01",     # name of neighborhood
-               #"pv_share": 0.5,  # 0.25, 0.5, 0.75, 1.0
+               # "pv_share": 0.5,  # 0.25, 0.5, 0.75, 1.0
                "ev_share": 0.0,  # 0.25, 0.5, 0.75, 1.0
                "ev_public": True,  # Skript für Opti von öffentlichen Ladestationen
                "grid": False,  # True -> consider grid constraints, False -> dont
                # "dt": 0.25,  # dt in h for rolling horizon
                "discretization_input_data": districtData.time['timeResolution']/3600,  # in h - for: elec, dhw and heat
-               "path_file": "D:/EBC/P2P_Market", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/MAScity",
-               "path_results":"D:/EBC/P2P_Market/results", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/results",
+               "path_file": "D:/EBC/P2P_Market",  # path to the project
+               "path_results":"D:/EBC/P2P_Market/results",  # path to where the result should be stored
                "time_zone": districtData.site['timeZone'],  # ---,      time zone
-               "location": districtData.site['location'], # degree,   latitude, longitude of location
-               "altitude": districtData.site['altitude'], # m,        height of location above sea level
+               "location": districtData.site['location'],  # degree,   latitude, longitude of location
+               "altitude": districtData.site['altitude'],  # m,        height of location above sea level
               }
 
     # load heating devs per building
@@ -138,30 +139,31 @@ if __name__ == '__main__':
     # Set rolling horizon options
     par_rh = {
         # Parameters for operational optimization
-        "n_hours": 36, # ----,      number of hours of prediction horizon for rolling horizon
-        "n_hours_ov": 35, # ----,      number of hours of overlap horizon for rolling horizon
-        "n_opt_max": 8760 , #8760  # -----,       maximum number of optimizations
+        "n_hours": 36,  # ----,      number of hours of prediction horizon for rolling horizon
+        "n_hours_ov": 35,  # ----,      number of hours of overlap horizon for rolling horizon
+        "n_opt_max": 8760,  # 8760  # -----,       maximum number of optimizations
         "month": 1,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data
 
         # Parameters for rolling horizon with aggregated foresight
-        "n_blocks": 2,    # ----, number of blocks with different resolution: minimum 2 (control horizon and overlap horizon)
-        #"resolution": [0.25, 1],  # h,    time resolution of each resolution block, insert list
+        "n_blocks": 2,  # ----, number of blocks with different resolution: minimum 2 (control and overlap horizon)
+        # "resolution": [0.25, 1],  # h,    time resolution of each resolution block, insert list
         "resolution": [1, 1],  # h,    time resolution of each resolution block, insert list
         # [0.25, 1] resembles: control horizon with 15min, overlap horizon with 1h discretization
-        "overlap_block_duration": [0, 0],} # h, duration of overlap time blocks, insert 0 for default: half of overlap horizon
-
+        "overlap_block_duration": [0, 0],  # h, duration of overlap time blocks, insert 0 for default: half of overlap horizon
+        }
     # Get following inputs:
     nodes, building_params, params, devs_pre_opti, net_data, par_rh = get_inputs(par_rh, options, districtData)
 
-    # Run (rolling horizon) optimization
+    # Run (rolling horizon) optimization for whole year or month
     if options["optimization"] == "P2P":
+        # run optimization incl. trading
         opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
-                                                                                                building_params, params)
+                                                                                               building_params, params)
 
         # Compute plots
-        criteria = output.compute_out_P2P(options, options_DG, par_rh, opti_results, params, building_params,
-                                               trade_res, mar_dict)
+        criteria = output.compute_out_P2P(options, options_DG, par_rh, opti_results, params, building_params, trade_res,
+                                          mar_dict)
 
         try:
             # Save results
@@ -169,15 +171,17 @@ if __name__ == '__main__':
                 pickle.dump(opti_results, fp)
             with open(options["path_results"] + "/P2P_characteristics/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
                 pickle.dump(characteristics, fp)
-            with open(options["path_results"] + "/P2P_mar_dict/" + options_DG["scenario_name"] + "_" + options["crit_prio"] + ".p", 'wb') as fp:
+            with open(options["path_results"] + "/P2P_mar_dict/" + options_DG["scenario_name"] + "_" +
+                      options["crit_prio"] + ".p", 'wb') as fp:
                 pickle.dump(mar_dict, fp)
 
         except Exception as e:
             print("Error while trying to save:", str(e))
 
+    # Run (rolling horizon) optimization for type weeks
     elif options["optimization"] == "P2P_typeWeeks":
         opti_results, typeweeks_indices, mar_dict, trade_res = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
-                                                                                                building_params, params)
+                                                                                                 building_params, params)
 
         # Compute plots
         criteria_typeweeks, criteria_year = output.compute_out_P2P_typeWeeks(options, options_DG, par_rh, opti_results,

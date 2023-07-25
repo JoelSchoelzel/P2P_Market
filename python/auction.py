@@ -1,8 +1,16 @@
 
 
 def single_round(bids):
+    """
+    Runs auction with a single trading round.
+    This uses an algorithm show in chapter 2 in Chen, 2019 "https://doi.org/10.1016/j.apenergy.2019.03.094".
+    It iterates through buying and selling bids until no more matches can be found. This only works properly, if the
+    bids are sorted by price.
 
-    # as shown in chapter 2 in: Chen, 2019
+    Returns:
+        transactions (dict): Dictionary with all transactions made.
+        bids (dict): Bids with remaining quantities.
+    """
 
     transactions = {}
 
@@ -44,6 +52,18 @@ def single_round(bids):
 
 
 def multi_round(sorted_bids):
+    """
+    Runs auction with multiple trading rounds.
+    Buying and selling bids are matched based on position. If the price of the buying bid is greater than the price of
+    the selling bid, the minimum quantity of both bids is traded. This is done for all matches.
+    Afterwards all bids that haven't been fully fulfilled are added to the next trading round. The prices of buying bids
+    are increased and selling bids are decreased by a specified factor.
+    This is repeated until no buying or selling bids remain or the maximum number of trading rounds is reached.
+
+    Returns:
+        transactions (dict): Dictionary with all transactions made.
+        bids (dict): Bids with remaining quantities and changed prices.
+    """
 
     transactions = {}
     count_trans = 0  # count of transaction

@@ -1,8 +1,8 @@
-import pymarket as pm
 import numpy as np
 
 
 def dict_for_market_data(pars_rh):
+    """Creates a dictionary to store information about market activities."""
 
     mar_dict = {
         "transactions": {},
@@ -10,67 +10,39 @@ def dict_for_market_data(pars_rh):
         "sorted_bids": {}
         }
 
-    #mar_dict["markets"] = {}
-    #mar_dict["dem_total"] = np.zeros(8760)
-    #mar_dict["sup_total"] = np.zeros(8760)
-    #mar_dict["clearing_price"] = np.zeros(8760)
-    #mar_dict["stats"] = {}
-    #mar_dict["tra_vol"] = {}         # total volume of each transaction for each participant / divided in bought and sold
-    #mar_dict["adj_op"] = {}          # adjusted operation
-    #mar_dict["tra_dem"] = {}         # traded demand
-    #mar_dict["tra_dem_unflex"] = {}  # traded unflexible demand (--> p_max)
-    #mar_dict["tra_gen"] = {}         # traded generation
-    #mar_dict["plus_gen"] = {}        # surplus generation after trading
-    #mar_dict["grid_dem"] = {}        # demand covered by superordinate grid
-    #mar_dict["grid_gen"] = {}        # feed in superordinate grid
-    #mar_dict["hp_dem"] = {}f
-    #mar_dict["mar_op"] = {}          # operation after market clearing
-    #mar_dict["unflex"] = {}          #Milena: safe unflexible demand or generation to calculate demand or generation that has to be covered by the grid
-    #mar_dict["propensities"] = {}    # Milena: propensities for learning intelligence agent
-    #mar_dict["auction"]["buy"] = {}
-    #mar_dict["auction"]["sell"] = {}
-
-
-    #for n_opt in range(pars_rh["n_opt"]):
-        #for t in range(pars_rh["time_steps"][n_opt][0], pars_rh["time_steps"][n_opt][0] + pars_rh["n_hours_ch"], pars_rh["dt"]):
-        #mar_dict["clearing_price"][pars_rh["time_steps"][n_opt][0]] = 0
-        #mar_dict["stats"][n_opt] = {}
-        #mar_dict["tra_vol"][n_opt] = {}
-        #mar_dict["adj_op"][n_opt] = {}
-        #mar_dict["tra_dem"][n_opt] = {}
-        #mar_dict["tra_dem_unflex"][n_opt] = {}
-        #mar_dict["grid_dem"][n_opt] = {}
-        #mar_dict["tra_gen"][n_opt] = {}
-        #mar_dict["plus_gen"][n_opt] = {}
-        #mar_dict["grid_gen"][n_opt] = {}
-        #mar_dict["mar_op"][n_opt] = {} # operation after market clearing
-        #mar_dict["propensities"][n_opt] = {}
-
     return mar_dict
 
 
 def bes(pars_rh, numb_bes):
+    """Creates a dictionary to store information about the inflexible demands and traded amounts of the building."""
 
-    bes = {}
+    new_bes = {}
     for n in range(numb_bes):
-        bes[n] = dict(adj_op = np.zeros(pars_rh["n_opt"]),
-        tra_dem = np.zeros(pars_rh["n_opt"]),
-        tra_dem_unflex = np.zeros(pars_rh["n_opt"]),
-        tra_gen = np.zeros(pars_rh["n_opt"]),
-        plus_gen = np.zeros(pars_rh["n_opt"]),
-        grid_dem = np.zeros(pars_rh["n_opt"]),
-        grid_gen = np.zeros(pars_rh["n_opt"]),
-        hp_dem = np.zeros(pars_rh["n_opt"]),
-        unflex = np.zeros(pars_rh["n_opt"]))
-
-    return bes
+        new_bes[n] = {"adj_op": np.zeros(pars_rh["n_opt"]),
+                      "tra_dem": np.zeros(pars_rh["n_opt"]),
+                      "tra_dem_unflex": np.zeros(pars_rh["n_opt"]),
+                      "tra_gen": np.zeros(pars_rh["n_opt"]),
+                      "plus_gen": np.zeros(pars_rh["n_opt"]),
+                      "grid_dem": np.zeros(pars_rh["n_opt"]),
+                      "grid_gen": np.zeros(pars_rh["n_opt"]),
+                      "hp_dem":  np.zeros(pars_rh["n_opt"]),
+                      "unflex":  np.zeros(pars_rh["n_opt"])
+                      }
+    return new_bes
 
 
 def compute_bids(bes, opti_res, pars_rh, mar_agent_prosumer, n_opt, options, nodes, init_val):
+    """
+    Compute bids for all buildings. The bids are created by each building's mar_agent.
 
+    Returns:
+        bid (dict): bid containing price, quantity, Boolean whether buying/selling, building number.
+        bes (object): inflexible demand is stored in bes for each building
+    """
 
     bid = {}
 
+    # iterate through all buildings
     for n in range(len(opti_res)):
         # get parameters for bidding
         t = pars_rh["time_steps"][n_opt][0]
@@ -87,26 +59,35 @@ def compute_bids(bes, opti_res, pars_rh, mar_agent_prosumer, n_opt, options, nod
 
         power_hp = max(opti_res[n][1]["hp35"][t], opti_res[n][1]["hp55"][t])
 
-        # compute bids
+        # compute bids and inflexible demands
+
+        # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
         if p_imp > 0.0:
-            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_hp_bids(p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp, options)
-            #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = bid["bes_" + str(n)][1]
+            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = \
+                mar_agent_prosumer[n].compute_hp_bids(p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp, options)
 
+        # when electricity needs to be sold, compute_chp_bids() of the mar_agent is called
         elif chp_sell > 0:
-            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_chp_bids(chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc, options)
-            #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = 0
+            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = \
+                mar_agent_prosumer[n].compute_chp_bids(chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc, options)
 
+        # when no electricity needs to be bought or sold, compute_empty_bids() of the mar_agent is called
         else:
             bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_empty_bids(n)
-            #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = 0
 
     return bid, bes
 
 
 def sort_bids(bid, options, characs, n_opt):
+    """
+    All bids are sorted by the criteria specified in options["crit_prio"].
 
-    buy_list = {}
-    sell_list = {}
+    Returns:
+        bids (dict): Bids separated by buying/selling and sorted by criteria.
+    """
+
+    buy_list = {}  # dictionary for all buying bids
+    sell_list = {}  # dictionary for all selling bids
 
     # sort by buy or sell
     for n in range(len(bid)):
@@ -132,17 +113,18 @@ def sort_bids(bid, options, characs, n_opt):
                     "building": bid["bes_" + str(n)][3]
                 }
 
+    # sort buy_list and sell_list by price if price has been specified as criteria in options
     if options["crit_prio"] == "price":
-        # sort lists by price
+        # highest paying and lowest asking first if descending has been set True in options
         if options["descending"]:
-            # highest paying and lowest asking first
             sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["price"], reverse=True)
             sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["price"])
+        # otherwise lowest paying and highest asking first
         else:
-            # lowest paying and highest asking first
             sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["price"])
             sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["price"], reverse=True)
 
+    # else if a crit from characteristics (KPIs describing flexibility) is specified:
     else:
         # add the delayed flexibility of the chosen characteristic as crit for all buying bids
         for i in range(len(buy_list)):
@@ -151,27 +133,32 @@ def sort_bids(bid, options, characs, n_opt):
         for i in range(len(sell_list)):
             sell_list[i]["crit"] = characs[sell_list[i]["building"]][options["crit_prio"]+"_forced"][n_opt]
 
-        # sort the bids by crit, highest first if "descending" is True in options, otherwise lowest first
+        # sort the bids by crit, the highest first if "descending" is True in options, otherwise lowest first
         if options["descending"]:
             sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["crit"], reverse=True)
             sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["crit"], reverse=True)
         else:
             sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["crit"])
             sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["crit"])
-    bids = {
-        "buy": {},
-        "sell": {}
-    }
 
-    for i in range(len(sorted_buy_list)):
-        bids["buy"][i] = sorted_buy_list[i][1]
-    for i in range(len(sorted_sell_list)):
-        bids["sell"][i] = sorted_sell_list[i][1]
+    # store buy_list and sell_list in one dictionary to return
+    # index 1 at end of list to fix changes made to structure while sorting
+    bids = {
+        "buy": {i: sorted_buy_list[i][1] for i in range(len(sorted_buy_list))},
+        "sell": {i: sorted_sell_list[i][1] for i in range(len(sorted_sell_list))}
+    }
 
     return bids
 
 
 def cost_and_rev_trans(trans, res):
+    """
+    Calculates the cost and revenue of each trade made within the district as well as the average trade price and the
+    total cost.
+
+    Returns:
+        Revenue, cost, average trade price and total cost stored in res.
+    """
 
     # calculate revenue and cost by adding quantity*price of each transaction
     for i in range(len(trans)):
@@ -187,9 +174,14 @@ def cost_and_rev_trans(trans, res):
 
 
 def clear_book(res, bids, params):
+    """
+    Not used at the moment! Has been replaced by grid_demands() and cost_and_rev_grid().
+
+    Clears all remaining bids by buying from and selling to the grid.
+    """
 
     for i in range(len(bids["buy"])):
-        res["cost"][bids["buy"][i]["building"]] += (bids["buy"][i]["quantity"] * params["eco"]["pr","el"])
+        res["cost"][bids["buy"][i]["building"]] += (bids["buy"][i]["quantity"] * params["eco"]["pr", "el"])
         res["el_from_grid"][bids["buy"][i]["building"]] += bids["buy"][i]["quantity"]
         bids["buy"][i]["quantity"] = 0
 
@@ -202,6 +194,7 @@ def clear_book(res, bids, params):
 
 
 def traded_volume(transaction, res):
+    """Calculates the amount of electricity traded within the district."""
 
     # add volumes traded within the district
     for i in range(len(transaction)):
@@ -212,7 +205,12 @@ def traded_volume(transaction, res):
 
 
 def grid_demands(bes, trade_res, options, bids, n_opt):
+    """
+    Calculates needs and surpluses that need to be fulfilled by grid. These are inflexible demands that haven't been
+    fulfilled by trading.
+    """
 
+    # iterate through buildings
     for n in range(options["nb_bes"]):
         # only buying bids
         if bids["bes_" + str(n)][2] == "True":
@@ -229,7 +227,9 @@ def grid_demands(bes, trade_res, options, bids, n_opt):
 
 
 def cost_and_rev_grid(bes, trade_res, options, n_opt, eco):
+    """Calculates amount and cost or revenue of buying and selling to the grid."""
 
+    # iterate through buildings
     for n in range(options["nb_bes"]):
         # add volume and revenue of elec sold to grid
         if bes[n]["grid_gen"][n_opt] > 0:
