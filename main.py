@@ -29,7 +29,8 @@ def get_inputs(par_rh, options, districtData):
     # load rolling horizon parameters
     par_rh = parse_inputs.compute_pars_rh(par_rh, options, districtData)
 
-    # Read economic parameters and parameters for opti/gurobi
+    # Read economic parameters and
+    # parameters for opti/gurobi
     params = parse_inputs.read_economics()
 
     # Load weather parameters
@@ -60,7 +61,7 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name": "scenario3",  # name of csv input file
+        "scenario_name": "scenario_test",  # name of csv input file
     }
 
     '''
@@ -101,19 +102,19 @@ if __name__ == '__main__':
     data = Datahandler()
     data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=True) #(calcUserProfiles=False, saveUserProfiles=True)
     data.designDevices(saveGenerationProfiles=True)
-    data.clusterProfiles()
+    #data.clusterProfiles()
 
     districtData = data
 
     # Set options for MAScity
     options = {"optimization": "P2P",   # P2P, P2P_typeWeeks, central, central_typeWeeks, decentral or decentral_typeWeeks
-               "bid_strategy": "zero" , # zero for zero-intelligence
-               "crit_prio": "alpha_el_flex_delayed", # criteria to assign priority for trading: price, alpha_el_flex_delayed
+               "bid_strategy": "zero",  # zero for zero-intelligence
+               "crit_prio": "price", # criteria to assign priority for trading: price, alpha_el_flex_delayed
                "descending": True, # True: highest value of chosen has highest priority, False: lowest
 
                "number_typeWeeks": 0, # set 0 in case no type weeks are investigated
                #"full_path_scenario": "C:\\Users\\miche\\districtgenerator_python\\data\\scenarios\\scenario4.csv", # scenario csv
-               "full_path_scenario": ("D:\\EBC\\districtgenerator_python\\data\\scenarios\\" + options_DG["scenario_name"] + ".csv"), # scenario csv, name set for DG is used
+               "full_path_scenario": ("D:\\jdu-zwu\\districtgenerator_python\\data\\scenarios\\" + options_DG["scenario_name"] + ".csv"), # scenario csv, name set for DG is used
                # "times": 2688, #8760 * 4,  # whole year 15min resolution
                # "tweeks": 4,  # number of typical weeks
                "Dorfnetz": False,  # grid type # todo: aktuell klappt nur Vorstadtnetz, da bei Dorfnetz noch 1 Gebäude fehlt
@@ -124,8 +125,8 @@ if __name__ == '__main__':
                "grid": False,  # True -> consider grid constraints, False -> dont
                # "dt": 0.25,  # dt in h for rolling horizon
                "discretization_input_data": districtData.time['timeResolution']/3600,  # in h - for: elec, dhw and heat
-               "path_file": "D:/EBC/MAScity", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/MAScity",
-               "path_results":"D:/EBC/MAScity/results", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/results",
+               "path_file": "D:/jdu-zwu/P2P_Market", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/MAScity",
+               "path_results":"D:/jdu-zwu/P2P_Market/results", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/results",
                "time_zone": districtData.site['timeZone'],  # ---,      time zone
                "location": districtData.site['location'], # degree,   latitude, longitude of location
                "altitude": districtData.site['altitude'], # m,        height of location above sea level

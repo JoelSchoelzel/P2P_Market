@@ -335,7 +335,7 @@ def compute_out_P2P(options, options_DG, par_rh, decentral_opti_results, params,
         "revenue_el": sum(results_ch["revenue_el"]) / 1000 * par_rh["resolution"][0],
         "cost_traded_el": sum(results_ch["cost_traded_el"]) / 1000 * par_rh["resolution"][0],
         "average_price_el": (sum(results_ch["cost_el"]) / sum(results_ch["power_demand"])) * par_rh["resolution"][0], #average price considering traded and externally bought
-        "average_trade_price_el": (sum(results_ch["cost_traded_el"]) / sum(results_ch["power_traded"])) * par_rh["resolution"][0],
+        #"average_trade_price_el": (sum(results_ch["cost_traded_el"]) / sum(results_ch["power_traded"])) * par_rh["resolution"][0],
         "E_gas_from_grid_distr": sum(results_ch["gas_from_grid"]) / 1000 * par_rh["resolution"][0],
         "E_el_feed_distr": sum(results_ch["power_feed"]) / 1000 * par_rh["resolution"][0],
         "E_el_demand_distr": sum(results_ch["power_demand"]) / 1000 * par_rh["resolution"][0],
