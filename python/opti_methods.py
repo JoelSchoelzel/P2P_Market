@@ -81,7 +81,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             # run the auction with multiple trading rounds if "multi_round" is True in options
             if options["multi_round"]:
                 mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.multi_round(
-                    mar_dict["sorted_bids"][n_opt])
+                    mar_dict["sorted_bids"][n_opt], options["trading_rounds"])
             # otherwise run the auction with a single trading round
             else:
                 mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.single_round(

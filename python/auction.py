@@ -51,7 +51,7 @@ def single_round(bids):
     return transactions, bids
 
 
-def multi_round(sorted_bids):
+def multi_round(sorted_bids, max_rounds):
     """
     Runs auction with multiple trading rounds.
     Buying and selling bids are matched based on position. If the price of the buying bid is greater than the price of
@@ -77,11 +77,15 @@ def multi_round(sorted_bids):
 
     n = 0  # round of trading
 
+    # if max_rounds has been set to 0 for unlimited trading rounds, 1000 is used to prevent a never ending loop
+    if max_rounds == 0:
+        max_rounds = 1000
+
     # create dict for first trading round using bids from dict "sorted bids"
     bids = {n: sorted_bids}
 
     # start new round of trading while potential buyers and sellers exist and maximum number of rounds isn't reached
-    while len(bids[n]["sell"]) > 0 and len(bids[n]["buy"]) > 0 and n < 3:
+    while len(bids[n]["sell"]) > 0 and len(bids[n]["buy"]) > 0 and n < max_rounds:
 
         # iterate through the previously sorted bids, prio is the position the bids are in
         for prio in range(min(len(bids[n]["sell"]), len(bids[n]["buy"]))):

@@ -110,6 +110,7 @@ if __name__ == '__main__':
                "crit_prio": "alpha_el_flex",  # criteria to assign priority for trading: price, alpha_el_flex, ...
                "descending": True,  # True: highest value of chosen has highest priority, False: lowest
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
+               "trading_rounds": 0,  # Number of trading rounds for multi round trading, 0 for unlimited
                "flexible_demands": True,  # True: flexible demands aren't necessarily fulfilled every step
 
                "number_typeWeeks": 0,  # set 0 in case no type weeks are investigated
