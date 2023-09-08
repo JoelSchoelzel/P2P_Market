@@ -87,6 +87,30 @@ def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, node
     return bid, bes
 
 
+def compute_weights(nb_bes, propensities, par_rh, n_opt):
+    # calculates the weights of the bid prices depending on propensities
+    weights = {}
+    for n in range(nb_bes):
+
+        weights["bes_" + str(n) + "_buy"] = []
+        for s in range(len(propensities["bes_" + str(n) + "_buy"])):
+            if propensities["bes_" + str(n) + "_buy"][s] > 0:
+                weights["bes_" + str(n) + "_buy"].append(
+                    propensities["bes_" + str(n) + "_buy"][s] / sum(propensities["bes_" + str(n) + "_buy"]))
+            else:
+                weights["bes_" + str(n) + "_buy"].append(0)
+
+        weights["bes_" + str(n) + "_sell"] = []
+        for s in range(len(propensities["bes_" + str(n) + "_sell"])):
+            if propensities["bes_" + str(n) + "_sell"][s] > 0:
+                weights["bes_" + str(n) + "_sell"].append(
+                    propensities["bes_" + str(n) + "_sell"][s] / sum(propensities["bes_" + str(n) + "_sell"]))
+            else:
+                weights["bes_" + str(n) + "_sell"].append(0)
+
+    return weights
+
+
 def sort_bids(bid, options, characs, n_opt):
     """
     All bids are sorted by the criteria specified in options["crit_prio"].
