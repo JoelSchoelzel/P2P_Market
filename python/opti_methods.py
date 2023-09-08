@@ -14,6 +14,7 @@ import python.market_preprocessing as mar_pre
 import python.bidding_strategies as bd
 import python.auction as auction
 import python.characteristics as characs
+import python.parse_inputs as parse_inputs
 
 
 def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
@@ -24,13 +25,13 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
     if options["optimization"] == "P2P":
 
         # range of prices for bids
-        p_max = params["eco"]["pr", "el"]  # price for electricity bought from gird
-        p_min = params["eco"]["sell_chp"]  # price for electricity from CHP sold to grid
+        options["p_max"] = params["eco"]["pr", "el"]  # price for electricity bought from gird
+        options["p_min"] = params["eco"]["sell_chp"]  # price for electricity from CHP sold to grid
 
         # compute market agents for prosumers
         mar_agent_bes = []
         for n in range(options["nb_bes"]):
-            mar_agent_bes.append(bd.mar_agent_bes(p_max, p_min, par_rh, nodes[n]))
+            mar_agent_bes.append(bd.mar_agent_bes(options, par_rh, nodes[n]))
 
         # needed market dicts
         mar_dict = mar_pre.dict_for_market_data(par_rh)
@@ -43,6 +44,14 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
 
         # calculate characteristics
         characteristics = characs.calc_characs(nodes, options, par_rh)
+
+        # parameters for learning bidding strategy
+        pars_li = parse_inputs.learning_bidding()
+        # initiate propensities for learning intelligence agent
+        if options["bid_strategy"] == "learning":
+            mar_dict["propensities"][0], strategies = mar_pre.initial_prop(par_rh, options, pars_li)
+        else:
+            strategies = {}
 
         # Start optimizations
         for n_opt in range(par_rh["n_opt"]):
@@ -74,7 +83,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
 
             # compute bids
             mar_dict["bid"][n_opt], bes = mar_pre.compute_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,
-                                                               options, nodes, init_val)
+                                                               options, nodes, init_val, mar_dict["propensities"][n_opt]
+                                                               , strategies)
             # separate bids in buying and selling, sort by price
             mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt], options, characteristics, n_opt)
 
@@ -94,6 +104,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                     trade_res[n_opt][cat][nb] = 0
             trade_res[n_opt]["average_trade_price"] = 0
             trade_res[n_opt]["total_cost_trades"] = 0
+            trade_res[n_opt]["dem_total"] = 0
+            trade_res[n_opt]["sup_total"] = 0
 
             # calculate traded volume
             trade_res[n_opt] = mar_pre.traded_volume(mar_dict["transactions"][n_opt], trade_res[n_opt])
@@ -111,6 +123,16 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             if options["flexible_demands"]:
                 init_val[n_opt + 1] = decentral_opti.initial_values_flex(opti_res[n_opt], par_rh, n_opt, nodes, options,
                                                                          trade_res[n_opt], init_val[n_opt])
+
+            trade_res[n_opt]["dem_total"], trade_res[n_opt]["sup_total"] = mar_pre.total_sup_and_dem(opti_res[n_opt],
+                                                                                                     par_rh, n_opt,
+                                                                                                     options["nb_bes"])
+            # if there's next step:
+            if n_opt < par_rh["n_opt"] - 1:
+                # update propensities
+                if options["bid_strategy"] == "learning":
+                    mar_dict["propensities"][n_opt + 1] = mar_pre.update_prop(mar_dict, par_rh, n_opt, bes, options,
+                                                                              pars_li, trade_res[n_opt], strategies)
 
         # change structure of results to be sorted by res instead of building
         # from opti_res[n_opt][building][result category] to new_opti_res[n_opt][result category][building]

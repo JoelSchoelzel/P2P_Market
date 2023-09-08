@@ -106,8 +106,8 @@ if __name__ == '__main__':
 
     # Set options for MAScity
     options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
-               "bid_strategy": "zero",  # zero for zero-intelligence
-               "crit_prio": "alpha_el_flex",  # criteria to assign priority for trading: price, alpha_el_flex, ...
+               "bid_strategy": "learning",  # zero for zero-intelligence, learning
+               "crit_prio": "price",  # criteria to assign priority for trading: price, alpha_el_flex, ...
                "descending": True,  # True: highest value of chosen has highest priority, False: lowest
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
                "trading_rounds": 0,  # Number of trading rounds for multi round trading, 0 for unlimited

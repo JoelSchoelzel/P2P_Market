@@ -4,9 +4,9 @@ import numpy as np
 class mar_agent_bes(object):
     """Market agent for each building energy system (BES) that creates the bids."""
 
-    def __init__(self, p_max, p_min, par_rh, node):
-        self.p_min = p_min
-        self.p_max = p_max
+    def __init__(self, options, par_rh, node):
+        self.p_min = options["p_min"]
+        self.p_max = options["p_max"]
 
         self.p = {}
         self.q = {}
@@ -14,7 +14,7 @@ class mar_agent_bes(object):
         self.dt = par_rh["duration"][0][0]
         self.soc_nom_tes = node["devs"]["tes"]["cap"]
 
-    def compute_hp_bids(self, p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp, options):
+    def compute_hp_bids(self, p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp, options, strategies, weights):
         """Compute the bid when electricity for the heat pump needs to be bought."""
 
         # calculate unflexible bids if flexible demands are enabled
@@ -35,14 +35,16 @@ class mar_agent_bes(object):
             # create random price between p_min and p_max
             p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100
             q = p_imp
-            q_2 = 0
-            p_2 = 0
+        # compute bids with learning
+        elif bid_strategy == "learning":
+            p = np.random.choice(strategies, p=weights["bes_" + str(n) + "_buy"])
+            q = p_imp
 
         buying = str("True")
 
         return [p, q, buying, n], unflex
 
-    def compute_chp_bids(self, chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc, options):
+    def compute_chp_bids(self, chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc, options, strategies, weights):
         """Compute the bid when electricity from the CHP needs to be sold."""
 
         unflex = 0
@@ -60,6 +62,10 @@ class mar_agent_bes(object):
         if bid_strategy == "zero":
             # create random price between p_min and p_max
             p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100
+        # compute bids with learning
+        elif bid_strategy == "learning":
+            p = np.random.choice(strategies, p=weights["bes_" + str(n) + "_sell"])
+
         q = chp_sell
 
         buying = str("False")

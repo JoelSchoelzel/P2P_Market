@@ -822,3 +822,22 @@ def get_ev_dat(ev_raw):
 
     return ev_param, ev_dat, number_evs_max
 
+
+def learning_bidding():
+    pars_li = {
+                "rec": 0.08,   # recency parameter for learning intelligence agent [0,1]
+                "exp": 0.99,   # experimentation parameter for learning intelligence agent [0,1]
+                "step": 0.01,  # step size for bidding (zero, learning)
+                "init_prop": dict(buy=0.01, sell=0.01) # initial propensities for learning intelligence agent
+    }
+    #try:
+    #    filename = "results//0.08_scn_1.pkl"  # change name!!!!!!!!!!!!!!!!!!
+    #    with open(filename, "rb") as f:
+    #        init_prop = p.load(f)
+    #
+    #    pars_li["init_prop"] = init_prop
+    #except Exception as e:
+    #    print(e, "Setting new inital propensities.")
+    #    pars_li["init_prop"] = dict(buy=0.01, sell=0.01)  # initial propensities for learning intelligence agent
+
+    return pars_li
