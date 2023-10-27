@@ -10,11 +10,16 @@ from filip.models.ngsi_v2.iot import \
 #import form packages
 import paho.mqtt.client as mqtt
 from urllib.parse import urlparse
-import pandas as pd
 import time
 import os
 from dotenv import load_dotenv
-import pickle
+
+
+#import from P2P_Market
+import python.market_preprocessing as mar_pre
+import python.bidding_strategies as bd
+import python.characteristics as characs
+import config
 
 # Load environment variables from .env file
 load_dotenv()
@@ -30,16 +35,12 @@ MQTT_Broker_URL = os.getenv('MQTT_Broker_URL')
 # Create the fiware header
 fiware_header = FiwareHeader(service=os.getenv('Service'),
                              service_path=os.getenv('Service_path'))
-print(CB_URL)
-print(IOTA_URL)
-print(MQTT_Broker_URL)
-print(fiware_header)
 
 class Building:
 
     def __init__(self, id):
         self.id = id
-        self.bids = self.load_bid()
+        self.bids = self.formulate_bid()
         self.device = self.building_device()
         self.initialization()
         self.mqtt_initialization()
@@ -132,13 +133,60 @@ class Building:
 
 
 
-    def load_bid(self):
-        # load the bid from mar_dict
-        file_path = "D:/jdu-zwu/P2P_Market/results/P2P_mar_dict/scenario_test_price.p"
-        with open(file_path, 'rb') as file:
-            loaded_data = pickle.load(file)
+    def formulate_bid(self):
+        nodes, building_params, params, devs_pre_opti, net_data, par_rh = config.get_inputs(config.par_rh, config.options, config.districtData)
+        bid_strategy = "zero"
 
-        # get the bid of the buildings
-        bids = loaded_data['bid'][0]
-        return bids
+        # range of prices
+        p_max = params["eco"]["pr", "el"]
+        p_min = params["eco"]["sell_chp"]
+
+        # compute market agents for prosumer
+        mar_agent_bes = []
+        for n in range(config.options["nb_bes"]):
+            mar_agent_bes.append(bd.mar_agent_bes(p_max, p_min, par_rh))
+
+        # needed market dicts
+        mar_dict = mar_pre.dict_for_market_data(par_rh)
+
+        #calculate characteristics
+        print("Calculate characteristics...")
+        characteristics = characs.calc_characs(nodes, config.options, par_rh)
+        print("Finished calculating characteristics!")
+
+        # Run rolling horizon
+        init_val = {}  # not needed for first optimization, thus empty dictionary
+        opti_res = {}  # to store the results of the bes optimization
+
+        # Start optimizations
+        for n_opt in range(par_rh["n_opt"]):
+            opti_res[n_opt] = {}
+            init_val[0] = {}
+            init_val[n_opt+1] = {}
+
+
+            if n_opt == 0:
+                for n in range(config.options["nb_bes"]):
+                    print("Starting optimization: n_opt: " + str(n_opt) + ", building:" +str(n) + ".")
+                    init_val[n_opt]["building_" + str(n)] = {}
+                    opti_res[n_opt][n] = config.decentral_operation(nodes[n],params, par_rh,
+                                                              building_params,
+                                                              init_val[n_opt]["building_" + str(n)], n_opt, config.options)
+                    init_val[n_opt + 1]["building_" + str(n)] = config.init_val_decentral_operation(opti_res[n_opt][n],
+                                                                                         par_rh, n_opt)
+            else:
+                for n in range(config.options["nb_bes"]):
+                    print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(n) + ".")
+                    opti_res[n_opt][n] = config.decentral_operation(nodes[n], params, par_rh, building_params,
+                                                             init_val[n_opt]["building_" + str(n)], n_opt, config.options)
+                    if n_opt < par_rh["n_opt"] - 1:
+                        init_val[n_opt + 1]["building_" + str(n)] = config.init_val_decentral_operation(opti_res[n_opt][n], par_rh, n_opt)
+                    else:
+                        init_val[n_opt + 1] = 0
+            print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) + "% of optimizations processed.")
+
+            # compute bids
+            mar_dict["bid"][n_opt] = mar_pre.compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, config.options)
+
+        return mar_dict["bid"][n_opt]
 

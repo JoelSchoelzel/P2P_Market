@@ -30,8 +30,6 @@ if __name__ == '__main__':
         # Step 1
     for building in buildings:
 
-
-
             building.publish_data(time_index)
 
             #Get corresponding entities and add values to history
