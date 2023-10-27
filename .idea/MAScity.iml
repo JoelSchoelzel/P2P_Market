@@ -5,7 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$" isTestSource="false" />
     </content>
     <content url="file://$MODULE_DIR$/../districtgenerator_python" />
-    <orderEntry type="jdk" jdkName="Python 3.9 (LEM-zehao)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.10 (jdu-zwu)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="districtgenerator_python" />
   </component>
