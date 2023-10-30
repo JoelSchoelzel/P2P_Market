@@ -18,7 +18,6 @@ from dotenv import load_dotenv
 #import from P2P_Market
 import python.market_preprocessing as mar_pre
 import python.bidding_strategies as bd
-import python.characteristics as characs
 import config
 
 # Load environment variables from .env file
@@ -40,7 +39,7 @@ class Building:
 
     def __init__(self, id):
         self.id = id
-        self.bids = self.formulate_bid()
+        self.bid = self.formulate_bid()
         self.device = self.building_device()
         self.initialization()
         self.mqtt_initialization()
@@ -51,10 +50,10 @@ class Building:
         self.mqttc.publish(device_id=self.building_device().device_id,
                            payload={"bidtime": time_index,
                                     "name": f"bes_{self.id}",
-                                    "price": self.bids[f"bes_{self.id}"][0],
-                                    "quantity": self.bids[f"bes_{self.id}"][1],
-                                    "buyer": self.bids[f"bes_{self.id}"][2],
-                                    "number": int(self.bids[f"bes_{self.id}"][3])})
+                                    "price": self.bid[f"bes_{self.id}"][0],
+                                    "quantity": self.bid[f"bes_{self.id}"][1],
+                                    "buyer": self.bid[f"bes_{self.id}"][2],
+                                    "number": int(self.bid[f"bes_{self.id}"][3])})
         #wait for 1second before publishing next values
         time.sleep(1)
 
@@ -146,14 +145,8 @@ class Building:
         for n in range(config.options["nb_bes"]):
             mar_agent_bes.append(bd.mar_agent_bes(p_max, p_min, par_rh))
 
-        # needed market dicts
-        mar_dict = mar_pre.dict_for_market_data(par_rh)
-
-        #calculate characteristics
-        print("Calculate characteristics...")
-        characteristics = characs.calc_characs(nodes, config.options, par_rh)
-        print("Finished calculating characteristics!")
-
+        # needed bid dictioanry
+        bid = {}
         # Run rolling horizon
         init_val = {}  # not needed for first optimization, thus empty dictionary
         opti_res = {}  # to store the results of the bes optimization
@@ -164,29 +157,28 @@ class Building:
             init_val[0] = {}
             init_val[n_opt+1] = {}
 
-
             if n_opt == 0:
-                for n in range(config.options["nb_bes"]):
-                    print("Starting optimization: n_opt: " + str(n_opt) + ", building:" +str(n) + ".")
-                    init_val[n_opt]["building_" + str(n)] = {}
-                    opti_res[n_opt][n] = config.decentral_operation(nodes[n],params, par_rh,
+                    print("Starting optimization: n_opt: " + str(n_opt) + ", building:" +str(self.id) + ".")
+                    init_val[n_opt]["building_" + str(self.id)] = {}
+                    opti_res[n_opt][self.id] = config.decentral_operation(nodes[self.id], params, par_rh,
                                                               building_params,
-                                                              init_val[n_opt]["building_" + str(n)], n_opt, config.options)
-                    init_val[n_opt + 1]["building_" + str(n)] = config.init_val_decentral_operation(opti_res[n_opt][n],
+                                                              init_val[n_opt]["building_" + str(self.id)], n_opt, config.options)
+                    init_val[n_opt + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(opti_res[n_opt][self.id],
                                                                                          par_rh, n_opt)
             else:
-                for n in range(config.options["nb_bes"]):
-                    print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(n) + ".")
-                    opti_res[n_opt][n] = config.decentral_operation(nodes[n], params, par_rh, building_params,
-                                                             init_val[n_opt]["building_" + str(n)], n_opt, config.options)
+                    print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(self.id) + ".")
+                    opti_res[n_opt][self.id] = config.decentral_operation(nodes[self.id], params, par_rh, building_params,
+                                                             init_val[n_opt]["building_" + str(self.id)], n_opt, config.options)
                     if n_opt < par_rh["n_opt"] - 1:
-                        init_val[n_opt + 1]["building_" + str(n)] = config.init_val_decentral_operation(opti_res[n_opt][n], par_rh, n_opt)
+                        init_val[n_opt + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(opti_res[n_opt][self.id], par_rh, n_opt)
                     else:
                         init_val[n_opt + 1] = 0
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) + "% of optimizations processed.")
 
             # compute bids
-            mar_dict["bid"][n_opt] = mar_pre.compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, config.options)
+            bid[n_opt] = mar_pre.compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, config.options, self.id)
 
-        return mar_dict["bid"][n_opt]
+        print("bid: ")
+        print(bid)
+        return bid[0]
 

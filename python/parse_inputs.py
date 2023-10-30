@@ -9,7 +9,7 @@ from __future__ import division
 
 import xlrd
 import numpy as np
-import scipy.stats as stats
+# import scipy.stats as stats
 import pandas as pd
 import copy
 import pickle
