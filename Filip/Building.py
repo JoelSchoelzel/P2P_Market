@@ -35,25 +35,25 @@ MQTT_Broker_URL = os.getenv('MQTT_Broker_URL')
 fiware_header = FiwareHeader(service=os.getenv('Service'),
                              service_path=os.getenv('Service_path'))
 
+
 class Building:
 
     def __init__(self, id):
         self.id = id
-        self.bid = self.formulate_bid()
         self.device = self.building_device()
         self.initialization()
         self.mqtt_initialization()
 
 
-    def publish_data(self, time_index):
+    def publish_data(self, time_index, bid):
         # publish the device and data
         self.mqttc.publish(device_id=self.building_device().device_id,
                            payload={"bidtime": time_index,
                                     "name": f"bes_{self.id}",
-                                    "price": self.bid[f"bes_{self.id}"][0],
-                                    "quantity": self.bid[f"bes_{self.id}"][1],
-                                    "buyer": self.bid[f"bes_{self.id}"][2],
-                                    "number": int(self.bid[f"bes_{self.id}"][3])})
+                                    "price": bid[f"bes_{self.id}"][0],
+                                    "quantity": bid[f"bes_{self.id}"][1],
+                                    "buyer": bid[f"bes_{self.id}"][2],
+                                    "number": int(bid[f"bes_{self.id}"][3])})
         #wait for 1second before publishing next values
         time.sleep(1)
 
@@ -132,7 +132,7 @@ class Building:
 
 
 
-    def formulate_bid(self):
+    def formulate_bid(self, n_opt):
         nodes, building_params, params, devs_pre_opti, net_data, par_rh = config.get_inputs(config.par_rh, config.options, config.districtData)
         bid_strategy = "zero"
 
@@ -150,35 +150,37 @@ class Building:
         # Run rolling horizon
         init_val = {}  # not needed for first optimization, thus empty dictionary
         opti_res = {}  # to store the results of the bes optimization
-
         # Start optimizations
-        for n_opt in range(par_rh["n_opt"]):
-            opti_res[n_opt] = {}
+        for n_hours in range(par_rh["n_hours"]):
+            opti_res[n_hours] = {}
             init_val[0] = {}
-            init_val[n_opt+1] = {}
+            init_val[n_hours+1] = {}
 
-            if n_opt == 0:
+            if n_hours == 0:
                     print("Starting optimization: n_opt: " + str(n_opt) + ", building:" +str(self.id) + ".")
-                    init_val[n_opt]["building_" + str(self.id)] = {}
-                    opti_res[n_opt][self.id] = config.decentral_operation(nodes[self.id], params, par_rh,
+                    init_val[n_hours]["building_" + str(self.id)] = {}
+                    opti_res[n_hours][self.id] = config.decentral_operation(nodes[self.id], params, par_rh,
                                                               building_params,
-                                                              init_val[n_opt]["building_" + str(self.id)], n_opt, config.options)
-                    init_val[n_opt + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(opti_res[n_opt][self.id],
+                                                              init_val[n_hours]["building_" + str(self.id)], n_opt, config.options)
+                    init_val[n_hours + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(opti_res[n_hours][self.id],
                                                                                          par_rh, n_opt)
+                    print(f"init_val_0: {init_val}")
             else:
                     print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(self.id) + ".")
-                    opti_res[n_opt][self.id] = config.decentral_operation(nodes[self.id], params, par_rh, building_params,
-                                                             init_val[n_opt]["building_" + str(self.id)], n_opt, config.options)
-                    if n_opt < par_rh["n_opt"] - 1:
-                        init_val[n_opt + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(opti_res[n_opt][self.id], par_rh, n_opt)
+                    opti_res[n_hours][self.id] = config.decentral_operation(nodes[self.id], params, par_rh, building_params,
+                                                             init_val[n_hours]["building_" + str(self.id)], n_opt, config.options)
+                    if n_hours < par_rh["n_hours"] - 1:
+                        init_val[n_hours + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(opti_res[n_hours][self.id], par_rh, n_opt)
                     else:
-                        init_val[n_opt + 1] = 0
-            print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) + "% of optimizations processed.")
+                        init_val[n_hours + 1] = 0
+                    print(f"init_val: {init_val}")
+            print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_hours"] * 100) + "% of optimizations processed.")
 
             # compute bids
-            bid[n_opt] = mar_pre.compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, config.options, self.id)
+            bid[n_hours] = mar_pre.compute_bids(opti_res[n_hours], par_rh, mar_agent_bes, n_opt, config.options, self.id)
 
         print("bid: ")
         print(bid)
+        print(bid[0])
         return bid[0]
 

@@ -1,4 +1,4 @@
-import pandapower as pp
+#import pandapower as pp
 import pandapower.networks as nw
 from pandapower.plotting import simple_plot
 from pandapower.plotting import pf_res_plotly
