@@ -34,8 +34,8 @@ if __name__ == '__main__':
     for n_opt in range(par_rh["n_opt"]):
         # TODO calculate and publish bids
         for building in buildings:
-            bid = building.formulate_bid(n_opt=n_opt)
-            building.publish_data(time_index, bid)
+            building.formulate_bid(n_time=n_opt)
+            building.publish_data(time_index)
             # TODO recieving bids
             # Get corresponding entities and add values to history
             building_entity = building.cbc.get_entity(building.device.entity_name)
