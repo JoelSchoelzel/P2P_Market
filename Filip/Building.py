@@ -46,7 +46,6 @@ class Building:
         self.mqtt_initialization()
         self.bid = {}
         self.init_val = {}
-        self.init_val[self.id] = {}
 
     def publish_data(self, time_index):
         # publish the device and data
@@ -190,7 +189,7 @@ class Building:
                 init_val[n_opt + 1] = {}
                 if n_opt == n_time:
                     print("Starting optimization: n_opt: " + str(n_time) + ", building:" + str(self.id) + ".")
-                    init_val[n_time]["building_" + str(self.id)] = self.init_val[self.id]
+                    init_val[n_time]["building_" + str(self.id)] = self.init_val
                     opti_res[n_opt][self.id] = config.decentral_operation(nodes[self.id], params, par_rh, building_params,
                                                                           init_val[n_time]["building_" + str(self.id)], n_opt, config.options)
                     init_val[n_opt + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(opti_res[n_opt][self.id],par_rh, n_opt)
@@ -208,7 +207,7 @@ class Building:
                 print("Finished optimization " + str(n_opt) + ". " + str(
                     (n_opt + 1) / par_rh["n_hours"] * 100) + "% of optimizations processed.")
 
-        self.init_val[self.id] = init_val[n_time+1]["building_" + str(self.id)]
+        self.init_val = init_val[n_time+1]["building_" + str(self.id)]
         self.bid = bid[n_time]
         print("init_val")
         print(init_val)

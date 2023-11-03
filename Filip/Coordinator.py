@@ -1,43 +1,53 @@
 #import from P2P_Market
 import config
 import python.characteristics as characs
-bid = {}
+
 
 class Coordinator:
+
+    def __init__(self):
+        self.bid = {}
+        self.sorted_bids = {}
+        self.transactions = {}
+
 
     def get_bid(self, building_entity):
         attributes = [building_entity.price.value, building_entity.quantity.value,
                       building_entity.buyer.value, int(building_entity.number.value)]
-        bid[building_entity.name.value] = attributes
-        print(bid)
-        return bid
+        self.bid[building_entity.name.value] = attributes
 
-    def sorted_bids(self, bid):
+    def sort_bids(self):
+        nodes, building_params, params, devs_pre_opti, net_data, par_rh = config.get_inputs(config.par_rh,
+                                                                                            config.options,
+                                                                                            config.districtData)
+        characteristics = characs.calc_characs(nodes, config.options, par_rh)
+
+
         buy_list = {}
         sell_list = {}
 
         # sort by buy or sell
-        for n in range(len(bid)):
+        for n in range(len(self.bid)):
 
             # don't consider bids with zero quantity
-            if float(bid["bes_" + str(n)][1]) != 0.0:
+            if float(self.bid["bes_" + str(n)][1]) != 0.0:
 
                 # add buying bids to buy_list
-                if bid["bes_" + str(n)][2] == "True":
+                if self.bid["bes_" + str(n)][2] == "True":
                     i = len(buy_list)
                     buy_list[i] = {
-                        "price": bid["bes_" + str(n)][0],
-                        "quantity": bid["bes_" + str(n)][1],
-                        "building": bid["bes_" + str(n)][3]
+                        "price": self.bid["bes_" + str(n)][0],
+                        "quantity": self.bid["bes_" + str(n)][1],
+                        "building": self.bid["bes_" + str(n)][3]
                     }
 
                 # add selling bids to sell_list
-                if bid["bes_" + str(n)][2] == "False":
+                if self.bid["bes_" + str(n)][2] == "False":
                     i = len(sell_list)
                     sell_list[i] = {
-                        "price": bid["bes_" + str(n)][0],
-                        "quantity": bid["bes_" + str(n)][1],
-                        "building": bid["bes_" + str(n)][3]
+                        "price": self.bid["bes_" + str(n)][0],
+                        "quantity": self.bid["bes_" + str(n)][1],
+                        "building": self.bid["bes_" + str(n)][3]
                     }
 
         if config.options["crit_prio"] == "price":
@@ -53,9 +63,9 @@ class Coordinator:
 
         else:
             for i in range(len(buy_list)):
-                buy_list[i]["crit"] = characs[buy_list[i]["building"]][config.options["crit_prio"]]
+                buy_list[i]["crit"] = characteristics[buy_list[i]["building"]][config.options["crit_prio"]]
             for i in range(len(sell_list)):
-                sell_list[i]["crit"] = characs[sell_list[i]["building"]][config.options["crit_prio"]]
+                sell_list[i]["crit"] = characteristics[sell_list[i]["building"]][config.options["crit_prio"]]
 
             if config.options["descending"]:
                 sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["crit"], reverse=True)
@@ -63,22 +73,19 @@ class Coordinator:
             else:
                 sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["crit"])
                 sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["crit"])
-        sorted_bids = {
+        self.sorted_bids = {
             "buy": {},
             "sell": {}
         }
 
         for i in range(len(sorted_buy_list)):
-            sorted_bids["buy"] = sorted_buy_list[i]
+            self.sorted_bids["buy"][i] = sorted_buy_list[i][1]
         for i in range(len(sorted_sell_list)):
-            sorted_bids["sell"] = sorted_sell_list[i]
+            self.sorted_bids["sell"][i] = sorted_sell_list[i][1]
 
-        print(sorted_bids)
-        return sorted_bids
+        print(self.sorted_bids)
 
-    def get_transactions(self, sorted_bids):
-
-        transactions = {}
+    def get_transactions(self):
         count_trans = 0  # count of transaction
 
         # k for k-pricing method
@@ -91,7 +98,7 @@ class Coordinator:
         n = 0  # round of trading
 
         # create dict for first trading round with sorted bids
-        bids = {n: sorted_bids}
+        bids = {n: self.sorted_bids}
 
         # start new round of trading while potential buyers and sellers exist and maximum number of rounds isn't reached
         while len(bids[n]["sell"]) != 0 and len(bids[n]["buy"]) != 0 and n < 5:
@@ -113,7 +120,7 @@ class Coordinator:
                             transaction_quantity = min(bids[n]["sell"][k]["quantity"], bids[n]["buy"][prio]["quantity"])
 
                             # add transaction
-                            transactions[count_trans] = {
+                            self.transactions[count_trans] = {
                                 "buyer": bids[n]["buy"][prio]["building"],
                                 "seller": bids[n]["sell"][k]["building"],
                                 "price": transaction_price,
@@ -142,7 +149,7 @@ class Coordinator:
                             transaction_quantity = min(bids[n]["sell"][prio]["quantity"], bids[n]["buy"][k]["quantity"])
 
                             # add transaction
-                            transactions[count_trans] = {
+                            self.transactions[count_trans] = {
                                 "buyer": bids[n]["buy"][k]["building"],
                                 "seller": bids[n]["sell"][prio]["building"],
                                 "price": transaction_price,
@@ -152,7 +159,7 @@ class Coordinator:
 
                             # subtract quantity and break loop when seller is satisfied
                             bids[n]["sell"][prio]["quantity"] -= transaction_quantity
-                            bids[n]["buy"][k]["quantity"] -= transaction_quantity
+                            bids[n]["buy"][ k]["quantity"] -= transaction_quantity
                             if bids[n]["sell"][prio]["quantity"] == 0:
                                 break
 
@@ -176,4 +183,4 @@ class Coordinator:
             # go to next trading round
             n += 1
 
-        return transactions
+
