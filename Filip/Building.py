@@ -179,7 +179,7 @@ class Building:
                     else:
                         init_val[n_opt + 1] = 0
                     # compute bids
-                bid[n_opt] = mar_pre.compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, config.options, self.id)
+                bid[n_opt] = mar_pre.filip_compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, config.options, self.id)
                 print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_hours"] * 100) + "% of optimizations processed.")
 
         else:
@@ -202,7 +202,7 @@ class Building:
                     else:
                         init_val[n_opt + 1] = 0
                     # compute bids
-                bid[n_opt] = mar_pre.compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, config.options,
+                bid[n_opt] = mar_pre.filip_compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, config.options,
                                                   self.id)
                 print("Finished optimization " + str(n_opt) + ". " + str(
                     (n_opt + 1) / par_rh["n_hours"] * 100) + "% of optimizations processed.")

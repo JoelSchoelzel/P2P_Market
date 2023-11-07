@@ -11,7 +11,6 @@ import python.plots as plots
 import python.calc_output as output
 import pickle
 
-
 import numpy as np
 import pandas as pd
 import datetime
@@ -23,6 +22,8 @@ import json
 from classes import Datahandler
 from data import *
 #from settings import *
+
+
 
 def get_inputs(par_rh, options, districtData):
     ### Load Params
@@ -185,6 +186,7 @@ if __name__ == '__main__':
         decentral_opti = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
 
     elif options["optimization"] == "P2P":
+
         opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
                                                                                                 building_params, params)
 

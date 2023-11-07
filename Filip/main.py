@@ -5,11 +5,14 @@ from filip.utils.cleanup import clear_context_broker, clear_iot_agent
 import os
 import datetime
 
+
 #import from P2P_Market
 import config
 
 #import for visual
 import pandas as pd
+
+
 
 # Create the fiware header
 fiware_header = FiwareHeader(service=os.getenv('Service'),
@@ -24,7 +27,7 @@ if __name__ == '__main__':
     clear_iot_agent(url=IOTA_URL, fiware_header=fiware_header)
 
     #call Class Buidling
-    buildings = [Building(id=i) for i in range(1)]  # TODO set the id properly
+    buildings = [Building(id=i) for i in range(4)]  # TODO set the id properly
     #call Class Coordinator
     coordinator = Coordinator()
 
@@ -35,7 +38,10 @@ if __name__ == '__main__':
     nodes, building_params, params, devs_pre_opti, net_data, par_rh = config.get_inputs(config.par_rh, config.options,
                                                                                         config.districtData)
     bids = []
-    for n_opt in range(3):
+    sorted_bids = []
+    transactions = []
+
+    for n_opt in range(5):
         # TODO calculate and publish bids
         for building in buildings:
             building.formulate_bid(n_time=n_opt)
@@ -48,19 +54,33 @@ if __name__ == '__main__':
             print("bids:")
             print(bids)
         # TODo calculate sorted bids
-        #coordinator.sort_bids()
-        #print("sorted bids: ")
-        #print(coordinator.sorted_bids)
+        coordinator.sort_bids()
+        sorted_bids.append(coordinator.sorted_bids.copy())
+        print("sorted bids: ")
+        print(coordinator.sorted_bids)
         # TODO calculate transaction
-        #coordinator.get_transactions()
-        #print("transactions: ")
-        #print(coordinator.transactions)
+        coordinator.get_transactions()
+        transactions.append(coordinator.transactions.copy())
+        print("transactions: ")
+        print(coordinator.transactions)
 
-    df = pd.DataFrame(bids)
-    print("df:")
-    print(df)
-    file_path = 'output0.csv'
-    df.to_csv(file_path, index=False)
+    df0 = pd.DataFrame(bids)
+    print("df0:")
+    print(df0)
+    file_path = 'output_bids.csv'
+    df0.to_csv(file_path, index=False)
+
+    df1 = pd.DataFrame(sorted_bids)
+    print("df1:")
+    print(df1)
+    file_path = 'output_sortedbids.csv'
+    df1.to_csv(file_path, index=False)
+
+    df2 = pd.DataFrame(transactions)
+    print("df2:")
+    print(df2)
+    file_path = 'output_transactions.csv'
+    df2.to_csv(file_path, index=False)
 
 
 # close the mqtt listening thread

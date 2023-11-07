@@ -67,8 +67,7 @@ def bes(pars_rh, numb_bes):
     return bes
 
 
-def compute_bids(opti_res, pars_rh, mar_agent_prosumer, n_opt, options, n):
-
+def filip_compute_bids(opti_res, pars_rh, mar_agent_prosumer, n_opt, options, n): #TODO This one refers to Filip
 
     bid = {}
 
@@ -78,8 +77,6 @@ def compute_bids(opti_res, pars_rh, mar_agent_prosumer, n_opt, options, n):
     p_imp = opti_res[n][4][t]
     chp_sell = opti_res[n][8]["chp"][t]
     bid_strategy = options["bid_strategy"]
-
-
 
         # compute bids
     if p_imp > 0.0:
@@ -96,6 +93,32 @@ def compute_bids(opti_res, pars_rh, mar_agent_prosumer, n_opt, options, n):
 
     return bid
 
+
+def compute_bids(opti_res, pars_rh, mar_agent_prosumer, n_opt, options): #TODO This one refers to P2P_Market
+
+    bid = {}
+
+    for n in range(len(opti_res)):
+        # get parameters for bidding
+        t = pars_rh["time_steps"][n_opt][0]
+        p_imp = opti_res[n][4][t]
+        chp_sell = opti_res[n][8]["chp"][t]
+        bid_strategy = options["bid_strategy"]
+
+        # compute bids
+        if p_imp > 0.0:
+            bid["bes_" + str(n)] = mar_agent_prosumer[n].compute_hp_bids(p_imp, n, bid_strategy)
+            #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = bid["bes_" + str(n)][1]
+
+        elif chp_sell > 0:
+            bid["bes_" + str(n)] = mar_agent_prosumer[n].compute_chp_bids(chp_sell, n, bid_strategy)
+            #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = 0
+
+        else:
+            bid["bes_" + str(n)] = mar_agent_prosumer[n].compute_empty_bids(n)
+            #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = 0
+
+    return bid
 
 def sort_bids(bid, options, characs, n_opt):
 

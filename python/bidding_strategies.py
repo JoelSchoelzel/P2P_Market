@@ -1,5 +1,8 @@
 import numpy as np
 
+#seed_value = 123 #TODO try to compare the bids
+#np.random.seed(seed_value) #TODO try to compare the bids
+
 class mar_agent_bes(object):
     def __init__(self, p_max, p_min, pars_rh):
         self.p_min = p_min
@@ -15,7 +18,7 @@ class mar_agent_bes(object):
         # compute bids with zero-intelligence
         if bid_strategy == "zero":
             # create random price between p_min and p_max
-            p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100
+            p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100 #TODO set the price
             q = p_imp
             q_2 = 0
             p_2 = 0
@@ -36,7 +39,7 @@ class mar_agent_bes(object):
         # compute bids with zero-intelligence
         if bid_strategy == "zero":
             # create random price between p_min and p_max
-            p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100
+            p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100 #TODO set the price
         p = np.around(p, decimals=6)
 
         return [p, q, buying, n]
