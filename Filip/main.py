@@ -14,6 +14,7 @@ import pandas as pd
 
 
 
+
 # Create the fiware header
 fiware_header = FiwareHeader(service=os.getenv('Service'),
                              service_path=os.getenv('Service_path'))
@@ -37,11 +38,12 @@ if __name__ == '__main__':
 
     nodes, building_params, params, devs_pre_opti, net_data, par_rh = config.get_inputs(config.par_rh, config.options,
                                                                                         config.districtData)
-    bids = []
-    sorted_bids = []
-    transactions = []
+    f_bids = []
+    f_sorted_bids = []
+    f_transactions = []
 
-    for n_opt in range(5):
+    for n_opt in range(20):
+        print(f"nopt = {n_opt}")
         # TODO calculate and publish bids
         for building in buildings:
             building.formulate_bid(n_time=n_opt)
@@ -50,33 +52,34 @@ if __name__ == '__main__':
             # Get corresponding entities and add values to history
             building_entity = building.cbc.get_entity(building.device.entity_name)
             coordinator.get_bid(building_entity)
-            bids.append(coordinator.bid.copy())
-            print("bids:")
-            print(bids)
+            f_bids.append(coordinator.bid.copy())
+
         # TODo calculate sorted bids
         coordinator.sort_bids()
-        sorted_bids.append(coordinator.sorted_bids.copy())
-        print("sorted bids: ")
-        print(coordinator.sorted_bids)
+        f_sorted_bids.append(coordinator.sorted_bids.copy())
+
         # TODO calculate transaction
         coordinator.get_transactions()
-        transactions.append(coordinator.transactions.copy())
-        print("transactions: ")
-        print(coordinator.transactions)
+        f_transactions.append(coordinator.transactions.copy())
 
-    df0 = pd.DataFrame(bids)
+        # TODO clear the self.initial
+        coordinator.sorted_bids.clear()
+        coordinator.transactions.clear()
+
+
+    df0 = pd.DataFrame(f_bids)
     print("df0:")
     print(df0)
     file_path = 'output_bids.csv'
     df0.to_csv(file_path, index=False)
 
-    df1 = pd.DataFrame(sorted_bids)
+    df1 = pd.DataFrame(f_sorted_bids)
     print("df1:")
     print(df1)
     file_path = 'output_sortedbids.csv'
     df1.to_csv(file_path, index=False)
 
-    df2 = pd.DataFrame(transactions)
+    df2 = pd.DataFrame(f_transactions)
     print("df2:")
     print(df2)
     file_path = 'output_transactions.csv'

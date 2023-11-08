@@ -57,7 +57,7 @@ class Building:
                                     "buyer": self.bid[f"bes_{self.id}"][2],
                                     "number": int(self.bid[f"bes_{self.id}"][3])})
         #wait for 1second before publishing next values
-        time.sleep(1)
+        time.sleep(0.1)
 
 
     def building_device(self):
