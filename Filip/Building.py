@@ -1,5 +1,6 @@
 #import from filip
 from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient
+from filip.models.ngsi_v2.subscriptions import Subscription
 from filip.clients.mqtt import IoTAMQTTClient
 from filip.models.base import FiwareHeader
 from filip.models.ngsi_v2.iot import \
@@ -13,7 +14,7 @@ from urllib.parse import urlparse
 import time
 import os
 from dotenv import load_dotenv
-
+from uuid import uuid4
 
 #import from P2P_Market
 import python.market_preprocessing as mar_pre
@@ -30,10 +31,13 @@ service_group = ServiceGroup(apikey=os.getenv('APIKEY'),
 CB_URL = os.getenv('CB_URL')
 IOTA_URL = os.getenv('IOTA_URL')
 MQTT_Broker_URL = os.getenv('MQTT_Broker_URL')
+MQTT_Broker_URL_INTERNAL = os.getenv('MQTT_Broker_URL_INTERNAL')
 
 # Create the fiware header
 fiware_header = FiwareHeader(service=os.getenv('Service'),
                              service_path=os.getenv('Service_path'))
+UNIQUE_ID = str(uuid4())
+TOPIC_CONTROLLER = f"fiware_workshop/{UNIQUE_ID}/controller"
 
 
 
@@ -97,6 +101,27 @@ class Building:
         self.cbc = ContextBrokerClient(url=CB_URL, fiware_header=fiware_header)
         self.iotac = IoTAClient(url=IOTA_URL, fiware_header=fiware_header)
 
+        #Subscription in context broker
+        #subscription = {
+        #    "description": "Subscription to receive MQTT-Notification about "
+        #                   "urn:ngsi-ld:Transaction:2023",
+        #    "subject": {
+        #        "entities": [
+        #            {
+        #                "id": "urn:ngsi-ld:Transaction:2023",
+        #                "type": "Transaction"
+        #            }
+        #        ]
+        #    },
+        #    "notification": {
+        #        "mqtt": {
+        #            "url": MQTT_Broker_URL_INTERNAL,
+        #            "topic": TOPIC_CONTROLLER
+        #        }
+        #    }
+        #}
+        #subscription = Subscription(**subscription)
+        #self.cbc.post_subscription(subscription=subscription)
 
         # Provision service group and add it to your IOTAClient
         self.iotac.post_group(service_group=service_group, update=True)
@@ -104,8 +129,6 @@ class Building:
         self.iotac.post_device(device=self.device, update=True)
         # check in the context broker if the entities corresponding to the buildings
         print(self.cbc.get_entity(self.device.entity_name))
-
-
 
 
     def mqtt_initialization(self):
@@ -128,7 +151,7 @@ class Building:
                            properties=None)
 
         # subcribe to the topics
-        self.mqttc.subscribe()
+        self.mqttc.subscribe(topic=TOPIC_CONTROLLER)
         # create a non-blocking thread for mqtt communication
         self.mqttc.loop_start()
 

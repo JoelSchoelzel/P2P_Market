@@ -2,9 +2,10 @@ from Building import Building
 from Coordinator import Coordinator
 from filip.models.base import FiwareHeader
 from filip.utils.cleanup import clear_context_broker, clear_iot_agent
+from filip.models.ngsi_v2.subscriptions import Subscription, Message
 import os
 import datetime
-
+from filip.models.ngsi_v2.context import ContextEntity
 
 #import from P2P_Market
 import config
@@ -20,7 +21,6 @@ fiware_header = FiwareHeader(service=os.getenv('Service'),
                              service_path=os.getenv('Service_path'))
 CB_URL = os.getenv('CB_URL')
 IOTA_URL = os.getenv('IOTA_URL')
-MQTT_Broker_URL = os.getenv('MQTT_Broker_URL')
 
 
 if __name__ == '__main__':
@@ -57,10 +57,17 @@ if __name__ == '__main__':
         # TODo calculate sorted bids
         coordinator.sort_bids()
         f_sorted_bids.append(coordinator.sorted_bids.copy())
-
         # TODO calculate transaction
         coordinator.get_transactions()
         f_transactions.append(coordinator.transactions.copy())
+
+        # TODO coordinator send transaction to context broker subscription
+        #if coordinator.get_transactions() == None:
+        #    transaction = 0
+        #else:
+        #    transaction = coordinator.get_transactions().copy()
+        #feed_back = ContextEntity(id="urn:ngsi-ld:Transaction:2023", type="Transaction", **transaction)
+        #buildings[3].cbc.patch_entity(entity=feed_back)
 
         # TODO clear the self.initial
         coordinator.sorted_bids.clear()
