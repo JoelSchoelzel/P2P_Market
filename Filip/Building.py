@@ -14,7 +14,6 @@ from urllib.parse import urlparse
 import time
 import os
 from dotenv import load_dotenv
-from uuid import uuid4
 
 #import from P2P_Market
 import python.market_preprocessing as mar_pre
@@ -31,13 +30,12 @@ service_group = ServiceGroup(apikey=os.getenv('APIKEY'),
 CB_URL = os.getenv('CB_URL')
 IOTA_URL = os.getenv('IOTA_URL')
 MQTT_Broker_URL = os.getenv('MQTT_Broker_URL')
-MQTT_Broker_URL_INTERNAL = os.getenv('MQTT_Broker_URL_INTERNAL')
+
 
 # Create the fiware header
 fiware_header = FiwareHeader(service=os.getenv('Service'),
                              service_path=os.getenv('Service_path'))
-UNIQUE_ID = str(uuid4())
-TOPIC_CONTROLLER = f"fiware_workshop/{UNIQUE_ID}/controller"
+#TOPIC_CONTROLLER = "jdu_zwu/2023/controller"
 
 
 
@@ -102,26 +100,26 @@ class Building:
         self.iotac = IoTAClient(url=IOTA_URL, fiware_header=fiware_header)
 
         #Subscription in context broker
-        #subscription = {
-        #    "description": "Subscription to receive MQTT-Notification about "
-        #                   "urn:ngsi-ld:Transaction:2023",
-        #    "subject": {
-        #        "entities": [
-        #            {
-        #                "id": "urn:ngsi-ld:Transaction:2023",
-        #                "type": "Transaction"
-        #            }
-        #        ]
-        #    },
-        #    "notification": {
-        #        "mqtt": {
-        #            "url": MQTT_Broker_URL_INTERNAL,
-        #            "topic": TOPIC_CONTROLLER
-        #        }
-        #    }
-        #}
-        #subscription = Subscription(**subscription)
-        #self.cbc.post_subscription(subscription=subscription)
+        subscription = {
+            "description": "Subscription to receive MQTT-Notification about "
+                           f"urn:ngsi-ld:Transaction:{self.id}",
+            "subject": {
+                "entities": [
+                    {
+                        "id": f"urn:ngsi-ld:Transaction:{self.id}",
+                        "type": "Transaction"
+                    }
+                ]
+            },
+            "notification": {
+                "mqtt": {
+                    "url": MQTT_Broker_URL,
+                    "topic": f"jdu_zwu/2023_f{self.id}/controller"
+                }
+            }
+        }
+        subscription = Subscription(**subscription)
+        self.cbc.post_subscription(subscription=subscription)
 
         # Provision service group and add it to your IOTAClient
         self.iotac.post_group(service_group=service_group, update=True)
@@ -151,7 +149,7 @@ class Building:
                            properties=None)
 
         # subcribe to the topics
-        self.mqttc.subscribe(topic=TOPIC_CONTROLLER)
+        self.mqttc.subscribe(topic=f"jdu_zwu/2023_f{self.id}/controller")
         # create a non-blocking thread for mqtt communication
         self.mqttc.loop_start()
 
