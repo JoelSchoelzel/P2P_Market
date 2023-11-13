@@ -2,10 +2,9 @@ from Building import Building
 from Coordinator import Coordinator
 from filip.models.base import FiwareHeader
 from filip.utils.cleanup import clear_context_broker, clear_iot_agent
-from filip.models.ngsi_v2.subscriptions import Subscription, Message
 import os
 import datetime
-from filip.models.ngsi_v2.context import ContextEntity, NamedContextAttribute
+from filip.models.ngsi_v2.subscriptions import Subscription, Message
 
 # import from P2P_Market
 import config
@@ -14,7 +13,7 @@ import config
 import pandas as pd
 
 # import from data model
-from data_model import TransactionModel
+#from data_model import
 
 # Create the fiware header
 fiware_header = FiwareHeader(service=os.getenv('Service'),
@@ -37,9 +36,9 @@ if __name__ == '__main__':
 
     nodes, building_params, params, devs_pre_opti, net_data, par_rh = config.get_inputs(config.par_rh, config.options,
                                                                                         config.districtData)
-    f_bids = []
-    f_sorted_bids = []
-    f_transactions = []
+    #f_bids = []
+    #f_sorted_bids = []
+    #f_transactions = []
 
     for n_opt in range(par_rh['n_opt']):
         print(f"nopt = {n_opt}")
@@ -51,80 +50,41 @@ if __name__ == '__main__':
             # Get corresponding entities and add values to history
             building_entity = building.cbc.get_entity(building.device.entity_name)
             coordinator.get_bid(building_entity)
-            f_bids.append(coordinator.bid.copy())
+            #f_bids.append(coordinator.bid.copy())
 
         # TODo calculate sorted bids
         coordinator.sort_bids()
-        f_sorted_bids.append(coordinator.sorted_bids.copy())
+        #f_sorted_bids.append(coordinator.sorted_bids.copy())
         # TODO calculate transaction
         coordinator.get_transactions()
-        f_transactions.append(coordinator.transactions.copy())
+        #f_transactions.append(coordinator.transactions.copy())
 
         # TODO coordinator send transaction to context broker subscription
-        c_transaction = coordinator.transactions.copy()
-        #Build dictionary for every building
-        c_buildings = {}
-        for m in range(4):
-            c_buildings[m] = {}
-            # add the relevant information from transaction to the corresponding building
-            if c_transaction:
-                    for n in range(len(c_transaction)):
-                            if m == c_transaction[n]['buyer']:
-                                c_buildings[m][n]['buyer'] = c_transaction[n]['buyer']
-                                c_buildings[m][n]['seller'] = c_transaction[n]['seller']
-                            if m == c_transaction[n]['seller']:
-                                c_buildings[m][n]['seller'] = c_transaction[n]['seller']
-                                c_buildings[m][n]['buyer'] = c_transaction[n]['buyer']
+        for i in range(4): #TODO repeat the order of buildings
+            coordinator.get_transaction_entity(cleints=i, n_opt=n_opt)
+            buildings[3].cbc.patch_entity(entity=coordinator.transaction_entity)
 
-
-                    transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{i}",
-                                                       type="Transaction")
-                    attribute_test = NamedContextAttribute(
-                        name="my_attributes",
-                        type="StructuredValue",
-                        value={
-                          "time": str(n_opt),
-                          "buyer": "Junsong",
-                          "seller": "Zehao",
-                          "price": i,
-                          "quantity": 3*i
-                        })
-                    transaction_entity.add_attributes([attribute_test])
-                    buildings[3].cbc.patch_entity(entity=transaction_entity)
-            else:
-                for i in range(4):
-                    transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{i}",
-                                                       type="Transaction")
-                    attribute_test = NamedContextAttribute(
-                        name="my_attributes",
-                        type="StructuredValue",
-                        value={
-                          "time": str(n_opt),
-                          "result": "No Transaction",
-                        })
-                    transaction_entity.add_attributes([attribute_test])
-                    buildings[3].cbc.patch_entity(entity=transaction_entity)
         # TODO clear the self.initial
         coordinator.sorted_bids.clear()
         coordinator.transactions.clear()
 
-    df0 = pd.DataFrame(f_bids)
-    print("df0:")
-    print(df0)
-    file_path = 'output_bids.csv'
-    df0.to_csv(file_path, index=False)
+    #df0 = pd.DataFrame(f_bids)
+    #print("df0:")
+    #print(df0)
+    #file_path = 'output_bids.csv'
+    #df0.to_csv(file_path, index=False)
 
-    df1 = pd.DataFrame(f_sorted_bids)
-    print("df1:")
-    print(df1)
-    file_path = 'output_sortedbids.csv'
-    df1.to_csv(file_path, index=False)
+    #df1 = pd.DataFrame(f_sorted_bids)
+    #print("df1:")
+    #print(df1)
+    #file_path = 'output_sortedbids.csv'
+    #df1.to_csv(file_path, index=False)
 
-    df2 = pd.DataFrame(f_transactions)
-    print("df2:")
-    print(df2)
-    file_path = 'output_transactions.csv'
-    df2.to_csv(file_path, index=False)
+    #df2 = pd.DataFrame(f_transactions)
+    #print("df2:")
+    #print(df2)
+    #file_path = 'output_transactions.csv'
+    #df2.to_csv(file_path, index=False)
 
 # close the mqtt listening thread
 # building.mqttc.loop_stop()

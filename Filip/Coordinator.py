@@ -1,6 +1,7 @@
 #import from P2P_Market
 import config
 import python.characteristics as characs
+from filip.models.ngsi_v2.context import ContextEntity, NamedContextAttribute
 
 
 class Coordinator:
@@ -9,6 +10,7 @@ class Coordinator:
         self.bid = {}
         self.sorted_bids = {}
         self.transactions = {}
+        self.transaction_entity = None
 
 
     def get_bid(self, building_entity):
@@ -183,4 +185,88 @@ class Coordinator:
             # go to next trading round
             n += 1
 
+    def get_transaction_entity(self, cleints, n_opt):# TODO Set the number of buildings, time of running hour
+        # Build buy and sell dictionary from the transaction
+        buyer_dic = {}
+        seller_dic = {}
+        transaction_list = []
+        transaction = {}
+        # add the relevant information from transaction to the corresponding building
+        # if the transactions is not empty
+        if self.transactions:
+            for n in range(len(self.transactions)):
+                buyer_dic[n] = {}
+                buyer_dic[n] = self.transactions[n]['buyer']
+                seller_dic[n] = {}
+                seller_dic[n] = self.transactions[n]['seller']
 
+
+            # if the building hasn't transaction not the buyer or seller
+            if cleints not in buyer_dic.values() and cleints not in seller_dic.values():
+                self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
+                                                        type="Transaction")
+                attribute_test = NamedContextAttribute(
+                        name="my_attributes",
+                        type="StructuredValue",
+                        value={
+                            "time": str(n_opt),
+                            "result": "No Transaction",
+                        })
+                self.transaction_entity.add_attributes([attribute_test])
+
+            # if the building is a buyer
+            if cleints in buyer_dic.values():
+                for key, value in buyer_dic.items():
+                    if value == cleints:
+                        transaction['Price'] = self.transactions[key]['price']
+                        transaction['Quantity'] = self.transactions[key]['quantity']
+                        transaction_list.append(transaction.copy())
+
+                self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
+                                                        type="Transaction")
+                attribute_test = NamedContextAttribute(
+                        name="my_attributes",
+                        type="StructuredValue",
+                        value={
+                            "time": str(n_opt),
+                            "buyer": f"{cleints}",
+                            # "seller": "Zehao",
+                            "transaction": transaction_list
+                        })
+                self.transaction_entity.add_attributes([attribute_test])
+                transaction_list.clear()
+
+                # if the building is a seller
+            else:
+                for key, value in seller_dic.items():
+                    if value == cleints:
+                            transaction['Price'] = self.transactions[key]['price']
+                            transaction['Quantity'] = self.transactions[key]['quantity']
+                            transaction_list.append(transaction.copy())
+
+                self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
+                                                        type="Transaction")
+                attribute_test = NamedContextAttribute(
+                        name="my_attributes",
+                        type="StructuredValue",
+                        value={
+                            "time": str(n_opt),
+                            # "buyer": "Junsong",
+                            "seller": f"{cleints}",
+                            "transaction": transaction_list
+                        })
+                self.transaction_entity.add_attributes([attribute_test])
+                transaction_list.clear()
+
+        # if the transaction is empty
+        else:
+            self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
+                                                    type="Transaction")
+            attribute_test = NamedContextAttribute(
+                    name="my_attributes",
+                    type="StructuredValue",
+                    value={
+                        "time": str(n_opt),
+                        "result": "No Transaction",
+                    })
+            self.transaction_entity.add_attributes([attribute_test])

@@ -114,7 +114,7 @@ class Building:
             "notification": {
                 "mqtt": {
                     "url": MQTT_Broker_URL,
-                    "topic": f"jdu_zwu/2023_f{self.id}/controller"
+                    "topic": f"transaction/2023_f{self.id}/controller"
                 }
             }
         }
