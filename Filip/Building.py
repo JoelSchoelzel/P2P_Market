@@ -41,7 +41,9 @@ fiware_header = FiwareHeader(service=os.getenv('Service'),
 
 class Building:
 
-    def __init__(self, id):
+    def __init__(self, id, cbc: ContextBrokerClient, iotac: IoTAClient):
+        self.cbc = cbc
+        self.iotac = iotac
         self.id = id
         self.device = self.building_device()
         self.initialization()
@@ -64,24 +66,24 @@ class Building:
 
     def building_device(self):
         # create the  building's device, simulate time attribute, demand of building attribute and production of building attribute
-        t_bidtime = DeviceAttribute(name='bidtime',
-                                    object_id='t_bidtime',
-                                    type="String")
-        t_name = DeviceAttribute(name='name',
-                                object_id='t_name',
-                                type="String")
-        t_price = DeviceAttribute(name='price',
-                                object_id='t_price',
-                                type='Number')
-        t_quantity = DeviceAttribute(name='quantity',
-                                object_id='t_quantity',
-                                type='Number')
-        t_buyer = DeviceAttribute(name='buyer',
-                                     object_id='t_buyer',
-                                     type='String')
-        t_numer = DeviceAttribute(name='number',
-                                     object_id='t_num',
-                                     type='Number')
+        # t_bidtime = DeviceAttribute(name='bidtime',
+        #                             object_id='t_bidtime',
+        #                             type="String")
+        # t_name = DeviceAttribute(name='name',
+        #                         object_id='t_name',
+        #                         type="String")
+        # t_price = DeviceAttribute(name='price',
+        #                         object_id='t_price',
+        #                         type='Number')
+        # t_quantity = DeviceAttribute(name='quantity',
+        #                         object_id='t_quantity',
+        #                         type='Number')
+        # t_buyer = DeviceAttribute(name='buyer',
+        #                              object_id='t_buyer',
+        #                              type='String')
+        # t_numer = DeviceAttribute(name='number',
+        #                              object_id='t_num',
+        #                              type='Number')
 
         building = Device(device_id=f"device:{self.id}",
                           entity_name=f"urn:ngsi-ld:Building:{self.id}",
@@ -89,15 +91,14 @@ class Building:
                           protocol='IoTA-JSON',
                           transport='MQTT',
                           apikey=os.getenv('APIKEY'),
-                          attributes=[t_bidtime, t_name, t_price, t_quantity, t_buyer, t_numer],
                           commands=[])
         return building
 
 
     def initialization(self):
         # create the clients
-        self.cbc = ContextBrokerClient(url=CB_URL, fiware_header=fiware_header)
-        self.iotac = IoTAClient(url=IOTA_URL, fiware_header=fiware_header)
+        #self.cbc = ContextBrokerClient(url=CB_URL, fiware_header=fiware_header)
+        #self.iotac = IoTAClient(url=IOTA_URL, fiware_header=fiware_header)
 
         #Subscription in context broker
         subscription = {

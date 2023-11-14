@@ -6,6 +6,11 @@ from aenum import Enum
 
 # Identify buildings
 class BuildingID(BaseModel):
+    """
+    To identify every building who submits the bid to coordinator, and coordinator can send the relevant transaction
+    according to their ID number.
+    """
+
     name: Optional[str] = Field(
         titel="Attribute name",
         max_length=256,
@@ -28,15 +33,24 @@ class BuildingID(BaseModel):
     )
 
 
-# participant type is to specify a limited set of options for the 'value' field in class Role
 class ParticipantType(str, Enum):
+    """
+    Participant type is to specify a limited set of options for the 'value' field in class Role. 'buyer' and 'seller'
+    will be claimed in the bids, so that the coordinator can match the appropriate seller and buyer. Some buyer or
+    seller may not be able to transact with others for variety of reasons, so they will be set as 'not participant'
+    in transaction.
+    """
     Buyer = 'buyer'
     Seller = 'seller'
     NotParticipant = 'not participant'
 
 
-# The role of buildings in the transaction
+
 class Role(BaseModel):
+    """
+    The Role of 'buyer' and 'seller' will be used both in bids and transactions, 'not participant' only be used in
+    transaction
+    """
     name: Optional[str] = Field(
         titel="Attribute name",
         max_length=256,
@@ -59,8 +73,11 @@ class Role(BaseModel):
     )
 
 
-# The running time of process
+
 class Time(BaseModel):
+    """
+    The time of prediction for next hour, it can also identify the bids or transactions in hours.
+    """
     name: Optional[str] = Field(
         titel="Attribute name",
         max_length=256,
@@ -83,8 +100,11 @@ class Time(BaseModel):
     )
 
 
-# The price in the transaction
 class Price(BaseModel):
+    """
+    The price of the buying or selling will be at first in bids provided from every building. But the final transacted
+    price will be by coordinator with multiple trading round determined.
+    """
     name: Optional[str] = Field(
         titel="Attribute name",
         max_length=256,
@@ -106,8 +126,11 @@ class Price(BaseModel):
     )
 
 
-# The quantity of the transaction
 class Quantity(BaseModel):
+    """
+    Quantity will be at first in bids provided. After matching among buyers and sellers, appropriate matches will have
+    a certain quantity to exchange. One seller can sell its energy to one or more buyers.
+    """
     name: Optional[str] = Field(
         titel="Attribute name",
         max_length=256,
@@ -128,8 +151,12 @@ class Quantity(BaseModel):
     )
 
 
-# It exists responds for different conditions
 class Responds(BaseModel):
+    """
+    There will be 3 types of final transaction: 'buy', 'sell' and 'not participate'. For the buy and sell type, respond
+    should contain id, role, time, price and quantity. But for 'not participate' type, respond should id, role, time and
+    the message 'No Transaction'.
+    """
     name: Optional[str] = Field(
         titel="Attribute name",
         max_length=256,

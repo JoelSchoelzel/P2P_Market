@@ -4,7 +4,8 @@ from filip.models.base import FiwareHeader
 from filip.utils.cleanup import clear_context_broker, clear_iot_agent
 import os
 import datetime
-from filip.models.ngsi_v2.subscriptions import Subscription, Message
+from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient
+
 
 # import from P2P_Market
 import config
@@ -25,8 +26,11 @@ if __name__ == '__main__':
     clear_context_broker(url=CB_URL, fiware_header=fiware_header)
     clear_iot_agent(url=IOTA_URL, fiware_header=fiware_header)
 
+    #create a cleint in context broker and iot agent for all buildings
+    cbc_instance = ContextBrokerClient(url=CB_URL, fiware_header=fiware_header)
+    iotac_instance = IoTAClient(url=IOTA_URL, fiware_header=fiware_header)
     # call Class Buidling
-    buildings = [Building(id=i) for i in range(4)]  # TODO set the id properly
+    buildings = [Building(id=i, cbc=cbc_instance, iotac=iotac_instance) for i in range(4)]  # TODO set the id properly
     # call Class Coordinator
     coordinator = Coordinator()
 
@@ -49,6 +53,7 @@ if __name__ == '__main__':
             # TODO recieving bids
             # Get corresponding entities and add values to history
             building_entity = building.cbc.get_entity(building.device.entity_name)
+            print(building_entity)
             coordinator.get_bid(building_entity)
             #f_bids.append(coordinator.bid.copy())
 
