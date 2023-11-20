@@ -1,7 +1,38 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, schema_json_of
 from filip.models.base import DataType, FiwareRegex
-from typing import Union, Optional
+from typing import Union, Optional, Annotated
 from aenum import Enum
+
+import json
+
+from pydantic.schema import model_schema
+# Identify buildings
+class BuildingName(BaseModel):
+    """
+    To identify every building who submits the bid to coordinator, and coordinator can send the relevant transaction
+    according to their name.
+    """
+
+    name: Optional[str] = Field(
+        titel="Attribute name",
+        max_length=256,
+        min_length=1,
+        regex=FiwareRegex.string_protect.value,
+        # Make it FIWARE-Safe
+    )
+
+    type: Optional[Union[DataType, str]] = Field(
+        default=str,
+        max_length=256,
+        min_length=1,
+        regex=FiwareRegex.string_protect.value,  # Make it FIWARE-Safe
+    )
+
+    value: Union[DataType, str] = Field(
+        default=None,
+        title="Attribute value",
+        description="the role of building in transaction"
+    )
 
 
 # Identify buildings
@@ -19,7 +50,7 @@ class BuildingID(BaseModel):
         # Make it FIWARE-Safe
     )
 
-    type: Union[DataType, str] = Field(
+    type: Optional[Union[DataType, str]] = Field(
         default=DataType.NUMBER,
         max_length=256,
         min_length=1,
@@ -59,7 +90,7 @@ class Role(BaseModel):
         # Make it FIWARE-Safe
     )
 
-    type:  str = Field(
+    type:  Optional[str] = Field(
         default=DataType.TEXT,
         max_length=256,
         min_length=1,
@@ -86,7 +117,7 @@ class Time(BaseModel):
         # Make it FIWARE-Safe
     )
 
-    type:  Union[DataType, str] = Field(
+    type:  Optional[Union[DataType, str]] = Field(
         default=DataType.TEXT,
         max_length=256,
         min_length=1,
@@ -113,13 +144,13 @@ class Price(BaseModel):
         # Make it FIWARE-Safe
     )
 
-    type:  DataType.FLOAT = Field(
+    type:  Optional[Union[DataType, str]] = Field(
         max_length=256,
         min_length=1,
         regex=FiwareRegex.string_protect.value,  # Make it FIWARE-Safe
     )
 
-    value: float = Field(
+    value: Union[DataType, str] = Field(
         default=None,
         title="Attribute value",
         description="the price of transaction"
@@ -139,17 +170,30 @@ class Quantity(BaseModel):
         # Make it FIWARE-Safe
     )
 
-    type:  DataType.FLOAT = Field(
+    type:  Optional[Union[DataType, str]] = Field(
         max_length=256,
         min_length=1,
         regex=FiwareRegex.string_protect.value,  # Make it FIWARE-Safe
     )
 
-    value: float = Field(
+    value: Union[DataType, str] = Field(
         title="Attribute value",
         description="the quantity of transaction"
     )
 
+
+# class Bid(BaseModel):
+#     timestamp: Time
+#     name: BuildingName
+#     price: Price
+#     quantity: Quantity
+#     buyer: Role
+#     number: BuildingID
+Bid = Annotated[Time, BuildingName, Price, Quantity, Role, BuildingID]
+# convert pydantic model to json schema
+bid_schema = schema_json_of(Bid, indent=2)
+with open('bid_schema.json', 'w') as f:
+    json.dump(bid_schema, f, indent=2)
 
 class Responds(BaseModel):
     """

@@ -3,7 +3,7 @@ from Coordinator import Coordinator
 from filip.models.base import FiwareHeader
 from filip.utils.cleanup import clear_context_broker, clear_iot_agent
 import os
-import datetime
+from datetime import datetime
 from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient
 
 
@@ -12,9 +12,6 @@ import config
 
 # import for visual
 import pandas as pd
-
-# import from data model
-#from data_model import
 
 # Create the fiware header
 fiware_header = FiwareHeader(service=os.getenv('Service'),
@@ -34,8 +31,8 @@ if __name__ == '__main__':
     # call Class Coordinator
     coordinator = Coordinator()
 
-    time = datetime.datetime.now()
-    time_index = time.strftime("%d/%m/%Y, %H:%M:%S")
+    timestamp = datetime.utcnow()
+    time_index = str(datetime.utcfromtimestamp(timestamp.timestamp()))
     # Step 1
 
     nodes, building_params, params, devs_pre_opti, net_data, par_rh = config.get_inputs(config.par_rh, config.options,
@@ -67,8 +64,8 @@ if __name__ == '__main__':
         # TODO coordinator send transaction to context broker subscription
         for i in range(4): #TODO repeat the order of buildings
             coordinator.get_transaction_entity(cleints=i, n_opt=n_opt)
+            #buildings[3].cbc.patch_entity(entity=coordinator.transaction_entity)
             buildings[3].cbc.patch_entity(entity=coordinator.transaction_entity)
-
         # TODO clear the self.initial
         coordinator.sorted_bids.clear()
         coordinator.transactions.clear()
