@@ -10,6 +10,7 @@ class Coordinator:
         self.bid = {}
         self.sorted_bids = {}
         self.transactions = {}
+        self.transactions2 = {}
         self.transaction_entity = None
 
 
@@ -87,7 +88,91 @@ class Coordinator:
 
         print(self.sorted_bids)
 
-    def get_transactions(self):
+    def get_transactions(self, max_rounds):
+        """
+        Runs auction with multiple trading rounds.
+        Buying and selling bids are matched based on position. If the price of the buying bid is greater than the price of
+        the selling bid, the minimum quantity of both bids is traded. This is done for all matches.
+        Afterwards all bids that haven't been fully fulfilled are added to the next trading round. The prices of buying bids
+        are increased and selling bids are decreased by a specified factor.
+        This is repeated until no buying or selling bids remain or the maximum number of trading rounds is reached.
+
+        Returns:
+            transactions (dict): Dictionary with all transactions made.
+            bids (dict): Bids with remaining quantities and changed prices.
+        """
+
+        count_trans = 0  # count of transaction
+
+        # k for k-pricing method
+        kappa = 0.5
+
+        # factor to change price each round by
+        f_buy = 1.05
+        f_sell = 0.95
+
+        n = 0  # round of trading
+
+        # if max_rounds has been set to 0 for unlimited trading rounds, 1000 is used to prevent a never ending loop
+        if max_rounds == 0:
+            max_rounds = 1000
+
+        # create dict for first trading round using bids from dict "sorted bids"
+        bids = {n: self.sorted_bids}
+
+        # start new round of trading while potential buyers and sellers exist and maximum number of rounds isn't reached
+        while len(bids[n]["sell"]) > 0 and len(bids[n]["buy"]) > 0 and n < max_rounds:
+
+            # iterate through the previously sorted bids, prio is the position the bids are in
+            for prio in range(min(len(bids[n]["sell"]), len(bids[n]["buy"]))):
+
+                # check whether the buying and selling bid in the same position can be matched
+                if bids[n]["buy"][prio]["price"] >= bids[n]["sell"][prio]["price"]:
+                    # determine transaction price using k-pricing method
+                    transaction_price = bids[n]["buy"][prio]["price"] + kappa * (bids[n]["sell"][prio]["price"] -
+                                                                                 bids[n]["buy"][prio]["price"])
+
+                    # quantity is minimum of both
+                    transaction_quantity = min(bids[n]["sell"][prio]["quantity"], bids[n]["buy"][prio]["quantity"])
+
+                    # add transaction to the dict to keep record
+                    self.transactions[count_trans] = {
+                        "buyer": bids[n]["buy"][prio]["building"],
+                        "seller": bids[n]["sell"][prio]["building"],
+                        "price": transaction_price,
+                        "quantity": transaction_quantity,
+                        "trading_round": (n + 1)
+                    }
+                    count_trans += 1
+
+                    # subtract quantity that has been traded from the bids
+                    bids[n]["sell"][prio]["quantity"] -= transaction_quantity
+                    bids[n]["buy"][prio]["quantity"] -= transaction_quantity
+
+            # create dicts for next trading round
+            bids[n + 1] = {"buy": {}, "sell": {}}
+
+            # add unsatisfied buying bids to next trading round and multiply price by factor f_buy to increase it
+            p_buy = 0
+            for i in range(len(bids[n]["buy"])):
+                if bids[n]["buy"][i]["quantity"] > 0:
+                    bids[n + 1]["buy"][p_buy] = bids[n]["buy"][i].copy()
+                    bids[n + 1]["buy"][p_buy]["price"] = bids[n]["buy"][i]["price"] * f_buy
+                    p_buy += 1
+
+            # add unsatisfied selling bids to next trading round and multiply price by factor f_sell to decrease it
+            p_sell = 0
+            for i in range(len(bids[n]["sell"])):
+                if bids[n]["sell"][i]["quantity"] > 0:
+                    bids[n + 1]["sell"][p_sell] = bids[n]["sell"][i].copy()
+                    bids[n + 1]["sell"][p_sell]["price"] = bids[n]["sell"][i]["price"] * f_sell
+                    p_sell += 1
+
+            # go to next trading round
+            n += 1
+
+
+    def get_transactions2(self):
         count_trans = 0  # count of transaction
 
         # k for k-pricing method
@@ -122,7 +207,7 @@ class Coordinator:
                             transaction_quantity = min(bids[n]["sell"][k]["quantity"], bids[n]["buy"][prio]["quantity"])
 
                             # add transaction
-                            self.transactions[count_trans] = {
+                            self.transactions2[count_trans] = {
                                 "buyer": bids[n]["buy"][prio]["building"],
                                 "seller": bids[n]["sell"][k]["building"],
                                 "price": transaction_price,

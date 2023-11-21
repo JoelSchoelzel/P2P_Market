@@ -40,7 +40,6 @@ fiware_header = FiwareHeader(service=os.getenv('Service'),
                              service_path=os.getenv('Service_path'))
 
 
-
 class Building:
 
     def __init__(self, id, cbc: ContextBrokerClient, iotac: IoTAClient):
@@ -58,8 +57,8 @@ class Building:
         self.init_val = {}
 
     def publish_data(self, time_index):
-        with open('bid_schema.json', 'r') as f:
-            bid_schema = json.load(f)
+        # with open('bid_schema.json', 'r') as f:
+        #     bid_schema = json.load(f)
 
         data_to_publish = {"timestamp": time_index,
                            "name": f"bes_{self.id}",
@@ -68,7 +67,8 @@ class Building:
                            "buyer": self.bid[f"bes_{self.id}"][2],
                            "number": int(self.bid[f"bes_{self.id}"][3])}
 
-        json_data = bid_schema(**data_to_publish)
+        # json_data = bid_schema(**data_to_publish)
+        json_data = json.dumps(data_to_publish)
         # publish the device and data
         self.mqttc.publish(topic=f"/json/{APIKEY}/device:{self.id}/attrs",
                            payload=json_data)
@@ -169,84 +169,41 @@ class Building:
             mar_agent_bes.append(bd.mar_agent_bes(p_max, p_min, par_rh))
 
         # Run rolling horizon
-        init_val = {}  # not needed for first optimization, thus empty dictionary
-        opti_res = {}  # to store the results of the bes optimization
+        opti_res = {n_time: {}}  # to store the results of the bes optimization
 
-        bid = {}
+        self.init_val[0] = {}
+        self.init_val[n_time + 1] = {}
 
-        # Start optimizations
         if n_time == 0:
-            for n_opt in range(par_rh["n_hours"]):
-                opti_res[n_opt] = {}
-                init_val[0] = {}
-                init_val[n_opt + 1] = {}
-
-                if n_opt == 0:
-                    print("Starting optimization: n_opt: " + str(n_time) + ", building:" + str(self.id) + ".")
-                    init_val[n_opt]["building_" + str(self.id)] = {}
-                    opti_res[n_opt][self.id] = config.decentral_operation(nodes[self.id], params, par_rh,
-                                                                          building_params,
-                                                                          init_val[n_opt]["building_" + str(self.id)],
-                                                                          n_opt,
-                                                                          config.options)
-                    init_val[n_opt + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(
-                        opti_res[n_opt][self.id],
-                        par_rh, n_opt)
-                else:
-                    opti_res[n_opt][self.id] = config.decentral_operation(nodes[self.id], params, par_rh,
-                                                                          building_params,
-                                                                          init_val[n_opt]["building_" + str(self.id)],
-                                                                          n_opt,
-                                                                          config.options)
-                    if n_opt < par_rh["n_hours"] - 1:
-                        init_val[n_opt + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(
-                            opti_res[n_opt][self.id], par_rh, n_opt)
-                    else:
-                        init_val[n_opt + 1] = 0
-                    # compute bids
-                bid[n_opt] = mar_pre.filip_compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, config.options,
-                                                        self.id)
-                print("Finished optimization " + str(n_opt) + ". " + str(
-                    (n_opt + 1) / par_rh["n_hours"] * 100) + "% of optimizations processed.")
-
+            print("Starting optimization: n_time: " + str(n_time) + ", building:" + str(self.id) + ".")
+            self.init_val[n_time]["building_" + str(self.id)] = {}
+            opti_res[n_time][self.id] = config.decentral_operation(nodes[self.id], params, par_rh,
+                                                                   building_params,
+                                                                   self.init_val[n_time]["building_" + str(self.id)],
+                                                                   n_time,
+                                                                   config.options)
+            self.init_val[n_time + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(
+                opti_res[n_time][self.id],
+                par_rh, n_time)
         else:
-            for n_opt in range(n_time, par_rh["n_hours"] + n_time):
-                opti_res[n_opt] = {}
-                init_val[n_time] = {}
-                init_val[n_opt + 1] = {}
-                if n_opt == n_time:
-                    print("Starting optimization: n_opt: " + str(n_time) + ", building:" + str(self.id) + ".")
-                    init_val[n_time]["building_" + str(self.id)] = self.init_val
-                    opti_res[n_opt][self.id] = config.decentral_operation(nodes[self.id], params, par_rh,
-                                                                          building_params,
-                                                                          init_val[n_time]["building_" + str(self.id)],
-                                                                          n_opt, config.options)
-                    init_val[n_opt + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(
-                        opti_res[n_opt][self.id], par_rh, n_opt)
-                else:
-                    opti_res[n_opt][self.id] = config.decentral_operation(nodes[self.id], params, par_rh,
-                                                                          building_params,
-                                                                          init_val[n_opt]["building_" + str(self.id)],
-                                                                          n_opt, config.options)
-                    if n_opt < par_rh["n_hours"] + n_time - 1:
-                        init_val[n_opt + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(
-                            opti_res[n_opt][self.id], par_rh, n_opt)
-                    else:
-                        init_val[n_opt + 1] = 0
-                    # compute bids
-                bid[n_opt] = mar_pre.filip_compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, config.options,
-                                                        self.id)
-                print("Finished optimization " + str(n_opt) + ". " + str(
-                    (n_opt + 1) / par_rh["n_hours"] * 100) + "% of optimizations processed.")
+            opti_res[n_time][self.id] = config.decentral_operation(nodes[self.id], params, par_rh,
+                                                                   building_params,
+                                                                   self.init_val[n_time]["building_" + str(self.id)],
+                                                                   n_time,
+                                                                   config.options)
+            if n_time < par_rh["n_hours"] - 1:
+                self.init_val[n_time + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(
+                    opti_res[n_time][self.id], par_rh, n_time)
+            else:
+                self.init_val[n_time + 1] = 0
 
-        self.init_val = init_val[n_time + 1]["building_" + str(self.id)]
-        self.bid = bid[n_time]
-        print("init_val")
-        print(init_val)
-        print("init_:")
-        print("self.init_val")
+        # compute bids
+        self.bid = mar_pre.filip_compute_bids(opti_res[n_time], par_rh, mar_agent_bes, n_time, config.options, self.id)
+        print("Finished optimization " + str(n_time) + ". " + str((n_time + 1) / par_rh["n_hours"] * 100) +
+              "% of optimizations processed.")
+
+        print("self.init_val:")
         print(self.init_val)
-        print("bid: ")
-        print(bid)
+
         print("self.bid:")
         print(self.bid)

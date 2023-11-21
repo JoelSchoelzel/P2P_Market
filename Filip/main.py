@@ -58,7 +58,7 @@ if __name__ == '__main__':
         coordinator.sort_bids()
         #f_sorted_bids.append(coordinator.sorted_bids.copy())
         # TODO calculate transaction
-        coordinator.get_transactions()
+        coordinator.get_transactions(config.options['trading_rounds'])
         #f_transactions.append(coordinator.transactions.copy())
 
         # TODO coordinator send transaction to context broker subscription

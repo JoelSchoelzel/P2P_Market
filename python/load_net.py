@@ -20,7 +20,7 @@ def create_net(options):
     # extract existing lines
     nodeLines = []
     for i in range(len(net.line['from_bus'])):
-        nodeLines.append((net.line['from_bus'][i],net.line['to_bus'][i]))
+        nodeLines.append((net.line['from_bus'][i], net.line['to_bus'][i]))
     nodeLines = gp.tuplelist(nodeLines)
 
     # extract maximal current for lines

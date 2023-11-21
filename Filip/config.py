@@ -58,7 +58,8 @@ options = {"optimization": "P2P",  # P2P, P2P_typeWeeks, central, central_typeWe
            "bid_strategy": "zero",  # zero for zero-intelligence
            "crit_prio": "price",  # criteria to assign priority for trading: price, alpha_el_flex_delayed
            "descending": True,  # True: highest value of chosen has highest priority, False: lowest
-
+           "multi_round": True,  # True: multiple trading rounds, False: single trading round
+           "trading_rounds": 0,  # Number of trading rounds for multi round trading, 0 for unlimited
            "number_typeWeeks": 0,  # set 0 in case no type weeks are investigated
            # "full_path_scenario": "C:\\Users\\miche\\districtgenerator_python\\data\\scenarios\\scenario4.csv", # scenario csv
            "full_path_scenario": ("D:\\jdu-zwu\\districtgenerator_python\\data\\scenarios\\" + options_DG[
