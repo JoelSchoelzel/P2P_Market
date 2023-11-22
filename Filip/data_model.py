@@ -23,17 +23,20 @@ class BuildingID(BaseModel):
     id: int
 
 
-class Role(str, Enum):
-    """
-    Participant type is to specify a limited set of options for the 'value' field in class Role. 'buyer' and 'seller'
-    will be claimed in the bids, so that the coordinator can match the appropriate seller and buyer. Some buyer or
-    seller may not be able to transact with others for variety of reasons, so they will be set as 'not participant'
-    in transaction.
-    """
-    Buyer = 'buyer'
-    Seller = 'seller'
-    NotParticipant = 'not participant'
+# class Role(str, Enum):
+#     """
+#     Participant type is to specify a limited set of options for the 'value' field in class Role. 'buyer' and 'seller'
+#     will be claimed in the bids, so that the coordinator can match the appropriate seller and buyer. Some buyer or
+#     seller may not be able to transact with others for variety of reasons, so they will be set as 'not participant'
+#     in transaction.
+#     """
+#     Buyer = 'buyer'
+#     Seller = 'seller'
+#     NotParticipant = 'not participant'
 
+class Role(BaseModel):
+    """This version of Role is currently only for implementing in bid"""
+    buyer: bool
 
 class Time(BaseModel):
     """
