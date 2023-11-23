@@ -68,8 +68,12 @@ class Bid(BaseModel):
 # convert pydantic model to json schema
 bid_schema = schema_json_of(Bid, indent=2)
 print(bid_schema)
+
 with open('bid_schema.json', 'w') as f:
-    json.dump(bid_schema, f, indent=2)
+    f.write(bid_schema)
+    # bid_schema_dict = json.loads(bid_schema)
+    # json.dump(bid_schema_dict, f, indent=2)
+
 
 class Responds(BaseModel):
     """

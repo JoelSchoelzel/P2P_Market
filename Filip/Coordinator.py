@@ -88,7 +88,7 @@ class Coordinator:
 
         print(self.sorted_bids)
 
-    def get_transactions(self, max_rounds):
+    def get_transactions2(self, max_rounds):
         """
         Runs auction with multiple trading rounds.
         Buying and selling bids are matched based on position. If the price of the buying bid is greater than the price of
@@ -136,7 +136,7 @@ class Coordinator:
                     transaction_quantity = min(bids[n]["sell"][prio]["quantity"], bids[n]["buy"][prio]["quantity"])
 
                     # add transaction to the dict to keep record
-                    self.transactions[count_trans] = {
+                    self.transactions2[count_trans] = {
                         "buyer": bids[n]["buy"][prio]["building"],
                         "seller": bids[n]["sell"][prio]["building"],
                         "price": transaction_price,
@@ -172,7 +172,7 @@ class Coordinator:
             n += 1
 
 
-    def get_transactions2(self):
+    def get_transactions(self):
         count_trans = 0  # count of transaction
 
         # k for k-pricing method
@@ -207,7 +207,7 @@ class Coordinator:
                             transaction_quantity = min(bids[n]["sell"][k]["quantity"], bids[n]["buy"][prio]["quantity"])
 
                             # add transaction
-                            self.transactions2[count_trans] = {
+                            self.transactions[count_trans] = {
                                 "buyer": bids[n]["buy"][prio]["building"],
                                 "seller": bids[n]["sell"][k]["building"],
                                 "price": transaction_price,

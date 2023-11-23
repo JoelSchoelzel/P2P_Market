@@ -13,7 +13,7 @@ def create_net(options):
     else:
         net = nw.create_kerber_vorstadtnetz_kabel_2()
 
-    simple_plot(net, show_plot=True)
+    #simple_plot(net, show_plot=True)
     #pf_res_plotly(net)
 
     # %% extract node and line information from network

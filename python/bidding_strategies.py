@@ -28,7 +28,7 @@ class mar_agent_bes(object):
         return [p, q, buying, n]
 
 
-    def compute_chp_bids(self, chp_sell, n, bid_strategy,):
+    def compute_chp_bids(self, chp_sell, n, bid_strategy):
 
 
         q = chp_sell

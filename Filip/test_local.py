@@ -1,9 +1,11 @@
-import requests
+import pickle
 
-# url = 'http://134.130.166.184:1026/v2/entities/urn:ngsi-ld:Building:0?options=normalized'
-url = 'http://134.130.166.184:1026/v2/entities'
-params = {'options': 'normalized'}
-headers = {'fiware-service': 'lem_test', 'fiware-servicepath': '/'}
+file_path1 = 'D:\jdu-zwu\P2P_Market\\results\P2P_mar_dict\scenario_test_alpha_el_flex_delayed.p'
+with open(file_path1, 'rb') as file:
+    data1 = pickle.load(file)
+print(data1)
 
-
-res = requests.get(url=url, params=params, headers=headers)
+file_path2 = 'D:\jdu-zwu\P2P_Market\p2p_transaction.p'
+with open(file_path2, 'rb') as file:
+    data2 = pickle.load(file)
+print(data2)
