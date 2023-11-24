@@ -1,4 +1,6 @@
 # import from filip
+from typing import Any
+
 from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient
 from filip.models.ngsi_v2.subscriptions import Subscription
 from filip.models.ngsi_v2.context import NamedContextAttribute, ContextEntity
@@ -20,6 +22,8 @@ import config
 
 # import for data model
 import json
+# from jsonschemaparser import JsonSchemaParser
+from data_model import MarketParticipantFIWARE
 
 # Load environment variables from .env file
 load_dotenv()
@@ -38,12 +42,12 @@ fiware_header = FiwareHeader(service=os.getenv('Service'),
                              service_path=os.getenv('Service_path'))
 
 
-class Building:
+class Building(MarketParticipantFIWARE):
 
-    def __init__(self, id, cbc: ContextBrokerClient, iotac: IoTAClient):
+    def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, **data: Any):
+        super().__init__(**data)
         self.cbc = cbc
         self.iotac = iotac
-        self.id = id
         self.device_id = f"device:{self.id}"
         self.entity_id = f"urn:ngsi-ld:Building:{self.id}"
         self.entity_type = "Building"
@@ -53,26 +57,26 @@ class Building:
         self.mqtt_initialization()
         self.bid = {}
         self.init_val = {}
-        self.bid1 = {} #todo get the bid from p2p market
+        #self.bid1 = {} #todo get the bid from p2p market
 
     def publish_data(self, time_index):
         # with open('bid_schema.json', 'r') as f:
         #     bid_schema = json.load(f)
 
-        # data_to_publish = {"timestamp": time_index,
-        #                    "name": f"bes_{self.id}",
-        #                    "price": self.bid[f"bes_{self.id}"][0],
-        #                    "quantity": self.bid[f"bes_{self.id}"][1],
-        #                    "buyer": self.bid[f"bes_{self.id}"][2],
-        #                    "number": int(self.bid[f"bes_{self.id}"][3])}
-
-        #todo send the data from p2p market
         data_to_publish = {"timestamp": time_index,
                            "name": f"bes_{self.id}",
-                           "price": self.bid1[f"bes_{self.id}"][0],
-                           "quantity": self.bid1[f"bes_{self.id}"][1],
-                           "buyer": self.bid1[f"bes_{self.id}"][2],
-                           "number": int(self.bid1[f"bes_{self.id}"][3])}
+                           "price": self.bid[f"bes_{self.id}"][0],
+                           "quantity": self.bid[f"bes_{self.id}"][1],
+                           "buyer": self.bid[f"bes_{self.id}"][2],
+                           "number": int(self.bid[f"bes_{self.id}"][3])}
+
+        # todo send the data from p2p market
+        # data_to_publish = {"timestamp": time_index,
+        #                    "name": f"bes_{self.id}",
+        #                    "price": self.bid1[f"bes_{self.id}"][0],
+        #                    "quantity": self.bid1[f"bes_{self.id}"][1],
+        #                    "buyer": self.bid1[f"bes_{self.id}"][2],
+        #                    "number": int(self.bid1[f"bes_{self.id}"][3])}
         # json_data = bid_schema(**data_to_publish)
         json_data = json.dumps(data_to_publish)
         # publish the device and data
@@ -207,13 +211,13 @@ class Building:
         print(self.bid)
 
     # send bid from p2p market to check the validation
-    def p2p_bid(self, n_time):
-        # data from P2P_Market
-        file_path1 = 'D:\jdu-zwu\P2P_Market\p2p_transaction.p'
-        with open(file_path1, 'rb') as file:
-            data1 = pickle.load(file)
-        self.bid1[f'bes_{self.id}'] = data1['bid'][n_time][f'bes_{self.id}']
-        print(f'p2p bid: {self.bid1}')
+    # def p2p_bid(self, n_time):
+    #     # data from P2P_Market
+    #     file_path1 = 'D:\jdu-zwu\P2P_Market\p2p_transaction.p'
+    #     with open(file_path1, 'rb') as file:
+    #         data1 = pickle.load(file)
+    #     self.bid1[f'bes_{self.id}'] = data1['bid'][n_time][f'bes_{self.id}']
+    #     print(f'p2p bid: {self.bid1}')
 
 class Compute_Bids:
 
@@ -248,7 +252,7 @@ class Compute_Bids:
         # compute bids with zero-intelligence
         if bid_strategy == "zero":
             # create random price between p_min and p_max
-            p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100 #TODO set the
+            p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100  # TODO set the price
         p = np.around(p, decimals=6)
 
         return [p, q, buying, n]
@@ -262,7 +266,7 @@ class Compute_Bids:
 
         return [p, q, buying, n]
 
-    def filip_compute_bids(self, opti_res, pars_rh, n_opt, options, n):  # TODO This one refers to Filip
+    def filip_compute_bids(self, opti_res, pars_rh, n_opt, options, n):
 
         bid = {}
 

@@ -1,3 +1,4 @@
+import filip.models.ngsi_v2.context
 from pydantic import BaseModel, Field, schema_json_of
 from filip.models.base import DataType, FiwareRegex
 from typing import Union, Optional, Annotated
@@ -101,3 +102,12 @@ class Responds(BaseModel):
         title="Attribute value",
         description="the responds from coordinator to buildings"
     )
+
+class MarketParticipant(BaseModel):
+    name: BuildingName
+    role: Role
+    bid: Bid
+
+
+class MarketParticipantFIWARE(MarketParticipant):
+    id: BuildingID
