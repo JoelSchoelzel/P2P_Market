@@ -23,7 +23,7 @@ import config
 # import for data model
 import json
 # from jsonschemaparser import JsonSchemaParser
-from data_model import MarketParticipantFIWARE
+from data_model.data_model import MarketParticipantFIWARE
 
 # Load environment variables from .env file
 load_dotenv()
@@ -51,8 +51,8 @@ class Building(MarketParticipantFIWARE):
         self.device_id = f"device:{self.id}"
         self.entity_id = f"urn:ngsi-ld:Building:{self.id}"
         self.entity_type = "Building"
-        self.device = self.building_device()
-        self.building_entity = self.building_entity()
+        self.device = self.create_building_device()
+        self.building_entity = self.create_building_entity()
         self.initialization()
         self.mqtt_initialization()
         self.bid = {}
@@ -85,7 +85,7 @@ class Building(MarketParticipantFIWARE):
         # wait for 0.1 second before publishing next values
         time.sleep(0.1)
 
-    def building_entity(self):
+    def create_building_entity(self):
         # TODO reasonable entity id and type
         building_entity = ContextEntity(id=self.entity_id,
                                         type=self.entity_type)
@@ -105,7 +105,7 @@ class Building(MarketParticipantFIWARE):
         building_entity.add_attributes([t_bidtime, t_name, t_price, t_quantity, t_buyer, t_numer])
         return building_entity
 
-    def building_device(self):
+    def create_building_device(self):
         building = Device(device_id=self.device_id,
                           entity_name=self.entity_id,
                           entity_type="Building",
@@ -115,8 +115,9 @@ class Building(MarketParticipantFIWARE):
                           commands=[])
         return building
 
-    def initialization(self):
+    def initialization(self):  # TODO rename it to platform_configuration
         # Subscription in context broker so that the transaction can be received by mqtt clients
+        # TODO please load the subscription template from outside. For example you can save it in .json file
         subscription = {
             "description": "Subscription to receive MQTT-Notification about "
                            f"urn:ngsi-ld:Transaction:{self.id}",
@@ -176,6 +177,7 @@ class Building(MarketParticipantFIWARE):
         self.init_val[0] = {}
         self.init_val[n_time + 1] = {}
 
+        # TODO optimize energy usage? also create a new class ComputeVolumes?
         if n_time == 0:
             print("Starting optimization: n_time: " + str(n_time) + ", building:" + str(self.id) + ".")
             self.init_val[n_time]["building_" + str(self.id)] = {}
@@ -199,8 +201,10 @@ class Building(MarketParticipantFIWARE):
             else:
                 self.init_val[n_time + 1] = 0
 
-        # compute bids
-        self.bid = Compute_Bids(params=params).filip_compute_bids(opti_res[n_time], par_rh, n_time, config.options, self.id)
+        # compute bids TODO it is "compute bids" or "compute price"?
+        self.bid = Compute_Bids(params=params).filip_compute_bids(
+            opti_res[n_time], par_rh, n_time, config.options, self.id
+        )
         print("Finished optimization " + str(n_time) + ". " + str((n_time + 1) / par_rh["n_hours"] * 100) +
               "% of optimizations processed.")
 
@@ -219,7 +223,8 @@ class Building(MarketParticipantFIWARE):
     #     self.bid1[f'bes_{self.id}'] = data1['bid'][n_time][f'bes_{self.id}']
     #     print(f'p2p bid: {self.bid1}')
 
-class Compute_Bids:
+
+class Compute_Bids:  #TODO Camel case, ComputeBids
 
     def __init__(self, params):
         # range of prices

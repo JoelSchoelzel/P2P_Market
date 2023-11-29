@@ -10,36 +10,6 @@ options_DG = {
     "scenario_name": "scenario_test",  # name of csv input file
 }
 
-'''
-# Set options for DistrictGenerator
-options_DG = {
-    "scenario_name" : "District_CP03_SFH60_MFH20_TH20_BZ3-4-3", # name of csv input file
-    "randomProfile" : False,
-    # clustering - True: perform time series clustering, False: use rolling horizon approach
-    "clustering" : True,
-    # calcUserProfiles - False: load user profiles from file (Tip: do if you need annual data!), True: new calculation
-    "calcUserProfiles" : False,
-    # saveUserProfiles - Only taken into account if calcUserProfile is True
-    "saveUserProfiles" : False,
-    # use5R1C - Use 5R1C model
-    # False: Heating demand is a parameter
-    # True: Indoor temperature and heating demand are variables to be calculated dynamically
-    "use5R1C" : True,
-    # bat2grid - True: battery can sell power, False: self-consumption only
-    "bat2grid": False,
-    # central - True: district balance, False: building balance
-    "central" : True,
-    # loadDistrict - True: take scenario pickle file as input instead of reading csv files
-    "loadDistrict" : False,
-    # saveDistrict - True: save scenario pickle file
-    "saveDistrict" : False,
-    "srcPath" : "C:\\Users\\Arbeit\\Documents\\WiHi_EBC\\districtgenerator_python",
-    "filePath" : "C:\\Users\\Arbeit\\Documents\\WiHi_EBC\\districtgenerator_python\\data\\demands",
-}
-
-with open('C:/Users/Arbeit/Documents/WiHi_EBC/districtgenerator_python/settings/user_settings.json','w') as f:
-    json.dump(options_DG,f)
-'''
 # create district with load (elec, heat, ..) and generation (pv, bz ..)  profiles as input for MAScity
 # districtData = DistrictGenerator.run_districtgenerator(options_DG)
 # print("Finished district generation (" + str(datetime.datetime.now()) + ").")

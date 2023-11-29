@@ -1,3 +1,6 @@
+# TODO what is this script for? if not required in simulation, please consider
+#  to move it into utils or
+
 #import from filip
 from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient
 from filip.clients.mqtt import IoTAMQTTClient

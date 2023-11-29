@@ -42,32 +42,37 @@ if __name__ == '__main__':
 
     for n_opt in range(par_rh['n_opt']):  # par_rh['n_opt'] is 744h in ein Monat
         print(f"n_opt = {n_opt}")
-        # TODO calculate and publish bids
+        # calculate and publish bids
         for building in buildings:
-            #building.p2p_bid(n_time=n_opt)  # todo validate the transaction with same bid from p2p market
+            #building.p2p_bid(n_time=n_opt)
             building.formulate_bid(n_time=n_opt)
             building.publish_data(time_index)
-            # TODO recieving bids
+            # recieving bids
             # Get corresponding entities and coordinator can get bids from entities
+            # TODO coordinator should know the market participants
             building_entity = building.cbc.get_entity(building.device.entity_name)
             print(building_entity)
+            # TODO implement get_bid in coordinator, which should fetch the data from platform
             coordinator.get_bid(building_entity)
             #f_bids.append(coordinator.bid.copy())
 
         #f_bids.append(coordinator.bid.copy())
-        # TODo calculate sorted bids
+        # calculate sorted bids
         coordinator.sort_bids()
         #f_sorted_bids.append(coordinator.sorted_bids.copy())
-        # TODO calculate transaction
-        coordinator.get_transactions()
+        # calculate transaction
+        coordinator.get_transactions()  # TODO rename this method to clear_market or calculate_transaction?
         #f_transactions.append(coordinator.transactions.copy())  # todo
         print(f'n_opt = {n_opt}')
         print(f'transaction: {coordinator.transactions}')  # todo
+        # TODO move the sending transaction into a method of coordinator, like publish_transaction
         # TODO coordinator send transaction to context broker subscription
-        for i in range(4): #TODO repeat the order of buildings
+        for i in range(4):  # TODO still hard coded
             coordinator.get_transaction_entity(cleints=i, n_opt=n_opt)
             buildings[3].cbc.patch_entity(entity=coordinator.transaction_entity)
-        # TODO clear the self.initial
+        # TODO move following code into a method of coordinator, like clear_data / reset_data etc.
+        #  and this method can be called inside the publish_transaction method
+        # clear the self.initial
         coordinator.sorted_bids.clear()
         coordinator.transactions.clear()
 
