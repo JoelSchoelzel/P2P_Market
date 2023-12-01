@@ -1,6 +1,7 @@
 # import from filip
 from typing import Any
 
+import pandas as pd
 from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient
 from filip.models.ngsi_v2.subscriptions import Subscription
 from filip.models.ngsi_v2.context import NamedContextAttribute, ContextEntity
@@ -27,7 +28,7 @@ from data_model.data_model import MarketParticipantFIWARE
 
 # Load environment variables from .env file
 load_dotenv()
-APIKEY = os.getenv('APIKEY')
+APIKEY = os.getenv('APIKEY_Building')
 # Create a service group and add it to your devices
 service_group = ServiceGroup(apikey=APIKEY,
                              resource="/iot/json")
@@ -49,11 +50,11 @@ class Building(MarketParticipantFIWARE):
         self.cbc = cbc
         self.iotac = iotac
         self.device_id = f"device:{self.id}"
-        self.entity_id = f"urn:ngsi-ld:Building:{self.id}"
-        self.entity_type = "Building"
+        self.entity_id = f"urn:ngsi-ld:Bid:{self.id}"
+        self.entity_type = "Bid"
         self.device = self.create_building_device()
         self.building_entity = self.create_building_entity()
-        self.initialization()
+        self.platform_configuration()
         self.mqtt_initialization()
         self.bid = {}
         self.init_val = {}
@@ -115,28 +116,19 @@ class Building(MarketParticipantFIWARE):
                           commands=[])
         return building
 
-    def initialization(self):  # TODO rename it to platform_configuration
+    def platform_configuration(self):
         # Subscription in context broker so that the transaction can be received by mqtt clients
-        # TODO please load the subscription template from outside. For example you can save it in .json file
-        subscription = {
-            "description": "Subscription to receive MQTT-Notification about "
-                           f"urn:ngsi-ld:Transaction:{self.id}",
-            "subject": {
-                "entities": [
-                    {
-                        "id": f"urn:ngsi-ld:Transaction:{self.id}",
-                        "type": "Transaction"
-                    }
-                ]
-            },
-            "notification": {
-                "mqtt": {
-                    "url": MQTT_Broker_URL,
-                    "topic": f"/v2/transactions/urn:ngsi-ld:Transaction:{self.id}/attrs"
-                }
-            }
-        }
-        subscription = Subscription(**subscription)
+        # load the subscription template from outside
+        with open("subscription.json") as f:
+            subscription_dict = json.load(f)
+        # set the unique subscription for every building
+        subscription_dict["descroption"] = f"Subscription to receive MQTT-Notification about urn:ngsi-ld:Transaction:{self.id}"
+        subscription_dict["subject"]["entities"][0]["id"] = f"urn:ngsi-ld:Transaction:{self.id}"
+        subscription_dict["notification"]["url"] = f"{MQTT_Broker_URL}"
+        subscription_dict["notification"]["topic"] = f"/v2/transactions/urn:ngsi-ld:Transaction:{self.id}/attrs"
+        subscription = Subscription(**subscription_dict)
+
+        # post subscription to context broker
         self.cbc.post_subscription(subscription=subscription)
         # create bids entities in context broker so that the device can send the payloads to match the entities
         self.cbc.post_entity(entity=self.building_entity)
@@ -202,9 +194,7 @@ class Building(MarketParticipantFIWARE):
                 self.init_val[n_time + 1] = 0
 
         # compute bids TODO it is "compute bids" or "compute price"?
-        self.bid = Compute_Bids(params=params).filip_compute_bids(
-            opti_res[n_time], par_rh, n_time, config.options, self.id
-        )
+        self.bid = ComputeBids(params).filip_compute_bids(opti_res[n_time], par_rh, n_time, config.options, self.id)
         print("Finished optimization " + str(n_time) + ". " + str((n_time + 1) / par_rh["n_hours"] * 100) +
               "% of optimizations processed.")
 
@@ -224,8 +214,7 @@ class Building(MarketParticipantFIWARE):
     #     print(f'p2p bid: {self.bid1}')
 
 
-class Compute_Bids:  #TODO Camel case, ComputeBids
-
+class ComputeBids:  #TODO Camel case, ComputeBids
     def __init__(self, params):
         # range of prices
         self.p_max = params["eco"]["pr", "el"]
@@ -236,7 +225,7 @@ class Compute_Bids:  #TODO Camel case, ComputeBids
         # compute bids with zero-intelligence
         if bid_strategy == "zero":
             # create random price between p_min and p_max
-            p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100 #TODO set the price
+            p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100
             q = p_imp
             q_2 = 0
             p_2 = 0
@@ -257,7 +246,7 @@ class Compute_Bids:  #TODO Camel case, ComputeBids
         # compute bids with zero-intelligence
         if bid_strategy == "zero":
             # create random price between p_min and p_max
-            p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100  # TODO set the price
+            p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100
         p = np.around(p, decimals=6)
 
         return [p, q, buying, n]

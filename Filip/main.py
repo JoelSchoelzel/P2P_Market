@@ -21,19 +21,26 @@ if __name__ == '__main__':
     clear_context_broker(url=CB_URL, fiware_header=fiware_header)
     clear_iot_agent(url=IOTA_URL, fiware_header=fiware_header)
 
-    #create a cleint in context broker and iot agent for all buildings
+    # create a cleint in context broker and iot agent for all buildings
     cbc_instance = ContextBrokerClient(url=CB_URL, fiware_header=fiware_header)
     iotac_instance = IoTAClient(url=IOTA_URL, fiware_header=fiware_header)
-    # call Class Buidling
-    buildings = [Building(id=i, cbc=cbc_instance, iotac=iotac_instance) for i in range(4)]  # TODO set the id properly
-    # call Class Coordinator
-    coordinator = Coordinator()
 
+    # get the building number from scenario
+    scenario = pd.read_csv(config.options["full_path_scenario"])
+    building_number = scenario.size
+
+    # set the id properly
+    # call Class Building
+    buildings = [Building(id=i, cbc=cbc_instance, iotac=iotac_instance) for i in range(building_number)]
+    # call Class Coordinator
+    coordinator = Coordinator(cbc=cbc_instance, iotac=iotac_instance)
+
+    # use timestamp to input the time
     timestamp = datetime.utcnow()
     time_index = str(datetime.utcfromtimestamp(timestamp.timestamp()))
     # Step 1
 
-    # Get the par_rh['n_opt'] input
+    # Get the par_rh['n_opt'] input. This number now is 744h as 1 month
     nodes, building_params, params, devs_pre_opti, net_data, par_rh = config.get_inputs(config.par_rh, config.options,
                                                                                         config.districtData)
     #f_bids = []  # todo
@@ -50,10 +57,9 @@ if __name__ == '__main__':
             # recieving bids
             # Get corresponding entities and coordinator can get bids from entities
             # TODO coordinator should know the market participants
-            building_entity = building.cbc.get_entity(building.device.entity_name)
-            print(building_entity)
+            coordinator.get_entity(building.device.entity_name)
             # TODO implement get_bid in coordinator, which should fetch the data from platform
-            coordinator.get_bid(building_entity)
+            #coordinator.get_bid()
             #f_bids.append(coordinator.bid.copy())
 
         #f_bids.append(coordinator.bid.copy())
@@ -61,20 +67,21 @@ if __name__ == '__main__':
         coordinator.sort_bids()
         #f_sorted_bids.append(coordinator.sorted_bids.copy())
         # calculate transaction
-        coordinator.get_transactions()  # TODO rename this method to clear_market or calculate_transaction?
-        #f_transactions.append(coordinator.transactions.copy())  # todo
-        print(f'n_opt = {n_opt}')
-        print(f'transaction: {coordinator.transactions}')  # todo
+        coordinator.calculate_transactions()  # TODO rename this method to clear_market or calculate_transaction?
+        #f_transactions.append(coordinator.transactions.copy())  # todo validation
+        #print(f'n_opt = {n_opt}')
+        #print(f'transaction: {coordinator.transactions}')  # todo validation
         # TODO move the sending transaction into a method of coordinator, like publish_transaction
         # TODO coordinator send transaction to context broker subscription
-        for i in range(4):  # TODO still hard coded
+
+        # coordinator sends the transaction to context broker so that buildings can get transaction
+        for i in range(building_number):
             coordinator.get_transaction_entity(cleints=i, n_opt=n_opt)
-            buildings[3].cbc.patch_entity(entity=coordinator.transaction_entity)
+            coordinator.publish_transaction()
         # TODO move following code into a method of coordinator, like clear_data / reset_data etc.
         #  and this method can be called inside the publish_transaction method
-        # clear the self.initial
-        coordinator.sorted_bids.clear()
-        coordinator.transactions.clear()
+        # clear sorted_bids and transactions so that these are empty for next hour
+        coordinator.clear_data()
 
     # df0 = pd.DataFrame(f_bids)
     # print("df0:")

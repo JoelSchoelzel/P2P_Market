@@ -2,22 +2,41 @@
 import config
 import python.characteristics as characs
 from filip.models.ngsi_v2.context import ContextEntity, NamedContextAttribute
+from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient
+from filip.models.ngsi_v2.iot import ServiceGroup
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+APIKEY = os.getenv('APIKEY_Coordinator')
+# Create a service group and add it to your devices
+service_group = ServiceGroup(apikey=APIKEY,
+                             resource="/iot/json")
 
 
 class Coordinator:
 
-    def __init__(self):
+    def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient):
+        self.cbc = cbc
+        self.iotac = iotac
+        self.platform_configuration()
+        self.entity = {}
         self.bid = {}
         self.sorted_bids = {}
         self.transactions = {}
         self.transactions2 = {}
         self.transaction_entity = None
 
+    def platform_configuration(self):
+        # Provision service group and add it to IOTAClient
+        self.iotac.post_group(service_group=service_group, update=True)
 
-    def get_bid(self, building_entity):
-        attributes = [building_entity.price.value, building_entity.quantity.value,
-                      building_entity.buyer.value, int(building_entity.number.value)]
-        self.bid[building_entity.name.value] = attributes
+    def get_entity(self, entity_name):
+        self.entity = self.cbc.get_entity(entity_name)
+        attributes = [self.entity.price.value, self.entity.quantity.value,
+                      self.entity.buyer.value, int(self.entity.number.value)]
+        self.bid[self.entity.name.value] = attributes
 
     def sort_bids(self):
         nodes, building_params, params, devs_pre_opti, net_data, par_rh = config.get_inputs(config.par_rh,
@@ -171,8 +190,7 @@ class Coordinator:
             # go to next trading round
             n += 1
 
-
-    def get_transactions(self):
+    def calculate_transactions(self):
         count_trans = 0  # count of transaction
 
         # k for k-pricing method
@@ -270,7 +288,7 @@ class Coordinator:
             # go to next trading round
             n += 1
 
-    def get_transaction_entity(self, cleints, n_opt):# TODO Set the number of buildings, time of running hour
+    def get_transaction_entity(self, cleints, n_opt):  # TODO Set the number of buildings, time of running hour
         # Build buy and sell dictionary from the transaction
         buyer_dic = {}
         seller_dic = {}
@@ -355,3 +373,10 @@ class Coordinator:
                         "result": "No Transaction",
                     })
             self.transaction_entity.add_attributes([attribute_test])
+
+    def publish_transaction(self):
+        self.cbc.patch_entity(entity=self.transaction_entity)
+
+    def clear_data(self):
+        self.sorted_bids.clear()
+        self.transactions.clear()
