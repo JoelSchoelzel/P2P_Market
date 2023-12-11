@@ -32,8 +32,8 @@ if __name__ == '__main__':
     # set the id properly
     # call Class Building
     buildings = [Building(id=i, cbc=cbc_instance, iotac=iotac_instance) for i in range(building_number)]
-    # call Class Coordinator
-    coordinator = Coordinator(cbc=cbc_instance, iotac=iotac_instance)
+    # call Class Coordinator, the coordinator should have and its own information and buildings'
+    coordinator = Coordinator(cbc=cbc_instance, iotac=iotac_instance, buildings=buildings)
 
     # use timestamp to input the time
     timestamp = datetime.utcnow()
@@ -57,13 +57,13 @@ if __name__ == '__main__':
             # recieving bids
             # Get corresponding entities and coordinator can get bids from entities
             # TODO coordinator should know the market participants
-            coordinator.get_entity(building.device.entity_name)
             # TODO implement get_bid in coordinator, which should fetch the data from platform
             #coordinator.get_bid()
             #f_bids.append(coordinator.bid.copy())
 
         #f_bids.append(coordinator.bid.copy())
         # calculate sorted bids
+        coordinator.get_bids()
         coordinator.sort_bids()
         #f_sorted_bids.append(coordinator.sorted_bids.copy())
         # calculate transaction

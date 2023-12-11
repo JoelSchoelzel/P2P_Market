@@ -42,23 +42,24 @@ MQTT_Broker_URL = os.getenv('MQTT_Broker_URL')
 fiware_header = FiwareHeader(service=os.getenv('Service'),
                              service_path=os.getenv('Service_path'))
 
-
-class Building(MarketParticipantFIWARE):
-
-    def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, **data: Any):
-        super().__init__(**data)
+class Building():
+#class Building(MarketParticipantFIWARE):
+    def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, id):
+    # todo def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, **data: Any):
+        # todo super().__init__(**data)
         self.cbc = cbc
         self.iotac = iotac
+        self.id = id
         self.device_id = f"device:{self.id}"
         self.entity_id = f"urn:ngsi-ld:Bid:{self.id}"
         self.entity_type = "Bid"
-        self.device = self.create_building_device()
-        self.building_entity = self.create_building_entity()
+        self.device = self.create_bid_device()
+        self.bid_entity = self.create_bid_entity()
         self.platform_configuration()
         self.mqtt_initialization()
         self.bid = {}
         self.init_val = {}
-        #self.bid1 = {} #todo get the bid from p2p market
+        #self.bid1 = {}  # todo (validation) get the bid from p2p market
 
     def publish_data(self, time_index):
         # with open('bid_schema.json', 'r') as f:
@@ -86,9 +87,9 @@ class Building(MarketParticipantFIWARE):
         # wait for 0.1 second before publishing next values
         time.sleep(0.1)
 
-    def create_building_entity(self):
+    def create_bid_entity(self):
         # TODO reasonable entity id and type
-        building_entity = ContextEntity(id=self.entity_id,
+        bid_entity = ContextEntity(id=self.entity_id,
                                         type=self.entity_type)
 
         t_bidtime = NamedContextAttribute(name='bidtime',
@@ -103,18 +104,18 @@ class Building(MarketParticipantFIWARE):
                                         type='String')
         t_numer = NamedContextAttribute(name='number',
                                         type='Number')
-        building_entity.add_attributes([t_bidtime, t_name, t_price, t_quantity, t_buyer, t_numer])
-        return building_entity
+        bid_entity.add_attributes([t_bidtime, t_name, t_price, t_quantity, t_buyer, t_numer])
+        return bid_entity
 
-    def create_building_device(self):
-        building = Device(device_id=self.device_id,
+    def create_bid_device(self):
+        bid = Device(device_id=self.device_id,
                           entity_name=self.entity_id,
-                          entity_type="Building",
+                          entity_type="Bid",
                           protocol='IoTA-JSON',
                           transport='MQTT',
                           apikey=os.getenv('APIKEY'),
                           commands=[])
-        return building
+        return bid
 
     def platform_configuration(self):
         # Subscription in context broker so that the transaction can be received by mqtt clients
@@ -124,23 +125,23 @@ class Building(MarketParticipantFIWARE):
         # set the unique subscription for every building
         subscription_dict["descroption"] = f"Subscription to receive MQTT-Notification about urn:ngsi-ld:Transaction:{self.id}"
         subscription_dict["subject"]["entities"][0]["id"] = f"urn:ngsi-ld:Transaction:{self.id}"
-        subscription_dict["notification"]["url"] = f"{MQTT_Broker_URL}"
-        subscription_dict["notification"]["topic"] = f"/v2/transactions/urn:ngsi-ld:Transaction:{self.id}/attrs"
+        subscription_dict["notification"]["mqtt"]["url"] = f"{MQTT_Broker_URL}"
+        subscription_dict["notification"]["mqtt"]["topic"] = f"/v2/transactions/urn:ngsi-ld:Transaction:{self.id}/attrs"
         subscription = Subscription(**subscription_dict)
 
         # post subscription to context broker
         self.cbc.post_subscription(subscription=subscription)
         # create bids entities in context broker so that the device can send the payloads to match the entities
-        self.cbc.post_entity(entity=self.building_entity)
+        self.cbc.post_entity(entity=self.bid_entity)
         # Provision service group and add it to IOTAClient
         self.iotac.post_group(service_group=service_group, update=True)
         # Provision the devices at the Iota-agent
         self.iotac.post_device(device=self.device, update=True)
         # check in the context broker if the entities corresponding to the buildings
-        print(self.cbc.get_entity(self.device.entity_name))
+        print(self.cbc.get_entity(self.entity_id))
 
     def mqtt_initialization(self):
-        # create an MQTTv5 Client
+        # create an MQTTv5 Client and connect
         def on_connect(client, userdata, flags, rc):
             client.subscribe(f"/json/{APIKEY}/device:{self.id}/attrs")
             print("Connected with result code" + str(rc))

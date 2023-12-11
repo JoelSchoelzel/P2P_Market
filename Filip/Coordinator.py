@@ -1,4 +1,4 @@
-#import from P2P_Market
+#  import from P2P_Market
 import config
 import python.characteristics as characs
 from filip.models.ngsi_v2.context import ContextEntity, NamedContextAttribute
@@ -17,9 +17,10 @@ service_group = ServiceGroup(apikey=APIKEY,
 
 class Coordinator:
 
-    def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient):
+    def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, buildings):
         self.cbc = cbc
         self.iotac = iotac
+        self.buildings = buildings
         self.platform_configuration()
         self.entity = {}
         self.bid = {}
@@ -32,11 +33,12 @@ class Coordinator:
         # Provision service group and add it to IOTAClient
         self.iotac.post_group(service_group=service_group, update=True)
 
-    def get_entity(self, entity_name):
-        self.entity = self.cbc.get_entity(entity_name)
-        attributes = [self.entity.price.value, self.entity.quantity.value,
+    def get_bids(self):
+        for i in range(len(self.buildings)):
+            self.entity = self.cbc.get_entity(self.buildings[i].entity_id)
+            attributes = [self.entity.price.value, self.entity.quantity.value,
                       self.entity.buyer.value, int(self.entity.number.value)]
-        self.bid[self.entity.name.value] = attributes
+            self.bid[self.entity.name.value] = attributes
 
     def sort_bids(self):
         nodes, building_params, params, devs_pre_opti, net_data, par_rh = config.get_inputs(config.par_rh,
