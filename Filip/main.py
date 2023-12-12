@@ -54,34 +54,26 @@ if __name__ == '__main__':
             #building.p2p_bid(n_time=n_opt)
             building.formulate_bid(n_time=n_opt)
             building.publish_data(time_index)
-            # recieving bids
-            # Get corresponding entities and coordinator can get bids from entities
-            # TODO coordinator should know the market participants
-            # TODO implement get_bid in coordinator, which should fetch the data from platform
-            #coordinator.get_bid()
-            #f_bids.append(coordinator.bid.copy())
-
-        #f_bids.append(coordinator.bid.copy())
+        # recieving bids
+        # Get corresponding entities and coordinator can get bids from entities
+        # coordinator should know the market participants
+        # implement get_bid in coordinator, which could fetch the data from platform
+        #f_bids.append(coordinator.bid.copy()) #  todo validation
         # calculate sorted bids
         coordinator.get_bids()
         coordinator.sort_bids()
-        #f_sorted_bids.append(coordinator.sorted_bids.copy())
+        #f_sorted_bids.append(coordinator.sorted_bids.copy()) # todo validation
         # calculate transaction
-        coordinator.calculate_transactions()  # TODO rename this method to clear_market or calculate_transaction?
-        #f_transactions.append(coordinator.transactions.copy())  # todo validation
+        coordinator.calculate_transactions()
+        #f_transactions.append(coordinator.transactions.copy()) # todo validation
         #print(f'n_opt = {n_opt}')
-        #print(f'transaction: {coordinator.transactions}')  # todo validation
-        # TODO move the sending transaction into a method of coordinator, like publish_transaction
-        # TODO coordinator send transaction to context broker subscription
-
+        #print(f'transaction: {coordinator.transactions}') # todo validation
+        #  move the sending transaction into a method of coordinator, like publish_transaction
+        #  coordinator send transaction to context broker subscription
         # coordinator sends the transaction to context broker so that buildings can get transaction
-        for i in range(building_number):
-            coordinator.get_transaction_entity(cleints=i, n_opt=n_opt)
-            coordinator.publish_transaction()
-        # TODO move following code into a method of coordinator, like clear_data / reset_data etc.
-        #  and this method can be called inside the publish_transaction method
+        coordinator.create_publish_transaction_entity(n_opt=n_opt)
         # clear sorted_bids and transactions so that these are empty for next hour
-        coordinator.clear_data()
+
 
     # df0 = pd.DataFrame(f_bids)
     # print("df0:")
