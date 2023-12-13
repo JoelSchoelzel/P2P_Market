@@ -46,7 +46,7 @@ fiware_header = FiwareHeader(service=os.getenv('Service'),
                              service_path=os.getenv('Service_path'))
 
 
-class Building():
+class Building:
     # class Building(MarketParticipantFIWARE):
     def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, id):
         # todo def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, **data: Any):
@@ -54,16 +54,18 @@ class Building():
         self.cbc = cbc
         self.iotac = iotac
         self.id = id
-        # building device and entity
+        # building device id, entity id and type
         self.building_device_id = f"building_device:{self.id}"
         self.building_entity_id = f"urn:ngsi-ld:Building:{self.id}"
         self.builidng_entity_type = "Building"
-        self.building_device = self.create_building_device()
-        self.building_entity = self.create_building_entity()
-        # bid device and entity
+        # bid device id, entity id and type
         self.bid_device_id = f"bid_device:{self.id}"
         self.bid_entity_id = f"urn:ngsi-ld:Bid:{self.id}"
         self.bid_entity_type = "Bid"
+        # building device and entity
+        self.building_device = self.create_building_device()
+        self.building_entity = self.create_building_entity()
+        # bid device and entity
         self.bid_device = self.create_bid_device()
         self.bid_entity = self.create_bid_entity()
         self.platform_configuration()
@@ -77,11 +79,12 @@ class Building():
         #     bid_schema = json.load(f)
 
         data_to_publish = {"timestamp": time_index,
-                           "name": f"bes_{self.id}",
+                           "bidtime": self.id,
+                           "building_name": f"bes_{self.id}",
                            "price": self.bid[f"bes_{self.id}"][0],
                            "quantity": self.bid[f"bes_{self.id}"][1],
                            "buyer": self.bid[f"bes_{self.id}"][2],
-                           "number": int(self.bid[f"bes_{self.id}"][3])}
+                           "building_id": int(self.bid[f"bes_{self.id}"][3])}
 
         # todo send the data from p2p market
         # data_to_publish = {"timestamp": time_index,
@@ -93,7 +96,7 @@ class Building():
         # json_data = bid_schema(**data_to_publish)
         json_data = json.dumps(data_to_publish)
         # publish the device and data
-        self.mqttc.publish(topic=f"/json/{APIKEY_BUILDING}/device:{self.id}/attrs",
+        self.mqttc.publish(topic=f"/json/{APIKEY_BUILDING}/{self.building_device_id}/attrs",
                            payload=json_data)
         # wait for 0.1 second before publishing next values
         time.sleep(0.1)
@@ -102,11 +105,14 @@ class Building():
         building_entity = ContextEntity(id=self.building_entity_id,
                                         type=self.builidng_entity_type)
 
-        t_name = NamedContextAttribute(name='name',
-                                       type="String")
-        t_numer = NamedContextAttribute(name='number',
-                                        type='Number')
-        building_entity.add_attributes([t_name, t_numer])
+        building_name = NamedContextAttribute(name='building_name',
+                                              type="String")
+        building_id = NamedContextAttribute(name='building_id',
+                                            type='Number')
+        building_bid = NamedContextAttribute(name='refBid',
+                                             type='Relationship',
+                                             value=self.bid_entity_id)
+        building_entity.add_attributes([building_name, building_id, building_bid])
         return building_entity
 
     def create_bid_entity(self):
@@ -114,20 +120,23 @@ class Building():
         bid_entity = ContextEntity(id=self.bid_entity_id,
                                    type=self.bid_entity_type)
 
-        t_bidtime = NamedContextAttribute(name='bidtime',
-                                          type="String")
-        t_price = NamedContextAttribute(name='price',
-                                        type='Number')
-        t_quantity = NamedContextAttribute(name='quantity',
-                                           type='Number')
-        t_buyer = NamedContextAttribute(name='buyer',
-                                        type='String')
+        bid_time = NamedContextAttribute(name='bidtime',
+                                         type="String")
+        bid_price = NamedContextAttribute(name='price',
+                                          type='Number')
+        bid_quantity = NamedContextAttribute(name='quantity',
+                                             type='Number')
+        bid_buyer = NamedContextAttribute(name='buyer',
+                                          type='String')
+        bid_building = NamedContextAttribute(name='refBuilding',
+                                             type='Relationship',
+                                             value=self.building_entity_id)
 
-        bid_entity.add_attributes([t_bidtime, t_price, t_quantity, t_buyer])
+        bid_entity.add_attributes([bid_time, bid_price, bid_quantity, bid_buyer, bid_building])
         return bid_entity
 
     def create_building_device(self):
-        building = Device(device_id=self.bid_device_id,
+        building = Device(device_id=self.building_device_id,
                           entity_name=self.building_entity_id,
                           entity_type=self.builidng_entity_type,
                           protocol='IoTA-JSON',
