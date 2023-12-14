@@ -54,16 +54,17 @@ class Building:
         self.cbc = cbc
         self.iotac = iotac
         self.id = id
-        # building device id, entity id and type
-        self.building_device_id = f"building_device:{self.id}"
+        # building entity id and type
         self.building_entity_id = f"urn:ngsi-ld:Building:{self.id}"
         self.builidng_entity_type = "Building"
         # bid device id, entity id and type
         self.bid_device_id = f"bid_device:{self.id}"
         self.bid_entity_id = f"urn:ngsi-ld:Bid:{self.id}"
         self.bid_entity_type = "Bid"
-        # building device and entity
-        self.building_device = self.create_building_device()
+        # transaction entity id and type
+        self.transaction_entity_id = f"urn:ngsi-ld:Transaction:{self.id}"
+        self.transaction_topic = f"/v2/transactions/urn:ngsi-ld:Transaction:{self.id}/attrs"
+        # building entity
         self.building_entity = self.create_building_entity()
         # bid device and entity
         self.bid_device = self.create_bid_device()
@@ -74,17 +75,17 @@ class Building:
         self.init_val = {}
         # self.bid1 = {}  # todo (validation) get the bid from p2p market
 
-    def publish_data(self, time_index):
+    def publish_data(self, time_index, n_opt):
         # with open('bid_schema.json', 'r') as f:
         #     bid_schema = json.load(f)
 
         data_to_publish = {"timestamp": time_index,
-                           "bidtime": self.id,
-                           "building_name": f"bes_{self.id}",
+                           "bidround": n_opt,
                            "price": self.bid[f"bes_{self.id}"][0],
                            "quantity": self.bid[f"bes_{self.id}"][1],
-                           "buyer": self.bid[f"bes_{self.id}"][2],
-                           "building_id": int(self.bid[f"bes_{self.id}"][3])}
+                           "role": self.bid[f"bes_{self.id}"][2],
+                           # "building_id": int(self.bid[f"bes_{self.id}"][3])
+                           }
 
         # todo send the data from p2p market
         # data_to_publish = {"timestamp": time_index,
@@ -96,7 +97,7 @@ class Building:
         # json_data = bid_schema(**data_to_publish)
         json_data = json.dumps(data_to_publish)
         # publish the device and data
-        self.mqttc.publish(topic=f"/json/{APIKEY_BUILDING}/{self.building_device_id}/attrs",
+        self.mqttc.publish(topic=f"/json/{APIKEY_BID}/{self.bid_device_id}/attrs",
                            payload=json_data)
         # wait for 0.1 second before publishing next values
         time.sleep(0.1)
@@ -106,13 +107,18 @@ class Building:
                                         type=self.builidng_entity_type)
 
         building_name = NamedContextAttribute(name='building_name',
-                                              type="String")
+                                              type="String",
+                                              value=f"bes_{self.id}")
         building_id = NamedContextAttribute(name='building_id',
-                                            type='Number')
+                                            type='Number',
+                                            value=self.id)
         building_bid = NamedContextAttribute(name='refBid',
                                              type='Relationship',
                                              value=self.bid_entity_id)
-        building_entity.add_attributes([building_name, building_id, building_bid])
+        building_transaction = NamedContextAttribute(name='refTransaction',
+                                                     type='Relationship',
+                                                     value=self.transaction_entity_id)
+        building_entity.add_attributes([building_name, building_id, building_bid, building_transaction])
         return building_entity
 
     def create_bid_entity(self):
@@ -120,30 +126,20 @@ class Building:
         bid_entity = ContextEntity(id=self.bid_entity_id,
                                    type=self.bid_entity_type)
 
-        bid_time = NamedContextAttribute(name='bidtime',
-                                         type="String")
+        bid_round = NamedContextAttribute(name='bidround',
+                                          type="String")
         bid_price = NamedContextAttribute(name='price',
                                           type='Number')
         bid_quantity = NamedContextAttribute(name='quantity',
                                              type='Number')
-        bid_buyer = NamedContextAttribute(name='buyer',
-                                          type='String')
+        bid_role = NamedContextAttribute(name='role',
+                                         type='String')
         bid_building = NamedContextAttribute(name='refBuilding',
                                              type='Relationship',
                                              value=self.building_entity_id)
 
-        bid_entity.add_attributes([bid_time, bid_price, bid_quantity, bid_buyer, bid_building])
+        bid_entity.add_attributes([bid_round, bid_price, bid_quantity, bid_role, bid_building])
         return bid_entity
-
-    def create_building_device(self):
-        building = Device(device_id=self.building_device_id,
-                          entity_name=self.building_entity_id,
-                          entity_type=self.builidng_entity_type,
-                          protocol='IoTA-JSON',
-                          transport='MQTT',
-                          apikey=os.getenv('APIKEY'),
-                          commands=[])
-        return building
 
     def create_bid_device(self):
         bid = Device(device_id=self.bid_device_id,
@@ -163,9 +159,9 @@ class Building:
         # set the unique subscription for every building
         subscription_dict[
             "descroption"] = f"Subscription to receive MQTT-Notification about urn:ngsi-ld:Transaction:{self.id}"
-        subscription_dict["subject"]["entities"][0]["id"] = f"urn:ngsi-ld:Transaction:{self.id}"
+        subscription_dict["subject"]["entities"][0]["id"] = self.transaction_entity_id
         subscription_dict["notification"]["mqtt"]["url"] = f"{MQTT_Broker_URL}"
-        subscription_dict["notification"]["mqtt"]["topic"] = f"/v2/transactions/urn:ngsi-ld:Transaction:{self.id}/attrs"
+        subscription_dict["notification"]["mqtt"]["topic"] = self.transaction_topic
         subscription = Subscription(**subscription_dict)
 
         # post subscription to context broker
@@ -178,7 +174,6 @@ class Building:
         self.iotac.post_group(service_group=building_service_group, update=True)
         self.iotac.post_group(service_group=bid_service_group, update=True)
         # Provision the devices at the Iota-agent
-        self.iotac.post_device(device=self.building_device, update=True)
         self.iotac.post_device(device=self.bid_device, update=True)
         # check in the context broker if the entities corresponding to the buildings
         print(self.cbc.get_entity(self.bid_entity_id))
@@ -274,16 +269,16 @@ class ComputeBids:  # TODO Camel case, ComputeBids
             q_2 = 0
             p_2 = 0
 
-        buying = str("True")
+        role = str("buyer")
         # p = np.around(p, decimals=4)
         # p_2 = np.around(p_2, decimals=4)
 
-        return [p, q, buying, n]
+        return [p, q, role, n]
 
     def compute_chp_bids(self, chp_sell, n, bid_strategy):
 
         q = chp_sell
-        buying = str("False")
+        role = str("seller")
 
         # compute bids with zero-intelligence
         if bid_strategy == "zero":
@@ -291,15 +286,15 @@ class ComputeBids:  # TODO Camel case, ComputeBids
             p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100
         p = np.around(p, decimals=6)
 
-        return [p, q, buying, n]
+        return [p, q, role, n]
 
     def compute_empty_bids(self, n):
 
         p = 0
         q = 0
-        buying = str("True")
+        role = str("buyer")
 
-        return [p, q, buying, n]
+        return [p, q, role, n]
 
     def filip_compute_bids(self, opti_res, pars_rh, n_opt, options, n):
 

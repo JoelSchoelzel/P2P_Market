@@ -53,7 +53,7 @@ if __name__ == '__main__':
         for building in buildings:
             #building.p2p_bid(n_time=n_opt)
             building.formulate_bid(n_time=n_opt)
-            building.publish_data(time_index)
+            building.publish_data(time_index, n_opt)
         # recieving bids
         # Get corresponding entities and coordinator can get bids from entities
         # coordinator should know the market participants

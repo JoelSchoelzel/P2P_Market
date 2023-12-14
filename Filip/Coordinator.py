@@ -22,7 +22,8 @@ class Coordinator:
         self.iotac = iotac
         self.buildings = buildings
         self.platform_configuration()
-        self.entity = {}
+        self.building_entity = {}
+        self.bid_entity = {}
         self.bid = {}
         self.sorted_bids = {}
         self.transactions = {}
@@ -36,17 +37,17 @@ class Coordinator:
 
     def get_bids(self):
         for i in range(len(self.buildings)):
-            self.entity = self.cbc.get_entity(self.buildings[i].entity_id)
-            attributes = [self.entity.price.value, self.entity.quantity.value,
-                      self.entity.buyer.value, int(self.entity.number.value)]
-            self.bid[self.entity.name.value] = attributes
+            self.building_entity = self.cbc.get_entity(self.buildings[i].building_entity_id)
+            self.bid_entity = self.cbc.get_entity(self.building_entity.refBid.value)
+            attributes = [self.bid_entity.price.value, self.bid_entity.quantity.value,
+                          self.bid_entity.role.value, int(self.building_entity.building_id.value)]
+            self.bid[self.building_entity.building_name.value] = attributes
 
     def sort_bids(self):
         nodes, building_params, params, devs_pre_opti, net_data, par_rh = config.get_inputs(config.par_rh,
                                                                                             config.options,
                                                                                             config.districtData)
         characteristics = characs.calc_characs(nodes, config.options, par_rh)
-
 
         buy_list = {}
         sell_list = {}
@@ -58,7 +59,7 @@ class Coordinator:
             if float(self.bid["bes_" + str(n)][1]) != 0.0:
 
                 # add buying bids to buy_list
-                if self.bid["bes_" + str(n)][2] == "True":
+                if self.bid["bes_" + str(n)][2] == "buyer":
                     i = len(buy_list)
                     buy_list[i] = {
                         "price": self.bid["bes_" + str(n)][0],
@@ -67,7 +68,7 @@ class Coordinator:
                     }
 
                 # add selling bids to sell_list
-                if self.bid["bes_" + str(n)][2] == "False":
+                if self.bid["bes_" + str(n)][2] == "seller":
                     i = len(sell_list)
                     sell_list[i] = {
                         "price": self.bid["bes_" + str(n)][0],
@@ -219,10 +220,11 @@ class Coordinator:
                     # iterate through potential sellers
                     for k in range(len(bids[n]["sell"])):
                         # check whether trade is possible
-                        if bids[n]["buy"][prio]["price"] >= bids[n]["sell"][k]["price"] and bids[n]["sell"][k]["quantity"] > 0:
+                        if bids[n]["buy"][prio]["price"] >= bids[n]["sell"][k]["price"] and bids[n]["sell"][k][
+                            "quantity"] > 0:
                             # determine transaction price using k-pricing method
                             transaction_price = bids[n]["buy"][prio]["price"] + kappa * (
-                                        bids[n]["sell"][k]["price"] - bids[n]["buy"][prio]["price"])
+                                    bids[n]["sell"][k]["price"] - bids[n]["buy"][prio]["price"])
 
                             # quantity is minimum of both
                             transaction_quantity = min(bids[n]["sell"][k]["quantity"], bids[n]["buy"][prio]["quantity"])
@@ -247,11 +249,12 @@ class Coordinator:
                     # iterate through potential buyers
                     for k in range(len(bids[n]["buy"])):
                         # check whether trade is possible
-                        if bids[n]["buy"][k]["price"] >= bids[n]["sell"][prio]["price"] and bids[n]["buy"][k]["quantity"] > 0:
+                        if bids[n]["buy"][k]["price"] >= bids[n]["sell"][prio]["price"] and bids[n]["buy"][k][
+                            "quantity"] > 0:
 
                             # determine transaction price using k-pricing method
                             transaction_price = bids[n]["buy"][k]["price"] + kappa * (
-                                        bids[n]["sell"][prio]["price"] - bids[n]["buy"][k]["price"])
+                                    bids[n]["sell"][prio]["price"] - bids[n]["buy"][k]["price"])
 
                             # quantity is minimum of both
                             transaction_quantity = min(bids[n]["sell"][prio]["quantity"], bids[n]["buy"][k]["quantity"])
@@ -267,7 +270,7 @@ class Coordinator:
 
                             # subtract quantity and break loop when seller is satisfied
                             bids[n]["sell"][prio]["quantity"] -= transaction_quantity
-                            bids[n]["buy"][ k]["quantity"] -= transaction_quantity
+                            bids[n]["buy"][k]["quantity"] -= transaction_quantity
                             if bids[n]["sell"][prio]["quantity"] == 0:
                                 break
 
@@ -313,12 +316,12 @@ class Coordinator:
                     self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
                                                             type=self.entity_type)
                     attribute_test = NamedContextAttribute(
-                            name="my_attributes",
-                            type="StructuredValue",
-                            value={
-                                "time": str(n_opt),
-                                "result": "No Transaction",
-                            })
+                        name="my_attributes",
+                        type="StructuredValue",
+                        value={
+                            "time": str(n_opt),
+                            "result": "No Transaction",
+                        })
                     self.transaction_entity.add_attributes([attribute_test])
                     self.cbc.patch_entity(entity=self.transaction_entity)
 
@@ -333,14 +336,14 @@ class Coordinator:
                     self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
                                                             type=self.entity_type)
                     attribute_test = NamedContextAttribute(
-                            name="my_attributes",
-                            type="StructuredValue",
-                            value={
-                                "time": str(n_opt),
-                                "buyer": f"{cleints}",
-                                # "seller": "Zehao",
-                                "transaction": transaction_list
-                            })
+                        name="my_attributes",
+                        type="StructuredValue",
+                        value={
+                            "time": str(n_opt),
+                            "buyer": f"{cleints}",
+                            # "seller": "Zehao",
+                            "transaction": transaction_list
+                        })
                     self.transaction_entity.add_attributes([attribute_test])
                     transaction_list.clear()
                     self.cbc.patch_entity(entity=self.transaction_entity)
@@ -349,21 +352,21 @@ class Coordinator:
                 else:
                     for key, value in seller_dic.items():
                         if value == cleints:
-                                transaction['Price'] = self.transactions[key]['price']
-                                transaction['Quantity'] = self.transactions[key]['quantity']
-                                transaction_list.append(transaction.copy())
+                            transaction['Price'] = self.transactions[key]['price']
+                            transaction['Quantity'] = self.transactions[key]['quantity']
+                            transaction_list.append(transaction.copy())
 
                     self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
                                                             type=self.entity_type)
                     attribute_test = NamedContextAttribute(
-                            name="my_attributes",
-                            type="StructuredValue",
-                            value={
-                                "time": str(n_opt),
-                                # "buyer": "Junsong",
-                                "seller": f"{cleints}",
-                                "transaction": transaction_list
-                            })
+                        name="my_attributes",
+                        type="StructuredValue",
+                        value={
+                            "time": str(n_opt),
+                            # "buyer": "Junsong",
+                            "seller": f"{cleints}",
+                            "transaction": transaction_list
+                        })
                     self.transaction_entity.add_attributes([attribute_test])
                     transaction_list.clear()
                     self.cbc.patch_entity(entity=self.transaction_entity)
@@ -371,14 +374,14 @@ class Coordinator:
             # if the transaction is empty
             else:
                 self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
-                                                            type=self.entity_type)
+                                                        type=self.entity_type)
                 attribute_test = NamedContextAttribute(
-                            name="my_attributes",
-                            type="StructuredValue",
-                            value={
-                                "time": str(n_opt),
-                                "result": "No Transaction",
-                            })
+                    name="my_attributes",
+                    type="StructuredValue",
+                    value={
+                        "time": str(n_opt),
+                        "result": "No Transaction",
+                    })
                 self.transaction_entity.add_attributes([attribute_test])
                 self.cbc.patch_entity(entity=self.transaction_entity)
 

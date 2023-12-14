@@ -6,6 +6,7 @@ from aenum import Enum
 
 import json
 
+
 # Identify buildings
 class BuildingName(BaseModel):
     """
@@ -39,11 +40,13 @@ class Role(BaseModel):
     """This version of Role is currently only for implementing in bid"""
     buyer: bool
 
+
 class Time(BaseModel):
     """
     The time of prediction for next hour, it can also identify the bids or transactions in hours.
     """
     time: str
+
 
 class Price(BaseModel):
     """
@@ -58,22 +61,6 @@ class Quantity(BaseModel):
     a certain quantity to exchange. One seller can sell its energy to one or more buyers.
     """
     quantity: float
-
-class Bid(BaseModel):
-    timestamp: Time
-    name: BuildingName
-    price: Price
-    quantity: Quantity
-    buyer: Role
-    number: BuildingID
-# convert pydantic model to json schema
-bid_schema = schema_json_of(Bid, indent=2)
-print(bid_schema)
-
-with open('bid_schema.json', 'w') as f:
-    f.write(bid_schema)
-    # bid_schema_dict = json.loads(bid_schema)
-    # json.dump(bid_schema_dict, f, indent=2)
 
 
 class Responds(BaseModel):
@@ -103,11 +90,63 @@ class Responds(BaseModel):
         description="the responds from coordinator to buildings"
     )
 
-class MarketParticipant(BaseModel):
-    name: BuildingName
+
+class RoundTime(BaseModel):
+    """In P2P_Market run the programm in 744h, the round time is for every hour of 744, it will be displayed in bid
+    entity. """
+    round: int
+
+
+class RefBid(BaseModel):
+    """Because of FIWARE, the refBid is an attribute of Building's entity and its type is 'Relationship', but the value
+    is saved as a string sentence."""
+    refBid: str
+
+
+class RefTransaction(BaseModel):
+    """Because of FIWARE, the refTransaction is an attribute of Building's entity and its type is 'Relationship', but the value
+    is saved as a string sentence."""
+    refTransaction: str
+
+
+class Bid(BaseModel):
+    timestamp: Time
+    price: Price
+    quantity: Quantity
     role: Role
+
+
+class BidFiware(Bid):
+    bidround: RoundTime
+
+
+class Transaction(BaseModel):
+    timestamp: Time
+    price: Price
+    quantity: Quantity
+    role: Role
+    respond: Responds
+
+
+class MarketParticipant(BaseModel):
+    id: BuildingID
     bid: Bid
+    transaction: Transaction
 
 
 class MarketParticipantFIWARE(MarketParticipant):
-    id: BuildingID
+    name: BuildingName
+    bid: RefBid
+    transaction: RefTransaction
+
+
+
+# convert pydantic model to json schema
+bid_schema = schema_json_of(Bid, indent=2)
+print(bid_schema)
+
+with open('bid_schema.json', 'w') as f:
+    f.write(bid_schema)
+    # bid_schema_dict = json.loads(bid_schema)
+    # json.dump(bid_schema_dict, f, indent=2)
+
