@@ -24,7 +24,7 @@ import config
 # import for data model
 import json
 # from jsonschemaparser import JsonSchemaParser
-from data_model.data_model import MarketParticipantFIWARE
+from data_model.data_model import MarketParticipantFIWARE, BuildingID
 
 # Load environment variables from .env file
 load_dotenv()
@@ -46,14 +46,14 @@ fiware_header = FiwareHeader(service=os.getenv('Service'),
                              service_path=os.getenv('Service_path'))
 
 
-class Building:
-    # class Building(MarketParticipantFIWARE):
-    def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, id):
-        # todo def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, **data: Any):
-        # todo super().__init__(**data)
+#class Building:
+class Building(MarketParticipantFIWARE):
+    #def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, id):
+    def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, **data: Any):
+        super().__init__(**data)
         self.cbc = cbc
         self.iotac = iotac
-        self.id = id
+        self.id = data['id']
         # building entity id and type
         self.building_entity_id = f"urn:ngsi-ld:Building:{self.id}"
         self.builidng_entity_type = "Building"
