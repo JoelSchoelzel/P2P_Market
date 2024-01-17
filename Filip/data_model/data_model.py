@@ -6,7 +6,7 @@ from aenum import Enum
 from datetime import datetime
 from uuid import UUID
 import json
-
+from decimal import Decimal
 
 # Identify buildings
 class BuildingName(BaseModel):
@@ -37,11 +37,16 @@ class BuildingID(BaseModel):
 #     Seller = 'seller'
 #     NotParticipant = 'not participant'
 class ProductID(BaseModel):
+    """
+    Identify bid and transaction so that they can be easily retrieved.
+    """
     productID: UUID
 
 
 class MarketRole(str, Enum):
-    """This version of Role is currently only for implementing in bid"""
+    """
+    This version of Role is currently only for implementing in bid
+    """
     buyer = 'buyer'
     seller = 'seller'
 
@@ -58,7 +63,7 @@ class Price(BaseModel):
     The price of the buying or selling will be at first in bids provided from every building. But the final transacted
     price will be by coordinator with multiple trading round determined.
     """
-    price: float
+    price: Decimal
 
 
 class Quantity(BaseModel):
@@ -66,7 +71,7 @@ class Quantity(BaseModel):
     Quantity will be at first in bids provided. After matching among buyers and sellers, appropriate matches will have
     a certain quantity to exchange. One seller can sell its energy to one or more buyers.
     """
-    quantity: float
+    quantity: Decimal
 
 
 class PowerDirection(BaseModel):
@@ -83,13 +88,14 @@ class MarketType(str, Enum):
 
 
 class RoundTime(BaseModel):
-    """In P2P_Market run the programm in 744h, the round time is for every hour of 744, it will be displayed in bid
-    entity. """
+    """
+    In P2P_Market run the programm in 744h, the round time is for every hour of 744, it will be displayed in bid
+    entity.
+    """
     round: int
 
 
-
-
+# todo main model
 class MarketBuilding(BaseModel):
     name: BuildingName = Field(description="Building's name")
     userID: BuildingID = Field(description='The user name for the Building')
@@ -104,7 +110,9 @@ print(MarketBuilding.schema_json(indent=2))
 
 
 class Bid(BaseModel):
-    """Represents  bid to purchase or sell energy in electricity market"""
+    """
+    Represents  bid to purchase or sell energy in electricity market
+    """
     bidID: ProductID = Field(description='The user name for the Bid')
     createdDateTime: Time = Field(description='Date and time that this Transaction was created')
     price: Price = Field(description='A number of monetary units specified in a unit of currency')
@@ -123,7 +131,9 @@ print(Bid.schema_json(indent=2))
 
 
 class Transaction(BaseModel):
-    """Represents transaction of power direction and negotiated price and quantity"""
+    """
+    Represents transaction of power direction and negotiated price and quantity
+    """
     transactionID: ProductID = Field(description='The user name for the Transaction')
     createdDateTime: Time = Field(description='Date and time that this Transaction was created')
     price: Price = Field(description='A number of monetary units specified in a unit of currency')
@@ -139,7 +149,9 @@ print(Transaction.schema_json(indent=2))
 
 
 class Coordinator(BaseModel):
-    """This class is used to identify the electricty market type and regulate bidding and trading time"""
+    """
+    This class is used to identify the electricty market type and regulate bidding and trading time
+    """
     marketType: MarketType = Field(description='Hour Ahead Market')
     bidStartTime: Time = Field(description='Start time and date for bid applies')
     bidStopTime: Time = Field(description='Stop time and date for which bid is applicable')
@@ -164,7 +176,7 @@ print(Coordinator.schema_json(indent=2))
 
 
 # todo convert pydantic model to json schema
-#bid_schema = schema_json_of(Bid, indent=2)
+bid_schema = schema_json_of(Bid, indent=2)
 #print(bid_schema)
 
 # with open('bid_schema.json', 'w') as f:

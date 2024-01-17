@@ -24,7 +24,7 @@ import config
 # import for data model
 import json
 # from jsonschemaparser import JsonSchemaParser
-from data_model.data_model import MarketParticipantFIWARE, BuildingID
+# from data_model.data_model import MarketParticipantFIWARE, BuildingID
 
 # Load environment variables from .env file
 load_dotenv()
