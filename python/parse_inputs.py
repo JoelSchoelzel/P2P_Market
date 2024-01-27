@@ -679,8 +679,8 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         if districtData.district[n]['capacities']['EV'] :
             devs[n]["ev"]["cap"] = districtData.district[n]['capacities']['EV']
 
-        if districtData.district[n]['capacities']['BZ'] :
-            devs[n]["bz"]["cap"] = districtData.district[n]['capacities']['BZ']
+        if districtData.district[n]['capacities']['FC'] :
+            devs[n]["bz"]["cap"] = districtData.district[n]['capacities']['FC']
 
         if districtData.scenario.heater[n] == "BOI":
             devs[n]["boiler"]["cap"] = districtData.district[n]['capacities']['BOI']

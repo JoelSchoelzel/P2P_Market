@@ -99,7 +99,7 @@ if __name__ == '__main__':
     # DistrictGenerator
     data = Datahandler()
     data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=True) #(calcUserProfiles=False, saveUserProfiles=True)
-    data.designDevices(saveGenerationProfiles=True)
+    data.designDevicesComplete(saveGenerationProfiles=True)
     data.clusterProfiles()
 
     districtData = data
@@ -114,7 +114,7 @@ if __name__ == '__main__':
                "flexible_demands": True,  # True: flexible demands aren't necessarily fulfilled every step
 
                "number_typeWeeks": 0,  # set 0 in case no type weeks are investigated
-               "full_path_scenario": ("D:\\EBC\\districtgenerator_python\\data\\scenarios\\" +
+               "full_path_scenario": ("D:\\jsc-mse\\BA\\districtgenerator\\data\\scenarios\\" +
                                       options_DG["scenario_name"] + ".csv"),  # scenario csv, name set for DG is used
                # "times": 2688, #8760 * 4,  # whole year 15min resolution
                # "tweeks": 4,  # number of typical weeks
