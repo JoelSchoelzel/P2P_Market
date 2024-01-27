@@ -61,7 +61,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             dhw[param00] = np.mean([node["dhw_appended"][param02], node["dhw_appended"][param02 + param01 - 1]])
             COP35[param00] = np.mean([node["devs"]["COP_sh35_appended"][param02], node["devs"]["COP_sh35_appended"][param02 + param01 - 1]])
             COP55[param00] = np.mean([node["devs"]["COP_sh55_appended"][param02], node["devs"]["COP_sh55_appended"][param02 + param01 - 1]])
-            #PV_GEN[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
+            PV_GEN[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
             EV_AVAIL[param00] = np.mean([node["ev_avail_appended"][param02], node["ev_avail_appended"][param02 + param01 - 1]])
             EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave_appended"][param02], node["ev_dem_leave_appended"][param02 + param01 - 1]])
 
@@ -71,7 +71,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         "dhw": dhw,
         "COP35": COP35,
         "COP55": COP55,
-        #"PV_GEN": PV_GEN,
+        "PV_GEN": PV_GEN,
         "EV_AVAIL": EV_AVAIL,
         "EV_DEM_LEAVE": EV_DEM_LEAVE,
         }
@@ -253,15 +253,15 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
                         name="Power_equation_" + dev + "_" + str(t))
 
     # Solar components
-    #for dev in solar:
-    #    for t in time_steps:
-    #        model.addConstr(power[dev][t] == node["pv_power"][t],
-    #                        name="Solar_electrical_" + dev + "_" + str(t))
+    for dev in solar:
+        for t in time_steps:
+            model.addConstr(power[dev][t] == demands["PV_GEN"][t],
+                            name="Solar_electrical_" + dev + "_" + str(t))
 
 
     #set solar to 0
-    for t in time_steps:
-        model.addConstr(power["pv"][t] == 0, name="Solar_electrical_pv_" + str(t))
+    #for t in time_steps:
+    #    model.addConstr(power["pv"][t] == 0, name="Solar_electrical_pv_" + str(t))
     # %% BUILDING STORAGES # %% DOMESTIC FLEXIBILITIES
 
     ## Nominal storage content (SOC)
