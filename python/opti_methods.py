@@ -25,10 +25,10 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
     if options["optimization"] == "P2P":
 
         # range of prices for bids
-        options["p_max"] = params["eco"]["pr", "el"]  # price for electricity bought from gird
+        options["p_max"] = params["eco"]["pr", "el"]  # price for electricity bought from grid
         options["p_min"] = params["eco"]["sell_chp"]  # price for electricity from CHP sold to grid
 
-        # compute market agents for prosumers
+        # compute market agents for prosumers (number of building energy system)
         mar_agent_bes = []
         for n in range(options["nb_bes"]):
             mar_agent_bes.append(bd.mar_agent_bes(options, par_rh, nodes[n]))
@@ -42,7 +42,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         # create trade_res to store results
         trade_res = {}
 
-        # calculate characteristics
+        # calculate characteristics (Flexibilitätskennzahlen) Stinner et. al 2016
         characteristics = characs.calc_characs(nodes, options, par_rh)
 
         # parameters for learning bidding strategy
@@ -139,13 +139,13 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         opti_res_new = {}
         for n_opt in range(par_rh["n_opt"]):
             opti_res_new[n_opt] = {}
-            for i in range(18):
+            for i in range(18): # 18 is the number of result categories; if number of result categories changes, this needs to be changed as well
                 opti_res_new[n_opt][i] = {}
                 for n in range(options["nb_bes"]):
                     opti_res_new[n_opt][i][n] = {}
                     opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]
 
-        return opti_res_new, mar_dict, trade_res, characteristics
+        return opti_res_new, mar_dict, trade_res, characteristics #opti_res,
 
     elif options["optimization"] == "P2P_typeWeeks":
         # runs optimization for type weeks instead of whole month/year
@@ -249,7 +249,7 @@ def infeasible_model_adjust_fuel_cell_configuration(k, nodes, options, index_typ
     return nodes, index_typeweeks
 
 
-def decentral_operation(node, params, pars_rh, building_params, init_val, n_opt, options):
+def decentral_operation(node, params, pars_rh, building_params, init_val, n_opt, options): # computes
 
     """
     This function computes a deterministic solution.

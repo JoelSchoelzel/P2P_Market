@@ -55,10 +55,35 @@ def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, node
         t = par_rh["time_steps"][n_opt][0]
         p_imp = opti_res[n][4][t]
         chp_sell = opti_res[n][8]["chp"][t]
+        pv_sell = opti_res[n][8]["pv"][t] #Index passt!
         bid_strategy = options["bid_strategy"]
-
         dem_heat = nodes[n]["heat"][n_opt]
         dem_dhw = nodes[n]["dhw"][n_opt]
+        # NEW! copied from local_market market_preprocessing.py!
+        dem_elec = nodes[n]["elec"][n_opt]  # Index prüfen
+        power_pv = nodes[n]["pv_power"][n_opt] # nicht sicher
+        pv_peak = np.max(nodes[n]["pv_power"][n_opt]) # nicht sicher
+        p_ch_bat = opti_res[n][5]["bat"][t]  # nicht sicher
+        p_dch_bat = opti_res[n][6]["bat"][t]  # nicht sicher
+        soc_bat = opti_res[n][3]["bat"][t]  # nicht sicher
+
+        # calculate heat produced by all devices
+        # heat_boiler = opti_res[n][2]["boiler"][t]
+        # heat_eh = opti_res[n][2]["eh"][t] # key "eh" passt nicht!
+        # heat_chp = opti_res[n][2]["chp"][t]
+        # Check if "hp35" is the heat pump being used
+        # if "hp35" in opti_res[n][2]:
+        #     heat_hp = opti_res[n][2]["hp35"][t]
+        # elif "hp55" in opti_res[n][2]:
+        #     # If "hp35" is not used, check for "hp55"
+        #     heat_hp = opti_res[n][2]["hp55"][t]
+        # else:
+            # Handle the case where neither is found
+        #     heat_hp = None  # or some default value
+        #     print("No heat pump data available for the given scenario and time step.")
+        # heat_devs = sum([heat_hp, heat_chp, heat_boiler, heat_eh]) #heat_eh
+
+
         if n_opt == 0:
             soc = opti_res[n][3]["tes"][t]
         else:
@@ -69,12 +94,21 @@ def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, node
         # compute bids and inflexible demands
 
         # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
-        if p_imp > 0.0:
+        if power_hp >= 0.0 and p_imp > 0.0 and pv_sell == 0:
             bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = \
                 mar_agent_prosumer[n].compute_hp_bids(p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp, options,
                                                       strategies, weights)
 
-        # when electricity needs to be sold, compute_chp_bids() of the mar_agent is called
+        # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
+        elif pv_sell > 0:
+            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = mar_agent_prosumer[
+                n].compute_pv_bids(
+                dem_elec, soc_bat, power_pv, p_ch_bat, p_dch_bat,
+                pv_sell, pv_peak, t, n, options["bid_strategy"],
+                strategies, weights)
+            # bes[n]["hp_dem"][n_opt] = 0
+
+        # when electricity from chp needs to be sold, compute_chp_bids() of the mar_agent is called
         elif chp_sell > 0:
             bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = \
                 mar_agent_prosumer[n].compute_chp_bids(chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc, options,
@@ -87,7 +121,7 @@ def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, node
     return bid, bes
 
 
-def compute_weights(nb_bes, propensities, par_rh, n_opt):
+def compute_weights(nb_bes, propensities, par_rh, n_opt): # computes
     # calculates the weights of the bid prices depending on propensities
     weights = {}
     for n in range(nb_bes):
@@ -156,6 +190,17 @@ def sort_bids(bid, options, characs, n_opt):
         else:
             sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["price"])
             sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["price"], reverse=True)
+
+    # sort buy_list and sell_list by quantity if quantity has been specified as criteria in options
+    elif options["crit_prio"] == "quantity":
+        # highest quantity first if descending has been set True in options
+        if options["descending"]:
+            sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["quantity"], reverse=True)
+            sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["quantity"], reverse=True)
+        # otherwise lowest quantity first
+        else:
+            sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["quantity"])
+            sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["quantity"])
 
     # else if a crit from characteristics (KPIs describing flexibility) is specified:
     else:
@@ -277,7 +322,7 @@ def cost_and_rev_grid(bes, trade_res, options, n_opt, eco):
     return trade_res
 
 
-def initial_prop(par_rh, options, pars_li):
+def initial_prop(par_rh, options, pars_li): # creates initial propensities for the first market round
     # list of possible bid prices
     strategies = [round(num, 2) for num in np.arange(options["p_min"], (options["p_max"] + pars_li["step"]),
                                                      pars_li["step"])]
@@ -324,7 +369,7 @@ def total_sup_and_dem(opti_res, par_rh, n_opt, nb_bes):
     return dem_total, sup_total
 
 
-def update_prop(mar_dict, par_rh, n_opt, bes, options, pars_li, trade_res, strategies):
+def update_prop(mar_dict, par_rh, n_opt, bes, options, pars_li, trade_res, strategies): #
     # update the props depending on trading results for the next step
 
     #clearing_price = trade_res["average_trade_price"]
@@ -350,8 +395,10 @@ def update_prop(mar_dict, par_rh, n_opt, bes, options, pars_li, trade_res, strat
     old_prop = mar_dict["propensities"][n_opt]
     # new propensities for the next market round
     new_prop = {}
-    #if no supply or demand at all (trading not possible), the propensities do not change
-    if dem_total[n_opt] == 0 or sup_total[n_opt] == 0:
+
+    t = par_rh["time_steps"][n_opt][0]
+    # if no supply or demand at all (trading not possible), the propensities do not change
+    if dem_total[t] == 0 or sup_total[t] == 0:
         new_prop = old_prop
 
     else:

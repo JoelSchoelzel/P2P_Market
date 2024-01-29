@@ -76,7 +76,7 @@ def calc_characs(nodes, options, par_rh):
         # space heating
         Q_SH = sum(nodes[n]["heat"][n_opt] for n_opt in range(par_rh["n_opt"]))
 
-        # DHW
+        # DHW (domestic hot water)
         Q_DHW = sum(nodes[n]["dhw"][n_opt] for n_opt in range(par_rh["n_opt"]))
 
         n_hours = par_rh["n_opt"]

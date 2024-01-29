@@ -11,8 +11,7 @@ import gurobipy as gp
 import numpy as np
 import datetime
 
-def compute(node, params, par_rh, building_param, init_val, n_opt, options):
-
+def compute(node, params, par_rh, building_param, init_val, n_opt, options): # computes the optimal operation of the BES for the given prediction horizon
     # Define subsets
     heater = ("boiler", "chp", "eh", "hp35", "hp55")
     storage = ("bat", "tes", "ev")
@@ -61,7 +60,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             dhw[param00] = np.mean([node["dhw_appended"][param02], node["dhw_appended"][param02 + param01 - 1]])
             COP35[param00] = np.mean([node["devs"]["COP_sh35_appended"][param02], node["devs"]["COP_sh35_appended"][param02 + param01 - 1]])
             COP55[param00] = np.mean([node["devs"]["COP_sh55_appended"][param02], node["devs"]["COP_sh55_appended"][param02 + param01 - 1]])
-            #PV_GEN[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
+            PV_GEN[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
             EV_AVAIL[param00] = np.mean([node["ev_avail_appended"][param02], node["ev_avail_appended"][param02 + param01 - 1]])
             EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave_appended"][param02], node["ev_dem_leave_appended"][param02 + param01 - 1]])
 
@@ -71,7 +70,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         "dhw": dhw,
         "COP35": COP35,
         "COP55": COP55,
-        #"PV_GEN": PV_GEN,
+        "PV_GEN": PV_GEN,
         "EV_AVAIL": EV_AVAIL,
         "EV_DEM_LEAVE": EV_DEM_LEAVE,
         }
@@ -171,7 +170,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     #    area[dev] = building_param["modules"] * node["devs"]["pv"]["area_real"]
 
     # Activation decision variables
-    # binary variable for each house to avoid simuultaneous feed-in and purchase of electric energy
+    # binary variable for each house to avoid simultaneous feed-in and purchase of electric energy
     y = {}
     for dev in ["bat", "ev", "house_load"]:
         y[dev] = {}
@@ -253,15 +252,15 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
                         name="Power_equation_" + dev + "_" + str(t))
 
     # Solar components
-    #for dev in solar:
-    #    for t in time_steps:
-    #        model.addConstr(power[dev][t] == node["pv_power"][t],
-    #                        name="Solar_electrical_" + dev + "_" + str(t))
+    for dev in solar:
+        for t in time_steps:
+            model.addConstr(power[dev][t] == demands["PV_GEN"][t],
+                            name="Solar_electrical_" + dev + "_" + str(t))
 
 
     #set solar to 0
-    for t in time_steps:
-        model.addConstr(power["pv"][t] == 0, name="Solar_electrical_pv_" + str(t))
+    #for t in time_steps:
+     #   model.addConstr(power["pv"][t] == 0, name="Solar_electrical_pv_" + str(t))
     # %% BUILDING STORAGES # %% DOMESTIC FLEXIBILITIES
 
     ## Nominal storage content (SOC)
@@ -438,7 +437,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     res_soc = {}
     for dev in ["bat", "ev", "house_load"]:
         res_y[dev] = {(t): y[dev][t].X for t in time_steps}
-    for dev in ["hp35", "hp55", "chp", "boiler"]:
+    for dev in ["hp35", "hp55", "chp", "boiler"]: #eh hinzugefügt?
         res_power[dev] = {(t): power[dev][t].X for t in time_steps}
         res_heat[dev] = {(t): heat[dev][t].X for t in time_steps}
     for dev in ["pv"]:
@@ -505,7 +504,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             objVal, runtime, soc_init_rh, res_gas_sum)
 
 
-def compute_initial_values(opti_bes, par_rh, n_opt):
+def compute_initial_values(opti_bes, par_rh, n_opt): # computes the initial values of the BES for the given prediction horizon
 
     init_val = {}
     init_val["soc"] = {}
@@ -516,7 +515,7 @@ def compute_initial_values(opti_bes, par_rh, n_opt):
     return init_val
 
 
-def initial_values_flex(opti_res, par_rh, n_opt, nodes, options, trade_res, prev_init_val):
+def initial_values_flex(opti_res, par_rh, n_opt, nodes, options, trade_res, prev_init_val): # comp
 
     t = par_rh["hour_start"][n_opt]
 

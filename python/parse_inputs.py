@@ -84,7 +84,7 @@ def read_economics():
 
     return params
 
-def compute_pars_rh(param, options, districtData):
+def compute_pars_rh(param, options, districtData): # computes parameters for rolling horizon optimization
 
     # Months and starting hours of months
     param["month_start"] = {}
@@ -307,7 +307,7 @@ def aggregate_foresight(nodes, param, n_opt):
 
     return nodes, param
 
-def read_demands(options, districtData,par_rh):
+def read_demands(options, districtData,par_rh): # rea
         
     # Define path for use case input data
     #path_file = options["path_file"]
@@ -497,131 +497,15 @@ def read_demands(options, districtData,par_rh):
 
     return nodes, building_params, options
 
-def get_solar_irr(options, weather, par_rh):
 
-    # Define path for use case input data
-    #path_file = options["path_file"]
-    #path_input = path_file + "/raw_inputs/demands_" + options["neighborhood"] + "/"
 
-    #datapoints = par_rh["datapoints"]
-    #datapoints = 8760
 
-    # todo: in options wird ein Netz ausgewählt, damit werden Netz- (Grenzen des ONS, Stränge, etc.) und Gebäudeinformationen gebündelt eingelesen --> z.B. number_bes
-    # Possible selection of typical grids
-    #if options["Dorfnetz"]:
-    #    grid = "dorfnetz"
-    #else:
-    #    grid = "vorstadtnetz"
-
-    # Building parameters
-    #building_params = pd.read_csv(path_input + "buildings_" + options["neighborhood"] + ".csv",delimiter=";")
-    #options["nb_bes"] = len(building_params)
-
-    #vorher = [i for i in range(len(weather["T_air"]))]
-    #nachher = [i for i in range(datapoints)]
-    #weather_param = {}
-    #weather_param["T_air"] = weather["T_air"]  # np.interp(nachher, vorher, weather["T_air"]) # resolution
-    #weather_param["G_dir"] = weather["sol_dir"]  # np.interp(nachher, vorher, weather["sol_dir"])
-    #weather_param["G_dif"] = weather["sol_diff"]  # np.interp(nachher, vorher, weather["sol_diff"])
-
-    #weather_param["T_air"] = np.interp(nachher, vorher, weather["T_air"])
-    #weather_param["G_dir"] = np.interp(nachher, vorher, weather["sol_dir"])
-    #weather_param["G_dif"] = np.interp(nachher, vorher, weather["sol_diff"])
-    #weather_param["G_sol"] = weather_param["G_dir"] + weather_param["G_dif"]
-
-    # todo: check if annual calc works on 15min basis
-    # get solar irradiance on tilted surface
-    #solar_irr = np.zeros(shape=(options["nb_bes"], datapoints))
-
-    #for n in range(options["nb_bes"]):
-    #    solar_irr[n] = solar.get_irrad_profile(weather_param, building_params["azimuth"][n],
-    #                                           building_params["elevation"][n], options)
-
-    #nodes = {}
-    #for n in range(options["nb_bes"]):
-    #    nodes[n] = {
-    #            "T_air": weather_param["T_air"]
-    #    }
-
-    return nodes, solar_irr, weather_param
-
-def get_pv_power(nodes, options, building_params, devs, solar_irr, par_rh):
-
-    pv_share = options["pv_share"]
-    datapoints = par_rh["datapoints"]
-
-    # calculate PV power
-    pv_power = np.zeros(shape=(options["nb_bes"], datapoints))
-    for n in range(options["nb_bes"]):
-        for t in range(datapoints):
-            pv_power[n, t] = solar_irr[n, t] * devs["pv"]["eta_el"][t] * devs["pv"]["area_real"] \
-                             * building_params["modules"][n] / 1000  # kW,       PV output
-
-        nodes[n]["pv_power"] = pv_power[n, :]
-
-    # calculate availability of pv system considerung pv_share
-    pv_exists = pv.pv_share(pv_share, options["nb_bes"])
-    building_params["pv_exists"] = pv_exists
-
-    #for n in range(options["nb_bes"]):
-    #    nodes["building_" + str(n)] = {
-    #        "pv_power": generation["building_" + str(n)]["pv_power"],
-    #    }
-
-    # Check small demand values
-    for n in range(options["nb_bes"]):
-        for t in range(datapoints):
-            if nodes[n]["pv_power"][t] < 0.01:
-                nodes[n]["pv_power"][t] = 0
-
-    return nodes, building_params
     
-def get_pv_power_from_DG(nodes, options, building_params, districtData):
+def map_devices(options, nodes, building_params, par_rh, districtData): # maps devices from district generator to nodes
 
-  #  pv_exists = np.zeros(shape=(options["nb_bes"],1))
-
-   # for n in range(options["nb_bes"]):
-   #     nodes[n]["pv_power"] = districtData.district[n]['generationPV']
-   #     pv_exists[n] = districtData.scenario.PV[n]
-
-    #building_params["pv_exists"] = pv_exists
-
-
-    # Check small demand values
-   # for n in range(options["nb_bes"]):
-   #     for t in range(len(nodes[0]["pv_power"])):
-   #         if nodes[n]["pv_power"][t] < 0.01:
-   #             nodes[n]["pv_power"][t] = 0
-
-    return nodes, building_params
-    
-def map_devices(options, nodes, building_params, par_rh, districtData):
-
-    # building_params = get_design_heat(options, nodes, building_params)
-    #for n in range(options["nb_bes"]):
-    #    building_params["design"][n] = districtData.district[n]['heatload'] + districtData.district[n]['dhwload'] # in W
-    #    building_params["design_dhw"][n] = districtData.district[n]['dhwload'] # in W
 
 
     devs = {}
-    #devs["pv"] = dict(eta_el_stc=0.199, area_real=1.6, eta_inv=0.96, t_cell_stc=25, G_stc=1000, t_cell_noct=44,
-    #                  t_air_noct=20, G_noct=800, gamma=-0.003, eta_opt=0.9)
-
-    # calculate time variant efficiency
-    #t_cell = np.zeros(shape=(datapoints, 1))
-    #eta_el = np.zeros(shape=(datapoints, 1))
-    #for t in range(datapoints):
-    #    t_cell[t] = (weather_param["T_air"][t] + (devs["pv"]["t_cell_noct"] - devs["pv"]["t_air_noct"])
-    #                 * (weather_param["G_sol"][t] / devs["pv"]["G_noct"])
-    #                 * (1 - (devs["pv"]["eta_el_stc"] * (1 - devs["pv"]["gamma"] * devs["pv"]["t_cell_stc"])) /
-    #                    devs["pv"]["eta_opt"])) / \
-    #                ((1 + (devs["pv"]["t_cell_noct"] - devs["pv"]["t_air_noct"])
-    #                  * (weather_param["G_sol"][t] / devs["pv"]["G_noct"]) *
-    #                  ((devs["pv"]["gamma"] * devs["pv"]["eta_el_stc"]) / devs["pv"]["eta_opt"])))
-
-    #    eta_el[t] = devs["pv"]["eta_el_stc"] * (1 + devs["pv"]["gamma"] * (t_cell[t] - devs["pv"]["t_cell_stc"]))
-
-    #    devs["pv"]["eta_el"] = eta_el[:]
 
 
     #devs["bat"] = {}
@@ -679,8 +563,8 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         if districtData.district[n]['capacities']['EV'] :
             devs[n]["ev"]["cap"] = districtData.district[n]['capacities']['EV']
 
-        if districtData.district[n]['capacities']['BZ'] :
-            devs[n]["bz"]["cap"] = districtData.district[n]['capacities']['BZ']
+        if districtData.district[n]['capacities']['FC'] :
+            devs[n]["bz"]["cap"] = districtData.district[n]['capacities']['FC']
 
         if districtData.scenario.heater[n] == "BOI":
             devs[n]["boiler"]["cap"] = districtData.district[n]['capacities']['BOI']
@@ -735,7 +619,7 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
 
     return nodes, devs, building_params
 
-def get_design_heat(options, demands, building_params):
+def get_design_heat(options, demands, building_params): # gets
 
     buildings = options["nb_bes"]
 
@@ -759,7 +643,7 @@ def get_design_heat(options, demands, building_params):
 
     return building_params
 
-def get_ev_dat(ev_raw):
+def get_ev_dat(ev_raw): # gets EV data from district generator
 
     # manual parameters for ev
     ev_param = {}
@@ -823,7 +707,7 @@ def get_ev_dat(ev_raw):
     return ev_param, ev_dat, number_evs_max
 
 
-def learning_bidding():
+def learning_bidding(): #
     pars_li = {
                 "rec": 0.08,   # recency parameter for learning intelligence agent [0,1]
                 "exp": 0.99,   # experimentation parameter for learning intelligence agent [0,1]

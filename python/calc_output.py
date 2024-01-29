@@ -7,7 +7,7 @@ import pickle
 
 
 def compute_out_P2P(options, options_DG, par_rh, decentral_opti_results, params,
-                          building_params, trade_res, mar_dict):
+                          building_params, trade_res, mar_dict): # decentral_opti_results # computes the output of the P2P optimization in form of criteria that are sorted
 
     nb_bes = options["nb_bes"]  # number of buildings
 
@@ -52,6 +52,7 @@ def compute_out_P2P(options, options_DG, par_rh, decentral_opti_results, params,
         results_ch["power_from_grid"].append(sum(trade_res[i]["el_from_grid"][n] for n in range(nb_bes)))  # sum of el bought from grid
         results_ch["power_to_grid"].append(sum(trade_res[i]["el_to_grid"][n] for n in range(nb_bes)))  # sum of el sold to grid
         results_ch["gas_from_grid"].append(sum(decentral_opti_results[i][17][n][t] for n in range(nb_bes)))  # sum of gas_sum over all buildings
+        #results_ch["gas_from_grid"].append(sum(opti_results[i][17][n][t] for n in range(nb_bes)))
         results_ch["power_feed"].append(sum(trade_res[i]["el_to_grid"][n] + trade_res[i]["el_to_distr"][n]
                                             for n in range(nb_bes)))  # sum of sold elec over all buildings
         results_ch["power_demand"].append(sum(trade_res[i]["el_from_grid"][n] + trade_res[i]["el_from_distr"][n]
@@ -100,7 +101,7 @@ def compute_out_P2P(options, options_DG, par_rh, decentral_opti_results, params,
         "revenue_el": sum(results_ch["revenue_el"]) / 1000 * par_rh["resolution"][0],
         "cost_traded_el": sum(results_ch["cost_traded_el"]) / 1000 * par_rh["resolution"][0],
         "average_price_el": (sum(results_ch["cost_el"]) / sum(results_ch["power_demand"])) * par_rh["resolution"][0], #average price considering traded and externally bought
-        "average_trade_price_el": (sum(results_ch["cost_traded_el"]) / sum(results_ch["power_traded"])) * par_rh["resolution"][0],
+        # "average_trade_price_el": (sum(results_ch["cost_traded_el"]) / sum(results_ch["power_traded"])) * par_rh["resolution"][0],
         "E_gas_from_grid_distr": sum(results_ch["gas_from_grid"]) / 1000 * par_rh["resolution"][0],
         "E_el_feed_distr": sum(results_ch["power_feed"]) / 1000 * par_rh["resolution"][0],
         "E_el_demand_distr": sum(results_ch["power_demand"]) / 1000 * par_rh["resolution"][0],
@@ -120,17 +121,17 @@ def compute_out_P2P(options, options_DG, par_rh, decentral_opti_results, params,
         #                        for n
         #                        in range(nb_bes)},
         "power_from_distr_bes": {n: sum(results_ch["power_from_distr_bes"][n]) / 1000 * par_rh["resolution"][0]
-                                 for n in range(nb_bes)},
+                                 for n in range(nb_bes)}, #power that is bought from distr
         "power_to_distr_bes": {n: sum(results_ch["power_to_distr_bes"][n]) / 1000 * par_rh["resolution"][0]
-                               for n in range(nb_bes)},
+                               for n in range(nb_bes)}, #power that is sold to distr
         "power_from_grid_bes": {n: sum(results_ch["power_from_grid_bes"][n]) / 1000 * par_rh["resolution"][0]
-                                for n in range(nb_bes)},
+                                for n in range(nb_bes)}, #power that is bought from grid
         "power_to_grid_bes": {n: sum(results_ch["power_to_grid_bes"][n]) / 1000 * par_rh["resolution"][0]
-                              for n in range(nb_bes)},
+                              for n in range(nb_bes)}, # power that is sold to grid
         "power_bought_bes": {n: sum(results_ch["power_bought_bes"][n]) / 1000 * par_rh["resolution"][0]
-                             for n in range(nb_bes)},
+                             for n in range(nb_bes)}, #power that is bought from grid or distr
         "power_sold_bes": {n: sum(results_ch["power_sold_bes"][n]) / 1000 * par_rh["resolution"][0]
-                           for n in range(nb_bes)},
+                           for n in range(nb_bes)}, #power that is sold to grid or distr
         "power_sold_from_to": {n: {m: {"quantity": sum(results_ch["power_sold_from_to"][n][m]["quantity"]
                                                        / 1000 * par_rh["resolution"][0]),
                                        "average_price": (sum(results_ch["power_sold_from_to"][n][m]["revenue"])

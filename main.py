@@ -24,7 +24,7 @@ from classes import Datahandler
 from data import *
 # from settings import *
 
-def get_inputs(par_rh, options, districtData):
+def get_inputs(par_rh, options, districtData): # gets inputs for optimization
     ### Load Params
     # load rolling horizon parameters
     par_rh = parse_inputs.compute_pars_rh(par_rh, options, districtData)
@@ -40,7 +40,6 @@ def get_inputs(par_rh, options, districtData):
     nodes, building_params, options = parse_inputs.read_demands(options, districtData, par_rh)
     # Read devices, economic date and other parameters
     nodes, devs, building_params = parse_inputs.map_devices(options, nodes, building_params, par_rh, districtData)
-
     #nodes, building_params = parse_inputs.get_pv_power(nodes, options, building_params, devs, solar_irr, par_rh)
     #nodes, building_params = parse_inputs.get_pv_power_from_DG(nodes, options, building_params, districtData)
 
@@ -59,7 +58,7 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name": "scenario4",  # name of csv input file
+        "scenario_name": "scenario2",  # name of csv input file
     }
 
     '''
@@ -98,23 +97,25 @@ if __name__ == '__main__':
 
     # DistrictGenerator
     data = Datahandler()
+    # hier calcUserProfiles einmal auf true setzen damit sie einmal berechnet werden und dann auf false
     data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=True) #(calcUserProfiles=False, saveUserProfiles=True)
-    data.designDevices(saveGenerationProfiles=True)
+    data.designDevicesComplete(saveGenerationProfiles=True)
     data.clusterProfiles()
+
 
     districtData = data
 
     # Set options for MAScity
     options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
                "bid_strategy": "learning",  # zero for zero-intelligence, learning
-               "crit_prio": "price",  # criteria to assign priority for trading: price, alpha_el_flex, ...
+               "crit_prio": "price",  # criteria to assign priority for trading: price, alpha_el_flex, quantity ...
                "descending": True,  # True: highest value of chosen has highest priority, False: lowest
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
                "trading_rounds": 0,  # Number of trading rounds for multi round trading, 0 for unlimited
                "flexible_demands": True,  # True: flexible demands aren't necessarily fulfilled every step
 
                "number_typeWeeks": 0,  # set 0 in case no type weeks are investigated
-               "full_path_scenario": ("D:\\EBC\\districtgenerator_python\\data\\scenarios\\" +
+               "full_path_scenario": ("/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/districtgenerator/data/scenarios/" +
                                       options_DG["scenario_name"] + ".csv"),  # scenario csv, name set for DG is used
                # "times": 2688, #8760 * 4,  # whole year 15min resolution
                # "tweeks": 4,  # number of typical weeks
@@ -126,8 +127,8 @@ if __name__ == '__main__':
                "grid": False,  # True -> consider grid constraints, False -> dont
                # "dt": 0.25,  # dt in h for rolling horizon
                "discretization_input_data": districtData.time['timeResolution']/3600,  # in h - for: elec, dhw and heat
-               "path_file": "D:/EBC/P2P_Market",  # path to the project
-               "path_results":"D:/EBC/P2P_Market/results",  # path to where the result should be stored
+               "path_file": "/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/P2P_Market",  # path to the project
+               "path_results":"/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/P2P_Market/results",  # path to where the result should be stored
                "time_zone": districtData.site['timeZone'],  # ---,      time zone
                "location": districtData.site['location'],  # degree,   latitude, longitude of location
                "altitude": districtData.site['altitude'],  # m,        height of location above sea level
@@ -142,8 +143,8 @@ if __name__ == '__main__':
         # Parameters for operational optimization
         "n_hours": 36,  # ----,      number of hours of prediction horizon for rolling horizon
         "n_hours_ov": 35,  # ----,      number of hours of overlap horizon for rolling horizon
-        "n_opt_max": 8760,  # 8760  # -----,       maximum number of optimizations
-        "month": 1,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
+        "n_opt_max": 8760,  # 8760  # -----,       maximum number of optimizations (one year)
+        "month": 7,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data
 
         # Parameters for rolling horizon with aggregated foresight
@@ -160,7 +161,7 @@ if __name__ == '__main__':
     if options["optimization"] == "P2P":
         # run optimization incl. trading
         opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
-                                                                                               building_params, params)
+                                                                                               building_params, params) #opti_res
 
         # Compute plots
         criteria = output.compute_out_P2P(options, options_DG, par_rh, opti_results, params, building_params, trade_res,

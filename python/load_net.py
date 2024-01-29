@@ -5,7 +5,7 @@ from pandapower.plotting import pf_res_plotly
 import gurobipy as gp
 import pandas as pd
 
-def create_net(options):
+def create_net(options): # creates a pandapower network and extracts node and line information
 
     # %% create network
     if options["Dorfnetz"]:
@@ -13,7 +13,7 @@ def create_net(options):
     else:
         net = nw.create_kerber_vorstadtnetz_kabel_2()
 
-    simple_plot(net, show_plot=True)
+    # simple_plot(net, show_plot=True)
     #pf_res_plotly(net)
 
     # %% extract node and line information from network
@@ -33,7 +33,7 @@ def create_net(options):
     # empty dict to store net data
     net_data = {}
 
-    # set trafo bounds due to technichal limits
+    # set trafo bounds due to technical limits
     net_data["trafo_max"] = float(net.trafo.sn_mva * 1000.)
 
     # specify grid nodes for whole grid and trafo; choose and allocate load, injection and battery nodes
@@ -55,7 +55,7 @@ def create_net(options):
         net_data["nodeLines"] = gp.tuplelist(net_data["nodeLines"])
 
     # extract maximal current for lines
-    # multiply with 400 V to get maximal power in kW
+    # multiply with 400 V to get maximal power in kW (P=U*I)
     net_data["powerLine_max"] = {}
     for [n,m] in net_data["nodeLines"]:
         net_data["powerLine_max"][n,m] = (net.line['max_i_ka'][net_data["nodeLines"].index((n,m))]) * 400
