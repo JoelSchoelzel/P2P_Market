@@ -83,8 +83,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
 
             # compute bids
             mar_dict["bid"][n_opt], bes = mar_pre.compute_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,
-                                                               options, nodes, init_val, mar_dict["propensities"][n_opt]
-                                                               , strategies)
+                                                               options, nodes, init_val, mar_dict["propensities"][n_opt], strategies)
             # separate bids in buying and selling, sort by price
             mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt], options, characteristics, n_opt)
 
@@ -249,7 +248,7 @@ def infeasible_model_adjust_fuel_cell_configuration(k, nodes, options, index_typ
     return nodes, index_typeweeks
 
 
-def decentral_operation(node, params, pars_rh, building_params, init_val, n_opt, options): # computes
+def decentral_operation(node, params, pars_rh, building_params, init_val, n_opt, options):
 
     """
     This function computes a deterministic solution.

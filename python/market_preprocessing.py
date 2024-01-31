@@ -60,28 +60,12 @@ def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, node
         dem_heat = nodes[n]["heat"][n_opt]
         dem_dhw = nodes[n]["dhw"][n_opt]
         # NEW! copied from local_market market_preprocessing.py!
-        dem_elec = nodes[n]["elec"][n_opt]  # Index prüfen
-        power_pv = nodes[n]["pv_power"][n_opt] # nicht sicher
-        pv_peak = np.max(nodes[n]["pv_power"][n_opt]) # nicht sicher
-        p_ch_bat = opti_res[n][5]["bat"][t]  # nicht sicher
-        p_dch_bat = opti_res[n][6]["bat"][t]  # nicht sicher
-        soc_bat = opti_res[n][3]["bat"][t]  # nicht sicher
-
-        # calculate heat produced by all devices
-        # heat_boiler = opti_res[n][2]["boiler"][t]
-        # heat_eh = opti_res[n][2]["eh"][t] # key "eh" passt nicht!
-        # heat_chp = opti_res[n][2]["chp"][t]
-        # Check if "hp35" is the heat pump being used
-        # if "hp35" in opti_res[n][2]:
-        #     heat_hp = opti_res[n][2]["hp35"][t]
-        # elif "hp55" in opti_res[n][2]:
-        #     # If "hp35" is not used, check for "hp55"
-        #     heat_hp = opti_res[n][2]["hp55"][t]
-        # else:
-            # Handle the case where neither is found
-        #     heat_hp = None  # or some default value
-        #     print("No heat pump data available for the given scenario and time step.")
-        # heat_devs = sum([heat_hp, heat_chp, heat_boiler, heat_eh]) #heat_eh
+        dem_elec = nodes[n]["elec"][n_opt]
+        power_pv = nodes[n]["pv_power"][n_opt]
+        pv_peak = np.max(nodes[n]["pv_power"][n_opt])
+        p_ch_bat = opti_res[n][5]["bat"][t]
+        p_dch_bat = opti_res[n][6]["bat"][t]
+        soc_bat = opti_res[n][3]["bat"][t]
 
 
         if n_opt == 0:
@@ -91,8 +75,7 @@ def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, node
 
         power_hp = max(opti_res[n][1]["hp35"][t], opti_res[n][1]["hp55"][t])
 
-        # compute bids and inflexible demands
-
+        # COMPUTE BIDS AND INFLEXIBLE DEMANDS
         # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
         if power_hp >= 0.0 and p_imp > 0.0 and pv_sell == 0:
             bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = \
@@ -101,11 +84,10 @@ def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, node
 
         # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
         elif pv_sell > 0:
-            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = mar_agent_prosumer[
-                n].compute_pv_bids(
+            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_pv_bids(
                 dem_elec, soc_bat, power_pv, p_ch_bat, p_dch_bat,
                 pv_sell, pv_peak, t, n, options["bid_strategy"],
-                strategies, weights)
+                strategies, weights, options)
             # bes[n]["hp_dem"][n_opt] = 0
 
         # when electricity from chp needs to be sold, compute_chp_bids() of the mar_agent is called

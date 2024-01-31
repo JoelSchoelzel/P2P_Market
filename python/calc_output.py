@@ -7,7 +7,7 @@ import pickle
 
 
 def compute_out_P2P(options, options_DG, par_rh, decentral_opti_results, params,
-                          building_params, trade_res, mar_dict): # decentral_opti_results # computes the output of the P2P optimization in form of criteria that are sorted
+                          building_params, trade_res, mar_dict):
 
     nb_bes = options["nb_bes"]  # number of buildings
 
@@ -33,12 +33,12 @@ def compute_out_P2P(options, options_DG, par_rh, decentral_opti_results, params,
                   "power_to_grid_bes": {n: [] for n in range(nb_bes)},
                   "power_bought_bes": {n: [] for n in range(nb_bes)},
                   "power_sold_bes": {n: [] for n in range(nb_bes)},
-                  "power_sold_from_to": {n: {m: {"quantity": np.zeros(par_rh["n_opt"]),
+                  "power_sold_from_to": {n: {m: {"quantity": np.zeros(par_rh["n_opt"]), # PROBLEMSTELLE
                                                  "price": np.zeros(par_rh["n_opt"]),
                                                  "revenue": np.zeros(par_rh["n_opt"])
                                                  } for m in range(nb_bes)}
                                          for n in range(nb_bes)},
-                  "power_bought_by_from": {n: {m: {"quantity": np.zeros(par_rh["n_opt"]),
+                  "power_bought_by_from": {n: {m: {"quantity": np.zeros(par_rh["n_opt"]), # PROBLEMSTELLE
                                                    "price": np.zeros(par_rh["n_opt"]),
                                                    "cost": np.zeros(par_rh["n_opt"])
                                                    } for m in range(nb_bes)}
@@ -52,7 +52,6 @@ def compute_out_P2P(options, options_DG, par_rh, decentral_opti_results, params,
         results_ch["power_from_grid"].append(sum(trade_res[i]["el_from_grid"][n] for n in range(nb_bes)))  # sum of el bought from grid
         results_ch["power_to_grid"].append(sum(trade_res[i]["el_to_grid"][n] for n in range(nb_bes)))  # sum of el sold to grid
         results_ch["gas_from_grid"].append(sum(decentral_opti_results[i][17][n][t] for n in range(nb_bes)))  # sum of gas_sum over all buildings
-        #results_ch["gas_from_grid"].append(sum(opti_results[i][17][n][t] for n in range(nb_bes)))
         results_ch["power_feed"].append(sum(trade_res[i]["el_to_grid"][n] + trade_res[i]["el_to_distr"][n]
                                             for n in range(nb_bes)))  # sum of sold elec over all buildings
         results_ch["power_demand"].append(sum(trade_res[i]["el_from_grid"][n] + trade_res[i]["el_from_distr"][n]

@@ -13,9 +13,13 @@ import datetime
 
 def compute(node, params, par_rh, building_param, init_val, n_opt, options): # computes the optimal operation of the BES for the given prediction horizon
     # Define subsets
+
+    if n_opt==31:
+        print("stooop")
+
     heater = ("boiler", "chp", "eh", "hp35", "hp55")
     storage = ("bat", "tes", "ev")
-    solar = ("pv", )    #, "stc"
+    solar = ("pv",)    #, "stc"
     device = ("boiler", "chp", "eh", "hp35", "hp55", "bat", "tes", "pv")
 
     # Extract parameters
@@ -258,9 +262,10 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
                             name="Solar_electrical_" + dev + "_" + str(t))
 
 
+
     #set solar to 0
     #for t in time_steps:
-     #   model.addConstr(power["pv"][t] == 0, name="Solar_electrical_pv_" + str(t))
+        #model.addConstr(power["pv"][t] == 0, name="Solar_electrical_pv_" + str(t))
     # %% BUILDING STORAGES # %% DOMESTIC FLEXIBILITIES
 
     ## Nominal storage content (SOC)
@@ -310,8 +315,6 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
     # eletric heater covers 50% of the dhw
     for t in time_steps:
         model.addConstr(dhw["eh"][t] == 0.5 * demands["dhw"][t], name="El_heater_act_" + str(t))
-
-
 
     dev = "bat"
     k_loss = node["devs"][dev]["k_loss"]
@@ -435,8 +438,10 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
     res_power = {}
     res_heat = {}
     res_soc = {}
+
     for dev in ["bat", "ev", "house_load"]:
         res_y[dev] = {(t): y[dev][t].X for t in time_steps}
+
     for dev in ["hp35", "hp55", "chp", "boiler"]: #eh hinzugefügt?
         res_power[dev] = {(t): power[dev][t].X for t in time_steps}
         res_heat[dev] = {(t): heat[dev][t].X for t in time_steps}
@@ -575,7 +580,19 @@ def initial_values_flex(opti_res, par_rh, n_opt, nodes, options, trade_res, prev
         init_val["building_" + str(n)]["soc"]["tes"] = soc_prev["tes"] * eta_tes + (
                                                        par_rh["duration"][n_opt][t] * (charge_tes - discharge_tes))
 
+
+        # BAT
+        # if pv exists
+        if nodes[n]["devs"]["pv"]["cap"] > 0:
+            charge_bat = opti_res[n][8]["pv"][t] - trade_res["el_to_distr"][n] - trade_res["el_to_grid"][n]
+
+
+
+
+
+
         # BAT & EV
+
         # TODO
         init_val["building_" + str(n)]["soc"]["bat"] = 0
         init_val["building_" + str(n)]["soc"]["ev"] = 0

@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name": "scenario2",  # name of csv input file
+        "scenario_name": "scenario3",  # name of csv input file
     }
 
     '''
@@ -97,11 +97,10 @@ if __name__ == '__main__':
 
     # DistrictGenerator
     data = Datahandler()
-    # hier calcUserProfiles einmal auf true setzen damit sie einmal berechnet werden und dann auf false
-    data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=True) #(calcUserProfiles=False, saveUserProfiles=True)
+    # Bei erstem Durchlauf calcUserProfiles=True setzen, danach calcUserProfiles=False
+    data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=True, saveUserProfiles=True) #(calcUserProfiles=False, saveUserProfiles=True)
     data.designDevicesComplete(saveGenerationProfiles=True)
     data.clusterProfiles()
-
 
     districtData = data
 
@@ -144,7 +143,7 @@ if __name__ == '__main__':
         "n_hours": 36,  # ----,      number of hours of prediction horizon for rolling horizon
         "n_hours_ov": 35,  # ----,      number of hours of overlap horizon for rolling horizon
         "n_opt_max": 8760,  # 8760  # -----,       maximum number of optimizations (one year)
-        "month": 7,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
+        "month": 8,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data
 
         # Parameters for rolling horizon with aggregated foresight
@@ -196,3 +195,4 @@ if __name__ == '__main__':
     # End time (Time measurement)
     time["end"] = datetime.datetime.now()
     print("Finished rolling horizon. " + str(datetime.datetime.now()))
+
