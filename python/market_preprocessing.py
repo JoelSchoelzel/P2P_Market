@@ -34,10 +34,10 @@ def bes(pars_rh, numb_bes):
 
 def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes, init_val, propensities, strategies):
     """
-    Compute bids for all buildings. The bids are created by each building's mar_agent.
+    Compute block bids of 3 time steps for all buildings. The bids are created by each building's mar_agent.
 
     Returns:
-        bid (dict): bid containing price, quantity, Boolean whether buying/selling, building number.
+        bid (nested dict): [time step t: [bid containing price, quantity, Boolean whether buying/selling, building number]]
         bes (object): inflexible demand is stored in bes for each building
     """
 
@@ -49,56 +49,58 @@ def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, node
 
     bid = {}
 
-    # iterate through all buildings
+        # iterate through all buildings
     for n in range(len(opti_res)):
-        # get parameters for bidding
-        t = par_rh["time_steps"][n_opt][0]
-        p_imp = opti_res[n][4][t]
-        chp_sell = opti_res[n][8]["chp"][t]
-        pv_sell = opti_res[n][8]["pv"][t] #Index passt!
-        bid_strategy = options["bid_strategy"]
-        dem_heat = nodes[n]["heat"][n_opt]
-        dem_dhw = nodes[n]["dhw"][n_opt]
-        # NEW! copied from local_market market_preprocessing.py!
-        dem_elec = nodes[n]["elec"][n_opt]
-        power_pv = nodes[n]["pv_power"][n_opt]
-        pv_peak = np.max(nodes[n]["pv_power"][n_opt])
-        p_ch_bat = opti_res[n][5]["bat"][t]
-        p_dch_bat = opti_res[n][6]["bat"][t]
-        soc_bat = opti_res[n][3]["bat"][t]
+        bid["bes_" + str(n)] = {}
+        for t in par_rh["time_steps"][n_opt][0:3]:
+            # get parameters for bidding
+            # t = par_rh["time_steps"][n_opt][0]
+            p_imp = opti_res[n][4][t]
+            chp_sell = opti_res[n][8]["chp"][t]
+            pv_sell = opti_res[n][8]["pv"][t] #Index passt!
+            bid_strategy = options["bid_strategy"]
+            dem_heat = nodes[n]["heat"][n_opt]
+            dem_dhw = nodes[n]["dhw"][n_opt]
+            # NEW! copied from local_market market_preprocessing.py!
+            dem_elec = nodes[n]["elec"][n_opt]
+            power_pv = nodes[n]["pv_power"][n_opt]
+            pv_peak = np.max(nodes[n]["pv_power"][n_opt])
+            p_ch_bat = opti_res[n][5]["bat"][t]
+            p_dch_bat = opti_res[n][6]["bat"][t]
+            soc_bat = opti_res[n][3]["bat"][t]
 
 
-        if n_opt == 0:
-            soc = opti_res[n][3]["tes"][t]
-        else:
-            soc = init_val[n_opt]["building_" + str(n)]["soc"]["tes"]
+            if n_opt == 0:
+                soc = opti_res[n][3]["tes"][t]
+            else:
+                soc = init_val[n_opt]["building_" + str(n)]["soc"]["tes"]
 
-        power_hp = max(opti_res[n][1]["hp35"][t], opti_res[n][1]["hp55"][t])
+            power_hp = max(opti_res[n][1]["hp35"][t], opti_res[n][1]["hp55"][t])
 
-        # COMPUTE BIDS AND INFLEXIBLE DEMANDS
-        # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
-        if power_hp >= 0.0 and p_imp > 0.0 and pv_sell == 0:
-            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = \
-                mar_agent_prosumer[n].compute_hp_bids(p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp, options,
-                                                      strategies, weights)
+            # COMPUTE BIDS AND INFLEXIBLE DEMANDS
+            # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
+            if power_hp >= 0.0 and p_imp > 0.0 and pv_sell == 0:
+                bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
+                    mar_agent_prosumer[n].compute_hp_bids(p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp, options,
+                                                          strategies, weights)
 
-        # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
-        elif pv_sell > 0:
-            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_pv_bids(
-                dem_elec, soc_bat, power_pv, p_ch_bat, p_dch_bat,
-                pv_sell, pv_peak, t, n, options["bid_strategy"],
-                strategies, weights, options)
-            # bes[n]["hp_dem"][n_opt] = 0
+            # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
+            elif pv_sell > 0:
+                bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_pv_bids(
+                    dem_elec, soc_bat, power_pv, p_ch_bat, p_dch_bat,
+                    pv_sell, pv_peak, t, n, options["bid_strategy"],
+                    strategies, weights, options)
+                # bes[n]["hp_dem"][n_opt] = 0
 
-        # when electricity from chp needs to be sold, compute_chp_bids() of the mar_agent is called
-        elif chp_sell > 0:
-            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = \
-                mar_agent_prosumer[n].compute_chp_bids(chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc, options,
-                                                       strategies, weights)
+            # when electricity from chp needs to be sold, compute_chp_bids() of the mar_agent is called
+            elif chp_sell > 0:
+                bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
+                    mar_agent_prosumer[n].compute_chp_bids(chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc, options,
+                                                           strategies, weights)
 
-        # when no electricity needs to be bought or sold, compute_empty_bids() of the mar_agent is called
-        else:
-            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_empty_bids(n)
+            # when no electricity needs to be bought or sold, compute_empty_bids() of the mar_agent is called
+            else:
+                bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_empty_bids(n)
 
     return bid, bes
 
