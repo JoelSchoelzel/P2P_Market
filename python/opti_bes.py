@@ -583,8 +583,8 @@ def initial_values_flex(opti_res, par_rh, n_opt, nodes, options, trade_res, prev
 
         # BAT
         # if pv exists
-        if nodes[n]["devs"]["pv"]["cap"] > 0:
-            charge_bat = opti_res[n][8]["pv"][t] - trade_res["el_to_distr"][n] - trade_res["el_to_grid"][n]
+        #if nodes[n]["devs"]["pv"]["cap"] > 0:
+         #   charge_bat = opti_res[n][8]["pv"][t] - trade_res["el_to_distr"][n] - trade_res["el_to_grid"][n]
 
 
 

@@ -31,8 +31,93 @@ def bes(pars_rh, numb_bes):
                       }
     return new_bes
 
-
 def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes, init_val, propensities, strategies):
+    """
+     Compute bids for all buildings. The bids are created by each building's mar_agent.
+
+     Returns:
+         bid (dict):  bid containing price, quantity, Boolean whether buying/selling, building number
+         bes (object): inflexible demand is stored in bes for each building
+     """
+
+    # calculate weights if learning is chosen
+    if options["bid_strategy"] == "learning":
+        weights = compute_weights(options["nb_bes"], propensities, par_rh, n_opt)
+    else:
+        weights = {}
+
+    bid = {}
+
+    # iterate through all buildings
+    for n in range(len(opti_res)):
+        bid["bes_" + str(n)] = {}
+        t = par_rh["time_steps"][n_opt][0]
+        # get parameters for bidding
+        # t = par_rh["time_steps"][n_opt][0]
+        p_imp = opti_res[n][4][t]
+        chp_sell = opti_res[n][8]["chp"][t]
+        pv_sell = opti_res[n][8]["pv"][t]  # Index passt!
+        bid_strategy = options["bid_strategy"]
+        dem_heat = nodes[n]["heat"][t]
+        x = []
+        for i in range(7):
+            x.append(sum(nodes[n]["heat"][i * 24:i * 24 + 24]) + 0.5 * sum(nodes[n]["dhw"][i * 24:i * 24 + 24]))
+        soc_set_max = max(x)
+        dem_dhw = nodes[n]["dhw"][t]
+        heat_hp = opti_res[n][2]["hp35"][t]+opti_res[n][2]["hp55"][t]
+        heat_chp = opti_res[n][2]["chp"][t]
+        dem_elec = nodes[n]["elec"][t]
+        power_pv = nodes[n]["pv_power"][t]
+        pv_peak = np.max(nodes[n]["pv_power"][t])
+        p_ch_bat = opti_res[n][5]["bat"][t]
+        p_dch_bat = opti_res[n][6]["bat"][t]
+        soc_bat = opti_res[n][3]["bat"][t]
+
+        heat_devs = sum([opti_res[n][2]["hp35"][t], opti_res[n][2]["hp55"][t], opti_res[n][2]["chp"][t],
+                         opti_res[n][2]["boiler"][t], dem_dhw*0.5])
+
+        if n_opt == 0:
+            soc = opti_res[n][3]["tes"][t]
+        else:
+            soc = init_val[n_opt]["building_" + str(n)]["soc"]["tes"]
+
+        power_hp = max(opti_res[n][1]["hp35"][t], opti_res[n][1]["hp55"][t])
+
+        # COMPUTE BIDS AND INFLEXIBLE DEMANDS
+        # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
+        if power_hp >= 0.0 and p_imp > 0.0 and pv_sell == 0:
+            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = \
+                mar_agent_prosumer[n].compute_hp_bids(p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp,
+                                                      options,
+                                                      strategies, weights, heat_hp, heat_devs, soc_set_max)
+
+        # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
+        elif pv_sell > 0:
+            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_pv_bids(
+                dem_elec, soc_bat, power_pv, p_ch_bat, p_dch_bat,
+                pv_sell, pv_peak, t, n, options["bid_strategy"],
+                strategies, weights, options)
+            # bes[n]["hp_dem"][n_opt] = 0
+
+        # when electricity from chp needs to be sold, compute_chp_bids() of the mar_agent is called
+        elif chp_sell > 0:
+            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = \
+                mar_agent_prosumer[n].compute_chp_bids(chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc, options,
+                                                       strategies, weights, heat_chp, heat_devs, soc_set_max)
+
+        # when no electricity needs to be bought or sold, compute_empty_bids() of the mar_agent is called
+        else:
+            bid["bes_" + str(n)], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_empty_bids(n)
+
+    return bid, bes
+
+
+
+
+
+
+
+def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes, init_val, propensities, strategies):
     """
     Compute block bids of 3 time steps for all buildings. The bids are created by each building's mar_agent.
 
@@ -47,11 +132,11 @@ def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, node
     else:
         weights = {}
 
-    bid = {}
+    block_bid = {}
 
         # iterate through all buildings
     for n in range(len(opti_res)):
-        bid["bes_" + str(n)] = {}
+        block_bid["bes_" + str(n)] = {}
         for t in par_rh["time_steps"][n_opt][0:3]:
             # get parameters for bidding
             # t = par_rh["time_steps"][n_opt][0]
@@ -80,13 +165,13 @@ def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, node
             # COMPUTE BIDS AND INFLEXIBLE DEMANDS
             # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
             if power_hp >= 0.0 and p_imp > 0.0 and pv_sell == 0:
-                bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
+                block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
                     mar_agent_prosumer[n].compute_hp_bids(p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp, options,
                                                           strategies, weights)
 
             # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
             elif pv_sell > 0:
-                bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_pv_bids(
+                block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_pv_bids(
                     dem_elec, soc_bat, power_pv, p_ch_bat, p_dch_bat,
                     pv_sell, pv_peak, t, n, options["bid_strategy"],
                     strategies, weights, options)
@@ -94,15 +179,15 @@ def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, node
 
             # when electricity from chp needs to be sold, compute_chp_bids() of the mar_agent is called
             elif chp_sell > 0:
-                bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
+                block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
                     mar_agent_prosumer[n].compute_chp_bids(chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc, options,
                                                            strategies, weights)
 
             # when no electricity needs to be bought or sold, compute_empty_bids() of the mar_agent is called
             else:
-                bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_empty_bids(n)
+                block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_empty_bids(n)
 
-    return bid, bes
+    return block_bid, bes
 
 
 def compute_weights(nb_bes, propensities, par_rh, n_opt): # computes
