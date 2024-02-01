@@ -1,6 +1,6 @@
 import filip.models.ngsi_v2.context
 from pydantic import BaseModel, Field, schema_json_of
-from filip.models.base import DataType, FiwareRegex
+from filip.models.base import DataType
 from typing import Union, Optional, Annotated
 from aenum import Enum
 from datetime import datetime
@@ -8,22 +8,33 @@ from uuid import UUID
 import json
 from decimal import Decimal
 
-# Identify buildings
-class BuildingName(BaseModel):
-    """
-    To identify every building who submits the bid to coordinator, and coordinator can send the relevant transaction
-    according to their name.
-    """
-    name: str
 
-
-# Identify buildings
-class BuildingID(BaseModel):
-    """
-    To identify every building who submits the bid to coordinator, and coordinator can send the relevant transaction
-    according to their ID number.
-    """
+class EntityID(BaseModel):
+    """To identify every entity in the data platform"""
     id: str
+
+
+class RefEntityID(BaseModel):
+    """To link the other entity's ID"""
+    refID: str
+
+
+# Identify buildings
+# class BuildingName(BaseModel):
+#     """
+#     To identify every building who submits the bid to coordinator, and coordinator can send the relevant transaction
+#     according to their name.
+#     """
+#     name: str
+
+
+# Identify buildings
+# class BuildingID(BaseModel):
+#     """
+#     To identify every building who submits the bid to coordinator, and coordinator can send the relevant transaction
+#     according to their ID number.
+#     """
+#     id: str
 
 
 # class Role(str, Enum):
@@ -36,22 +47,17 @@ class BuildingID(BaseModel):
 #     Buyer = 'buyer'
 #     Seller = 'seller'
 #     NotParticipant = 'not participant'
-class ProductID(BaseModel):
-    """
-    Identify bid and transaction so that they can be easily retrieved.
-    """
-    productID: UUID
 
 
-class MarketRole(str, Enum):
-    """
-    This version of Role is currently only for implementing in bid
-    """
-    buyer = 'buyer'
-    seller = 'seller'
+# class MarketRole(str, Enum):
+#     """
+#     This version of Role is currently only for implementing in bid
+#     """
+#     buyer = 'buyer'
+#     seller = 'seller'
 
 
-class Time(BaseModel):
+class CreatedDateTime(BaseModel):
     """
     The time of prediction for next hour, it can also identify the bids or transactions in hours.
     """
@@ -74,25 +80,25 @@ class Quantity(BaseModel):
     quantity: Decimal
 
 
-class PowerDirection(BaseModel):
-    """
-    There will be 3 types of final transaction: 'buy', 'sell' and 'not participate'. For the buy and sell type, respond
-    should contain id, role, time, price and quantity. But for 'not participate' type, respond should id, role, time and
-    the message 'No Transaction'.
-    """
-    powerDirection: str
+# class PowerDirection(BaseModel):
+#     """
+#     There will be 3 types of final transaction: 'buy', 'sell' and 'not participate'. For the buy and sell type, respond
+#     should contain id, role, time, price and quantity. But for 'not participate' type, respond should id, role, time and
+#     the message 'No Transaction'.
+#     """
+#     powerDirection: str
 
 
-class MarketType(str, Enum):
-    marketType = 'HAM'
+# class MarketType(str, Enum):
+#     marketType = 'HAM'
 
 
-class RoundTime(BaseModel):
-    """
-    In P2P_Market run the programm in 744h, the round time is for every hour of 744, it will be displayed in bid
-    entity.
-    """
-    round: int
+# class RoundTime(BaseModel):
+#     """
+#     In P2P_Market run the programm in 744h, the round time is for every hour of 744, it will be displayed in bid
+#     entity.
+#     """
+#     round: int
 
 
 # todo main model
