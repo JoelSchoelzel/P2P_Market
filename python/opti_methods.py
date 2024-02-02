@@ -54,6 +54,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             strategies = {}
 
         # START OPTIMIZATION (Start optimizations for the first time step of the block bids)
+
         for n_opt in range(0, par_rh["n_opt"], 3): # optimization for step 0, 3, 6 .. should be equal to length of block_bids
             opti_res[n_opt] = {}
             init_val[0] = {}
