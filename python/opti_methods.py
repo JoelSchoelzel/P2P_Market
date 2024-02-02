@@ -82,10 +82,17 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                   "% of optimizations processed.")
 
             # compute bids
-            mar_dict["bid"][n_opt], bes = mar_pre.compute_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,
+            if options["bid_type"] == "block":
+                mar_dict["block_bid"][n_opt], bes = mar_pre.compute_block_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,
+                                                              options, nodes, init_val, mar_dict["propensities"][n_opt], strategies)
+            else: # hourly bids
+                mar_dict["bid"][n_opt], bes = mar_pre.compute_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,
                                                                options, nodes, init_val, mar_dict["propensities"][n_opt], strategies)
             # separate bids in buying and selling, sort by price
-            mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt], options, characteristics, n_opt)
+            if options["bid_type"] == "block":
+                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_block_bids(mar_dict["block_bid"][n_opt], options, characteristics, n_opt)
+            else: # hourly bids
+                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt], options, characteristics, n_opt)
 
             # run the auction with multiple trading rounds if "multi_round" is True in options
             if options["multi_round"]:

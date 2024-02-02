@@ -98,7 +98,7 @@ if __name__ == '__main__':
     # DistrictGenerator
     data = Datahandler()
     # Bei erstem Durchlauf calcUserProfiles=True setzen, danach calcUserProfiles=False
-    data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=True, saveUserProfiles=True) #(calcUserProfiles=False, saveUserProfiles=True)
+    data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=True) #(calcUserProfiles=False, saveUserProfiles=True)
     data.designDevicesComplete(saveGenerationProfiles=True)
     data.clusterProfiles()
 
@@ -106,12 +106,12 @@ if __name__ == '__main__':
 
     # Set options for MAScity
     options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
-               "bid_strategy": "learning",  # zero for zero-intelligence, learning
-               "crit_prio": "price",  # criteria to assign priority for trading: price, alpha_el_flex, quantity ...
+               "bid_strategy": "devices",  # zero for zero-intelligence, learning, devices
+                "crit_prio": "price",  # criteria to assign priority for trading: price, alpha_el_flex, quantity ...
                "descending": True,  # True: highest value of chosen has highest priority, False: lowest
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
                "trading_rounds": 0,  # Number of trading rounds for multi round trading, 0 for unlimited
-               "flexible_demands": True,  # True: flexible demands aren't necessarily fulfilled every step
+               "flexible_demands": False,  # True: flexible demands aren't necessarily fulfilled every step
 
                "number_typeWeeks": 0,  # set 0 in case no type weeks are investigated
                "full_path_scenario": ("/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/districtgenerator/data/scenarios/" +
@@ -131,6 +131,7 @@ if __name__ == '__main__':
                "time_zone": districtData.site['timeZone'],  # ---,      time zone
                "location": districtData.site['location'],  # degree,   latitude, longitude of location
                "altitude": districtData.site['altitude'],  # m,        height of location above sea level
+               "bid_type": "block",  # block, hourly
               }
 
     # load heating devs per building
