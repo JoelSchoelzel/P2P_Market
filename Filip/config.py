@@ -7,7 +7,7 @@ from classes import Datahandler
 
 # Set options for DistrictGenerator
 options_DG = {
-    "scenario_name": "ma_zehao",  # name of csv input file
+    "scenario_name": "scenario_test",  # name of csv input file
 }
 
 # create district with load (elec, heat, ..) and generation (pv, bz ..)  profiles as input for MAScity

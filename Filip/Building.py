@@ -10,7 +10,7 @@ from filip.models.ngsi_v2.iot import \
     Device, \
     DeviceAttribute, \
     ServiceGroup
-
+from pydantic import ConfigDict
 # import form packages
 import paho.mqtt.client as mqtt
 import time
@@ -24,17 +24,19 @@ import config
 # import for data model
 import json
 # from jsonschemaparser import JsonSchemaParser
-# from data_model.data_model import MarketParticipantFIWARE, BuildingID
+from data_model.data_model import MarketParticipant, Bid
 
 # Load environment variables from .env file
 load_dotenv()
 APIKEY_BUILDING = os.getenv('APIKEY_BUILDING')
 APIKEY_BID = os.getenv('APIKEY_BID')
 # Create a service group and add it to your devices
+# TODO remove building servie group
 building_service_group = ServiceGroup(apikey=APIKEY_BUILDING,
                                       resource="/iot/json")
 bid_service_group = ServiceGroup(apikey=APIKEY_BID,
-                                 resource="/iot/json")
+                                 resource="/iot/json"
+                                 )
 
 # Context Broker, IoT Agent and mqtt URL
 CB_URL = os.getenv('CB_URL')
@@ -46,24 +48,36 @@ fiware_header = FiwareHeader(service=os.getenv('Service'),
                              service_path=os.getenv('Service_path'))
 
 
-#class Building:
-class Building(MarketParticipantFIWARE):
-    #def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, id):
-    def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, **data: Any):
-        super().__init__(**data)
+# class Building:
+class Building(MarketParticipant):
+    model_config = ConfigDict(extra="allow")
+    # def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, id):
+    # def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, **data: Any):
+    #     super().__init__(**data)
+    #     self.cbc = cbc
+    #     self.iotac = iotac
+
+        # self.bid1 = {}  # todo (validation) get the bid from p2p market
+
+    def add_fiware_interface(self, cbc: ContextBrokerClient, iotac: IoTAClient):
         self.cbc = cbc
         self.iotac = iotac
-        self.id = data['id']
+
+    def initial_fiware_information(self):
+        # self.userID = data['id']
         # building entity id and type
-        self.building_entity_id = f"urn:ngsi-ld:Building:{self.id}"
-        self.builidng_entity_type = "Building"
+        # self.marketParticipantID = f"urn:ngsi-ld:Building:{self.id}"
+        # self.marketParticipantType = "Building"
+        # self.refActiveBid = f"urn:ngsi-ld:Bid:{self.id}"
+        # self.refTransaction = f"urn:ngsi-ld:Transaction:{self.id}"
         # bid device id, entity id and type
-        self.bid_device_id = f"bid_device:{self.id}"
-        self.bid_entity_id = f"urn:ngsi-ld:Bid:{self.id}"
+        # TODO implement auto provision
+        self.bid_device_id = f"bid_device:{self.userID}"
+        self.bid_entity_id = f"urn:ngsi-ld:Bid:{self.userID}"
         self.bid_entity_type = "Bid"
         # transaction entity id and type
-        self.transaction_entity_id = f"urn:ngsi-ld:Transaction:{self.id}"
-        self.transaction_topic = f"/v2/transactions/urn:ngsi-ld:Transaction:{self.id}/attrs"
+        self.transaction_entity_id = f"urn:ngsi-ld:Transaction:{self.userID}"
+        self.transaction_topic = f"/v2/transactions/urn:ngsi-ld:Transaction:{self.userID}/attrs"
         # building entity
         self.building_entity = self.create_building_entity()
         # bid device and entity
@@ -73,7 +87,7 @@ class Building(MarketParticipantFIWARE):
         self.mqtt_initialization()
         self.bid = {}
         self.init_val = {}
-        # self.bid1 = {}  # todo (validation) get the bid from p2p market
+
 
     def publish_data(self, time_index, n_opt):
         # with open('bid_schema.json', 'r') as f:
@@ -103,21 +117,21 @@ class Building(MarketParticipantFIWARE):
         time.sleep(0.1)
 
     def create_building_entity(self):
-        building_entity = ContextEntity(id=self.building_entity_id,
-                                        type=self.builidng_entity_type)
+        building_entity = ContextEntity(id=self.marketParticipantID,
+                                        type=self.marketParticipantType)
 
         building_name = NamedContextAttribute(name='building_name',
                                               type="String",
-                                              value=f"bes_{self.id}")
+                                              value=self.name)
         building_id = NamedContextAttribute(name='building_id',
                                             type='Number',
-                                            value=self.id)
+                                            value=self.userID)
         building_bid = NamedContextAttribute(name='refBid',
                                              type='Relationship',
-                                             value=self.bid_entity_id)
+                                             value=self.refActiveBid)
         building_transaction = NamedContextAttribute(name='refTransaction',
                                                      type='Relationship',
-                                                     value=self.transaction_entity_id)
+                                                     value=self.refTransaction)
         building_entity.add_attributes([building_name, building_id, building_bid, building_transaction])
         return building_entity
 
@@ -136,7 +150,7 @@ class Building(MarketParticipantFIWARE):
                                          type='String')
         bid_building = NamedContextAttribute(name='refBuilding',
                                              type='Relationship',
-                                             value=self.building_entity_id)
+                                             value=self.marketParticipantID)
 
         bid_entity.add_attributes([bid_round, bid_price, bid_quantity, bid_role, bid_building])
         return bid_entity
@@ -174,6 +188,7 @@ class Building(MarketParticipantFIWARE):
         self.iotac.post_group(service_group=building_service_group, update=True)
         self.iotac.post_group(service_group=bid_service_group, update=True)
         # Provision the devices at the Iota-agent
+        # TODO do not need anymore, because of auto provision
         self.iotac.post_device(device=self.bid_device, update=True)
         # check in the context broker if the entities corresponding to the buildings
         print(self.cbc.get_entity(self.bid_entity_id))
@@ -181,7 +196,7 @@ class Building(MarketParticipantFIWARE):
     def mqtt_initialization(self):
         # create an MQTTv5 Client and connect
         def on_connect(client, userdata, flags, rc):
-            client.subscribe(f"/json/{APIKEY_BUILDING}/device:{self.id}/attrs")
+            client.subscribe(f"/json/{APIKEY_BUILDING}/device:{self.userID}/attrs")
             print("Connected with result code" + str(rc))
 
         def on_message(client, userdata, msg):

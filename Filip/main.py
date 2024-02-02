@@ -7,6 +7,7 @@ from datetime import datetime
 from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient
 
 
+
 # import from P2P_Market
 import config
 import pandas as pd
@@ -29,9 +30,16 @@ if __name__ == '__main__':
     scenario = pd.read_csv(config.options["full_path_scenario"])
     building_number = scenario.size
 
+
     # set the id properly
     # call Class Building
-    buildings = [Building(id=i, cbc=cbc_instance, iotac=iotac_instance) for i in range(building_number)]
+    buildings = [Building(
+                          userID=str(i),name=f"bes_{i}",
+                          marketParticipantID=f"urn:ngsi-ld:Building:{i}", marketParticipantType="Building",
+                          refTransaction="Test", refActiveBid="Test") for i in range(building_number)]
+    for building in buildings:
+        building.add_fiware_interface(cbc=cbc_instance, iotac=iotac_instance)
+        building.initial_fiware_information()
     # call Class Coordinator, the coordinator should have and its own information and buildings'
     coordinator = Coordinator(cbc=cbc_instance, iotac=iotac_instance, buildings=buildings)
 
@@ -73,6 +81,8 @@ if __name__ == '__main__':
         # coordinator sends the transaction to context broker so that buildings can get transaction
         coordinator.create_publish_transaction_entity(n_opt=n_opt)
         # clear sorted_bids and transactions so that these are empty for next hour
+
+        # TODO clean up the device of bid after every trading step for loop + delete_device()
 
 
     # df0 = pd.DataFrame(f_bids)

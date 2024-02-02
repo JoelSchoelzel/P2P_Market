@@ -8,15 +8,25 @@ from uuid import UUID
 import json
 from decimal import Decimal
 
+# TODO
+# class EntityID(Field):
+#     ...
 
-class EntityID(BaseModel):
-    """To identify every entity in the data platform"""
-    id: str
-
-
-class RefEntityID(BaseModel):
-    """To link the other entity's ID"""
-    refID: str
+# class EntityID(BaseModel):
+#     """To identify every entity in the data platform"""
+#     id: str
+#
+#
+# class EntityType(BaseModel):
+#     """
+#     The Type of entity
+#     """
+#     type: str
+#
+#
+# class RefEntityID(BaseModel):
+#     """To link the other entity's ID"""
+#     refID: str
 
 
 # Identify buildings
@@ -49,12 +59,12 @@ class RefEntityID(BaseModel):
 #     NotParticipant = 'not participant'
 
 
-# class MarketRole(str, Enum):
-#     """
-#     This version of Role is currently only for implementing in bid
-#     """
-#     buyer = 'buyer'
-#     seller = 'seller'
+class MarketRole(str, Enum):
+    """
+    This version of Role is currently only for implementing in bid
+    """
+    buyer = 'buyer'
+    seller = 'seller'
 
 
 class CreatedDateTime(BaseModel):
@@ -79,7 +89,11 @@ class Quantity(BaseModel):
     """
     quantity: Decimal
 
-
+class CoordinatorGateTime(BaseModel):
+    """
+    Coordinator has time schedule for the whole trading. The pertinent activity can only be conducted in permitted time.
+    """
+    gate: datetime
 # class PowerDirection(BaseModel):
 #     """
 #     There will be 3 types of final transaction: 'buy', 'sell' and 'not participate'. For the buy and sell type, respond
@@ -102,70 +116,78 @@ class Quantity(BaseModel):
 
 
 # todo main model
-class MarketBuilding(BaseModel):
-    name: BuildingName = Field(description="Building's name")
-    userID: BuildingID = Field(description='The user name for the Building')
-    bidID: ProductID = Field(description='The user name for the Bid')
-    transactionID: ProductID = Field(description='The user name for the Transaction')
+class MarketParticipant(BaseModel):
+    marketParticipantID: str = Field(description="Entity ID of MarketParticipant")
+    marketParticipantType: str = Field(description="Entity type of MarketParticipant")
+    name: str = Field(description="Building's name")
+    userID: str = Field(description='The user name for the Building')
+    refActiveBid: str = Field(description="Entity ID of relevant active bid")
+    refTransaction: str = Field(description="Entity ID of relevant Transaction result")
 
     class Config:
-        title = 'Bid'
+        title = 'MarketParticipant'
 
 
-print(MarketBuilding.schema_json(indent=2))
+# print(MarketParticipant.schema_json(indent=2))
 
 
 class Bid(BaseModel):
     """
     Represents  bid to purchase or sell energy in electricity market
     """
-    bidID: ProductID = Field(description='The user name for the Bid')
-    createdDateTime: Time = Field(description='Date and time that this Transaction was created')
-    price: Price = Field(description='A number of monetary units specified in a unit of currency')
-    quantity: Quantity = Field(description='The quantity value.')
+    bidID: str = Field(description="...")
+    bidType: str = Field(description="...")
+    bidCreatedDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
+    price: Price
+    quantity: Quantity
     marketRole: MarketRole = Field(description='An identification of a party acting in a electricity market business process')
-    userID: BuildingID = Field(description='The user name for the Building')
+    refMarketparticipant: str = Field(description="...")
 
     class Config:
         title = 'Bid'
 
+class Coordinator(BaseModel):
+    coordinatorID: str = Field(description="...")
+    marketType: str = 'Hour Ahead Market'
+    bidStartTime: CoordinatorGateTime = Field(description="Start time and date for bid applies.")
+    bidStopTime: CoordinatorGateTime = Field(description="")
 
-print(Bid.schema_json(indent=2))
+# print(Bid.schema_json(indent=2))
 
 # class BidFiware(Bid):
 #     bidround: RoundTime
 
 
-class Transaction(BaseModel):
-    """
-    Represents transaction of power direction and negotiated price and quantity
-    """
-    transactionID: ProductID = Field(description='The user name for the Transaction')
-    createdDateTime: Time = Field(description='Date and time that this Transaction was created')
-    price: Price = Field(description='A number of monetary units specified in a unit of currency')
-    quantity: Quantity = Field(description='The quantity value.')
-    powerDirection: PowerDirection = Field(description='Both parties involved in the transaction')
-    userID: BuildingID = Field(description='The user name for the Building')
-
-    class Config:
-        title = 'Transaction'
-
-
-print(Transaction.schema_json(indent=2))
-
-
-class Coordinator(BaseModel):
-    """
-    This class is used to identify the electricty market type and regulate bidding and trading time
-    """
-    marketType: MarketType = Field(description='Hour Ahead Market')
-    bidStartTime: Time = Field(description='Start time and date for bid applies')
-    bidStopTime: Time = Field(description='Stop time and date for which bid is applicable')
-    transactionStartTime: Time = Field(description='Start time and date for transaction applies')
-    transactionStopTime: Time = Field(description='Stop time and date for which transaction is applicable')
-
-
-print(Coordinator.schema_json(indent=2))
+# class Transaction(BaseModel):
+#     """
+#     Represents transaction of power direction and negotiated price and quantity
+#     """
+#     transactionID: ProductID = Field(description='The user name for the Transaction')
+#     createdDateTime: Time = Field(description='Date and time that this Transaction was created')
+#     price: Price = Field(description='A number of monetary units specified in a unit of currency')
+#     quantity: Quantity = Field(description='The quantity value.')
+#     powerDirection: PowerDirection = Field(description='Both parties involved in the transaction')
+#     userID: BuildingID = Field(description='The user name for the Building')
+#
+#     class Config:
+#         title = 'Transaction'
+#
+#
+# print(Transaction.schema_json(indent=2))
+#
+#
+# class Coordinator(BaseModel):
+#     """
+#     This class is used to identify the electricty market type and regulate bidding and trading time
+#     """
+#     marketType: MarketType = Field(description='Hour Ahead Market')
+#     bidStartTime: Time = Field(description='Start time and date for bid applies')
+#     bidStopTime: Time = Field(description='Stop time and date for which bid is applicable')
+#     transactionStartTime: Time = Field(description='Start time and date for transaction applies')
+#     transactionStopTime: Time = Field(description='Stop time and date for which transaction is applicable')
+#
+#
+# print(Coordinator.schema_json(indent=2))
 
 
 
@@ -182,7 +204,7 @@ print(Coordinator.schema_json(indent=2))
 
 
 # todo convert pydantic model to json schema
-bid_schema = schema_json_of(Bid, indent=2)
+# bid_schema = schema_json_of(Bid, indent=2)
 #print(bid_schema)
 
 # with open('bid_schema.json', 'w') as f:
