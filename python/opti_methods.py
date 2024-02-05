@@ -91,7 +91,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                                                                options, nodes, init_val, mar_dict["propensities"][n_opt], strategies)
             # separate bids in buying and selling, sort by price
             if options["bid_type"] == "block":
-                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_block_bids(mar_dict["block_bid"][n_opt], options, characteristics, n_opt, par_rh)
+                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_block_bids(mar_dict["block_bid"][n_opt], options, characteristics, n_opt, par_rh, opti_res)
             else: # hourly bids
                 mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt], options, characteristics, n_opt)
 

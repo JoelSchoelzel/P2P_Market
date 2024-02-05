@@ -444,7 +444,7 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
     Compute block bids of 3 time steps for all buildings. The bids are created by each building's mar_agent.
 
     Returns:
-        bid (nested dict): [time step t: [bid containing price, quantity, Boolean whether buying/selling, building number]]
+        block_bid (nested dict): [time step t: [bid containing price, quantity, Boolean whether buying/selling, building number]]
         bes (object): inflexible demand is stored in bes for each building
     """
 
@@ -461,7 +461,7 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
         block_bid["bes_" + str(n)] = {}
 
         # GET PARAMETERS AT EACH TIMESTEP T FOR BIDDING
-        for t in par_rh["time_steps"][n_opt][0:3]:
+        for t in par_rh["time_steps"][n_opt][0:3]: # for t, t+1, t+2
             # t = par_rh["time_steps"][n_opt][0]
             p_imp = opti_res[n][4][t]
             chp_sell = opti_res[n][8]["chp"][t]
@@ -492,7 +492,7 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
             soc_set_max = max(x)
 
 
-            # COMPUTE BIDS AND INFLEXIBLE DEMANDS
+            # COMPUTE BLOCK BIDS AND INFLEXIBLE DEMANDS
 
             # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
             if power_hp >= 0.0 and p_imp > 0.0 and pv_sell == 0:
@@ -521,40 +521,48 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
 
     return block_bid, bes
 
-def sort_block_bids(block_bid, options, characs, n_opt):
-    """
-    All bids are sorted by the criteria specified in options["crit_prio"].
+def sort_block_bids(block_bid, options, characs, n_opt, par_rh, opti_res):
+    
+    """All block bids are sorted by the criteria specified in options["crit_prio"].
 
     Returns:
-        block_bids (dict): Bids separated by buying/selling and sorted by criteria.
-    """
+        block_bids (nested dict): {buy/sell: position i: time steps t0-t2: [p, q, n]} """
+
 
     buy_list = {}  # dictionary for all buying bids
     sell_list = {}  # dictionary for all selling bids
 
-    # sort by buy or sell
-    for n in range(len(block_bid)):
+    # SEPARATE BLOCK BIDS INTO BUY AND SELL LISTS
+    for n in range(len(opti_res)):  # iterate through buildings
 
-        # don't consider bids with zero quantity
-        if float(block_bid["bes_" + str(n)][1]) != 0.0:
+        # Don't consider block_bids that have quantity = 0 in every time step
+        if all(block_bid["bes_" + str(n)][t][1] == 0 for t in par_rh["time_steps"][n_opt][0:3]):
+            continue  # Skip this block_bid if all quantities are zero
 
-            # add buying bids to buy_list
-            if block_bid["bes_" + str(n)][2] == "True":
+        # If there is buying == "True" in any of the time steps, block bid is added to buy_list at position i
+        if any(block_bid["bes_" + str(n)][t][2] == "True" for t in par_rh["time_steps"][n_opt][0:3]):
+            # If any condition is True, add all block_bids for the first three time steps to buy_list
+            for t in par_rh["time_steps"][n_opt][0:3]:
                 i = len(buy_list)
                 buy_list[i] = {
-                    "price": block_bid["bes_" + str(n)][0],
-                    "quantity": block_bid["bes_" + str(n)][1],
-                    "building": block_bid["bes_" + str(n)][3]
+                    "price": block_bid["bes_" + str(n)][t][0],
+                    "quantity": block_bid["bes_" + str(n)][t][1],
+                    "building": block_bid["bes_" + str(n)][t][3]
                 }
 
-            # add selling block_bids to sell_list
-            if block_bid["bes_" + str(n)][2] == "False":
+        # If there is buying == "False" in any of the time steps, block bid is added to buy_list at position i
+        if any(block_bid["bes_" + str(n)][t][2] == "False" for t in par_rh["time_steps"][n_opt][0:3]):
+            # If any condition is False, add all block_bids for the first three time steps to sell_list
+            for t in par_rh["time_steps"][n_opt][0:3]:
                 i = len(sell_list)
                 sell_list[i] = {
-                    "price": block_bid["bes_" + str(n)][0][t],
-                    "quantity": block_bid["bes_" + str(n)][1][t],
-                    "building": block_bid["bes_" + str(n)][3][t]
+                    "price": block_bid["bes_" + str(n)][t][0],
+                    "quantity": block_bid["bes_" + str(n)][t][1],
+                    "building": block_bid["bes_" + str(n)][t][3]
                 }
+
+
+    # SORT BLOCK BIDS BY CRITERIA DEFINED IN OPTIONS
 
     # sort buy_list and sell_list by price if price has been specified as criteria in options
     if options["crit_prio"] == "price":
@@ -601,5 +609,6 @@ def sort_block_bids(block_bid, options, characs, n_opt):
         "buy": {i: sorted_buy_list[i][1] for i in range(len(sorted_buy_list))},
         "sell": {i: sorted_sell_list[i][1] for i in range(len(sorted_sell_list))}
     }
+    print(block_bids)
 
     return block_bids
