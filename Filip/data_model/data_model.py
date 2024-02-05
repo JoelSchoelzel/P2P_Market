@@ -8,7 +8,7 @@ from uuid import UUID
 import json
 from decimal import Decimal
 
-# TODO
+
 # class EntityID(Field):
 #     ...
 
@@ -117,8 +117,8 @@ class CoordinatorGateTime(BaseModel):
 
 # todo main model
 class MarketParticipant(BaseModel):
-    marketParticipantID: str = Field(description="Entity ID of MarketParticipant")
-    marketParticipantType: str = Field(description="Entity type of MarketParticipant")
+    id: str = Field(description="Entity ID of MarketParticipant")
+    type: str = Field(description="Entity type of MarketParticipant")
     name: str = Field(description="Building's name")
     userID: str = Field(description='The user name for the Building')
     refActiveBid: str = Field(description="Entity ID of relevant active bid")
@@ -129,15 +129,23 @@ class MarketParticipant(BaseModel):
 
 
 # print(MarketParticipant.schema_json(indent=2))
+class PublishBid(BaseModel):
+    bidID: str = Field(description='...')
+    createdDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
+    price: Price
+    quantity: Quantity
+    marketRole: MarketRole = Field(description='An identification of a party acting in a electricity market business process')
+    refMarketparticipant: str = Field(description="...")
 
 
 class Bid(BaseModel):
     """
     Represents  bid to purchase or sell energy in electricity market
     """
-    bidID: str = Field(description="...")
-    bidType: str = Field(description="...")
-    bidCreatedDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
+    id: str = Field(description="...")
+    type: str = Field(description="...")
+    bidID: str = Field(description='...')
+    createdDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
     price: Price
     quantity: Quantity
     marketRole: MarketRole = Field(description='An identification of a party acting in a electricity market business process')
@@ -147,23 +155,22 @@ class Bid(BaseModel):
         title = 'Bid'
 
 class Coordinator(BaseModel):
-    coordinatorID: str = Field(description="...")
+    id: str = Field(description="...")
+    type: str = Field(description="...")
     marketType: str = 'Hour Ahead Market'
     bidStartTime: CoordinatorGateTime = Field(description="Start time and date for bid applies.")
     bidStopTime: CoordinatorGateTime = Field(description="")
 
 # print(Bid.schema_json(indent=2))
 
-# class BidFiware(Bid):
-#     bidround: RoundTime
 
-
-# class Transaction(BaseModel):
-#     """
-#     Represents transaction of power direction and negotiated price and quantity
-#     """
-#     transactionID: ProductID = Field(description='The user name for the Transaction')
-#     createdDateTime: Time = Field(description='Date and time that this Transaction was created')
+class Transaction(BaseModel):
+    """
+    Represents transaction of power direction and negotiated price and quantity
+    """
+    id: str = Field(description="...")
+    type: str = Field(description="...")
+    createdDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
 #     price: Price = Field(description='A number of monetary units specified in a unit of currency')
 #     quantity: Quantity = Field(description='The quantity value.')
 #     powerDirection: PowerDirection = Field(description='Both parties involved in the transaction')

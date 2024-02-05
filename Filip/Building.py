@@ -1,39 +1,35 @@
 # import from filip
-from typing import Any
-
-import pandas as pd
 from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient
 from filip.models.ngsi_v2.subscriptions import Subscription
 from filip.models.ngsi_v2.context import NamedContextAttribute, ContextEntity
 from filip.models.base import FiwareHeader
 from filip.models.ngsi_v2.iot import \
     Device, \
-    DeviceAttribute, \
     ServiceGroup
-from pydantic import ConfigDict
+
 # import form packages
 import paho.mqtt.client as mqtt
 import time
 import os
 from dotenv import load_dotenv
 import numpy as np
-import pickle
+from pydantic import ConfigDict
+import uuid
+
 # import from P2P_Market
 import config
 
 # import for data model
 import json
 # from jsonschemaparser import JsonSchemaParser
-from data_model.data_model import MarketParticipant, Bid
+from data_model.data_model import MarketParticipant, PublishBid, Transaction
 
 # Load environment variables from .env file
 load_dotenv()
 APIKEY_BUILDING = os.getenv('APIKEY_BUILDING')
 APIKEY_BID = os.getenv('APIKEY_BID')
-# Create a service group and add it to your devices
-# TODO remove building servie group
-building_service_group = ServiceGroup(apikey=APIKEY_BUILDING,
-                                      resource="/iot/json")
+
+# Create a bid service group and add it to your devices
 bid_service_group = ServiceGroup(apikey=APIKEY_BID,
                                  resource="/iot/json"
                                  )
@@ -56,8 +52,7 @@ class Building(MarketParticipant):
     #     super().__init__(**data)
     #     self.cbc = cbc
     #     self.iotac = iotac
-
-        # self.bid1 = {}  # todo (validation) get the bid from p2p market
+    # self.bid1 = {}  # todo (validation) get the bid from p2p market
 
     def add_fiware_interface(self, cbc: ContextBrokerClient, iotac: IoTAClient):
         self.cbc = cbc
@@ -71,11 +66,14 @@ class Building(MarketParticipant):
         # self.refActiveBid = f"urn:ngsi-ld:Bid:{self.id}"
         # self.refTransaction = f"urn:ngsi-ld:Transaction:{self.id}"
         # bid device id, entity id and type
-        # TODO implement auto provision
         self.bid_device_id = f"bid_device:{self.userID}"
+        # self.bid_entity_title = Bid(id=f"urn:ngsi-ld:Bid:{self.userID}",
+        #                             type="Bid")
         self.bid_entity_id = f"urn:ngsi-ld:Bid:{self.userID}"
         self.bid_entity_type = "Bid"
         # transaction entity id and type
+        # self.transaction_entity_title = Transaction(id=f"urn:ngsi-ld:Transaction:{self.userID}",
+        #                                             type="Transaction")
         self.transaction_entity_id = f"urn:ngsi-ld:Transaction:{self.userID}"
         self.transaction_topic = f"/v2/transactions/urn:ngsi-ld:Transaction:{self.userID}/attrs"
         # building entity
@@ -88,18 +86,23 @@ class Building(MarketParticipant):
         self.bid = {}
         self.init_val = {}
 
-
-    def publish_data(self, time_index, n_opt):
+    def publish_data(self, time_index):
         # with open('bid_schema.json', 'r') as f:
         #     bid_schema = json.load(f)
 
-        data_to_publish = {"timestamp": time_index,
-                           "bidround": n_opt,
-                           "price": self.bid[f"bes_{self.id}"][0],
-                           "quantity": self.bid[f"bes_{self.id}"][1],
-                           "role": self.bid[f"bes_{self.id}"][2],
-                           # "building_id": int(self.bid[f"bes_{self.id}"][3])
-                           }
+        bid_to_publish = PublishBid(bidID=str(uuid.uuid4()),
+                             createdDateTime=time_index,
+                             price=self.bid[f"bes_{self.userID}"][0],
+                             quantity=self.bid[f"bes_{self.userID}"][1],
+                             marketRole=self.bid[f"bes_{self.userID}"][2],
+                             refMarketparticipant=self.id)
+        # data_to_publish = {"createdDateTime": time_index,
+        #                    "bidround": n_opt,
+        #                    "price": self.bid[f"bes_{self.id}"][0],
+        #                    "quantity": self.bid[f"bes_{self.id}"][1],
+        #                    "role": self.bid[f"bes_{self.id}"][2],
+        #                    # "building_id": int(self.bid[f"bes_{self.id}"][3])
+        #                    }
 
         # todo send the data from p2p market
         # data_to_publish = {"timestamp": time_index,
@@ -109,7 +112,7 @@ class Building(MarketParticipant):
         #                    "buyer": self.bid1[f"bes_{self.id}"][2],
         #                    "number": int(self.bid1[f"bes_{self.id}"][3])}
         # json_data = bid_schema(**data_to_publish)
-        json_data = json.dumps(data_to_publish)
+        json_data = json.dumps(bid_to_publish)
         # publish the device and data
         self.mqttc.publish(topic=f"/json/{APIKEY_BID}/{self.bid_device_id}/attrs",
                            payload=json_data)
@@ -117,21 +120,21 @@ class Building(MarketParticipant):
         time.sleep(0.1)
 
     def create_building_entity(self):
-        building_entity = ContextEntity(id=self.marketParticipantID,
-                                        type=self.marketParticipantType)
+        building_entity = ContextEntity(id=self.id,
+                                        type=self.type)
 
-        building_name = NamedContextAttribute(name='building_name',
+        building_name = NamedContextAttribute(name='name',
                                               type="String",
                                               value=self.name)
-        building_id = NamedContextAttribute(name='building_id',
+        building_id = NamedContextAttribute(name='userID',
                                             type='Number',
                                             value=self.userID)
-        building_bid = NamedContextAttribute(name='refBid',
+        building_bid = NamedContextAttribute(name='refActiveBid',
                                              type='Relationship',
-                                             value=self.refActiveBid)
+                                             value=self.bid_entity_id)
         building_transaction = NamedContextAttribute(name='refTransaction',
                                                      type='Relationship',
-                                                     value=self.refTransaction)
+                                                     value=self.transaction_entity_id)
         building_entity.add_attributes([building_name, building_id, building_bid, building_transaction])
         return building_entity
 
@@ -140,19 +143,21 @@ class Building(MarketParticipant):
         bid_entity = ContextEntity(id=self.bid_entity_id,
                                    type=self.bid_entity_type)
 
-        bid_round = NamedContextAttribute(name='bidround',
-                                          type="String")
+        bid_id = NamedContextAttribute(name='bidID',
+                                       type="String")
+        bid_created_time = NamedContextAttribute(name='bidCreatedTime',
+                                                 type="String")
         bid_price = NamedContextAttribute(name='price',
-                                          type='Number')
+                                          type='Float')
         bid_quantity = NamedContextAttribute(name='quantity',
-                                             type='Number')
+                                             type='Float')
         bid_role = NamedContextAttribute(name='role',
                                          type='String')
         bid_building = NamedContextAttribute(name='refBuilding',
                                              type='Relationship',
-                                             value=self.marketParticipantID)
+                                             value=self.id)
 
-        bid_entity.add_attributes([bid_round, bid_price, bid_quantity, bid_role, bid_building])
+        bid_entity.add_attributes([bid_id, bid_created_time, bid_price, bid_quantity, bid_role, bid_building])
         return bid_entity
 
     def create_bid_device(self):
@@ -172,8 +177,9 @@ class Building(MarketParticipant):
             subscription_dict = json.load(f)
         # set the unique subscription for every building
         subscription_dict[
-            "descroption"] = f"Subscription to receive MQTT-Notification about urn:ngsi-ld:Transaction:{self.id}"
+            "descroption"] = f"Subscription to receive MQTT-Notification about urn:ngsi-ld:Transaction:{self.userID}"
         subscription_dict["subject"]["entities"][0]["id"] = self.transaction_entity_id
+        #subscription_dict["subject"]["entities"][1]["type"] = self.transaction_entity_title.type
         subscription_dict["notification"]["mqtt"]["url"] = f"{MQTT_Broker_URL}"
         subscription_dict["notification"]["mqtt"]["topic"] = self.transaction_topic
         subscription = Subscription(**subscription_dict)
@@ -185,10 +191,8 @@ class Building(MarketParticipant):
         self.cbc.post_entity(entity=self.building_entity)
         self.cbc.post_entity(entity=self.bid_entity)
         # Provision service group and add it to IOTAClient
-        self.iotac.post_group(service_group=building_service_group, update=True)
         self.iotac.post_group(service_group=bid_service_group, update=True)
         # Provision the devices at the Iota-agent
-        # TODO do not need anymore, because of auto provision
         self.iotac.post_device(device=self.bid_device, update=True)
         # check in the context broker if the entities corresponding to the buildings
         print(self.cbc.get_entity(self.bid_entity_id))
@@ -225,30 +229,30 @@ class Building(MarketParticipant):
 
         # TODO optimize energy usage? also create a new class ComputeVolumes?
         if n_time == 0:
-            print("Starting optimization: n_time: " + str(n_time) + ", building:" + str(self.id) + ".")
-            self.init_val[n_time]["building_" + str(self.id)] = {}
-            opti_res[n_time][self.id] = config.decentral_operation(nodes[self.id], params, par_rh,
+            print("Starting optimization: n_time: " + str(n_time) + ", building:" + str(self.userID) + ".")
+            self.init_val[n_time]["building_" + str(self.userID)] = {}
+            opti_res[n_time][self.userID] = config.decentral_operation(nodes[int(self.userID)], params, par_rh,
                                                                    building_params,
-                                                                   self.init_val[n_time]["building_" + str(self.id)],
+                                                                   self.init_val[n_time]["building_" + str(self.userID)],
                                                                    n_time,
                                                                    config.options)
-            self.init_val[n_time + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(
-                opti_res[n_time][self.id],
+            self.init_val[n_time + 1]["building_" + str(self.userID)] = config.init_val_decentral_operation(
+                opti_res[n_time][self.userID],
                 par_rh, n_time)
         else:
-            opti_res[n_time][self.id] = config.decentral_operation(nodes[self.id], params, par_rh,
+            opti_res[n_time][self.userID] = config.decentral_operation(nodes[int(self.userID)], params, par_rh,
                                                                    building_params,
-                                                                   self.init_val[n_time]["building_" + str(self.id)],
+                                                                   self.init_val[n_time]["building_" + str(self.userID)],
                                                                    n_time,
                                                                    config.options)
             if n_time < par_rh["n_hours"] - 1:
-                self.init_val[n_time + 1]["building_" + str(self.id)] = config.init_val_decentral_operation(
-                    opti_res[n_time][self.id], par_rh, n_time)
+                self.init_val[n_time + 1]["building_" + str(self.userID)] = config.init_val_decentral_operation(
+                    opti_res[n_time][self.userID], par_rh, n_time)
             else:
                 self.init_val[n_time + 1] = 0
 
-        # compute bids TODO it is "compute bids" or "compute price"?
-        self.bid = ComputeBids(params).filip_compute_bids(opti_res[n_time], par_rh, n_time, config.options, self.id)
+        # compute bids
+        self.bid = ComputeBids(params).filip_compute_bids(opti_res[n_time], par_rh, n_time, config.options, self.userID)
         print("Finished optimization " + str(n_time) + ". " + str((n_time + 1) / par_rh["n_hours"] * 100) +
               "% of optimizations processed.")
 
@@ -268,7 +272,7 @@ class Building(MarketParticipant):
     #     print(f'p2p bid: {self.bid1}')
 
 
-class ComputeBids:  # TODO Camel case, ComputeBids
+class ComputeBids:
     def __init__(self, params):
         # range of prices
         self.p_max = params["eco"]["pr", "el"]

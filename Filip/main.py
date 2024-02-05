@@ -3,7 +3,7 @@ from Coordinator import Coordinator
 from filip.models.base import FiwareHeader
 from filip.utils.cleanup import clear_context_broker, clear_iot_agent
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient
 
 
@@ -30,12 +30,9 @@ if __name__ == '__main__':
     scenario = pd.read_csv(config.options["full_path_scenario"])
     building_number = scenario.size
 
-
-    # set the id properly
     # call Class Building
-    buildings = [Building(
-                          userID=str(i),name=f"bes_{i}",
-                          marketParticipantID=f"urn:ngsi-ld:Building:{i}", marketParticipantType="Building",
+    buildings = [Building(id=f"urn:ngsi-ld:Building:{i}", type="Building",
+                          userID=str(i), name=f"bes_{i}",
                           refTransaction="Test", refActiveBid="Test") for i in range(building_number)]
     for building in buildings:
         building.add_fiware_interface(cbc=cbc_instance, iotac=iotac_instance)
@@ -44,8 +41,9 @@ if __name__ == '__main__':
     coordinator = Coordinator(cbc=cbc_instance, iotac=iotac_instance, buildings=buildings)
 
     # use timestamp to input the time
-    timestamp = datetime.utcnow()
-    time_index = str(datetime.utcfromtimestamp(timestamp.timestamp()))
+    start_timestamp = 1443657600
+    start_datetime = datetime.utcfromtimestamp(start_timestamp)
+    interval = timedelta(hours=1)
     # Step 1
 
     # Get the par_rh['n_opt'] input. This number now is 744h as 1 month
@@ -55,13 +53,16 @@ if __name__ == '__main__':
     #f_sorted_bids = []
     #f_transactions = []  # todo
 
-    for n_opt in range(par_rh['n_opt']):  # par_rh['n_opt'] is 744h in ein Monat
+    for n_opt in range(par_rh['n_opt']):  # par_rh['n_opt'] is 744h in one Month
         print(f"n_opt = {n_opt}")
+        time_index = str(start_datetime)
         # calculate and publish bids
         for building in buildings:
             #building.p2p_bid(n_time=n_opt)
             building.formulate_bid(n_time=n_opt)
-            building.publish_data(time_index, n_opt)
+            building.publish_data(time_index)
+        # the next round beginns in 1 hour
+        start_datetime += interval
         # recieving bids
         # Get corresponding entities and coordinator can get bids from entities
         # coordinator should know the market participants
@@ -82,7 +83,6 @@ if __name__ == '__main__':
         coordinator.create_publish_transaction_entity(n_opt=n_opt)
         # clear sorted_bids and transactions so that these are empty for next hour
 
-        # TODO clean up the device of bid after every trading step for loop + delete_device()
 
 
     # df0 = pd.DataFrame(f_bids)

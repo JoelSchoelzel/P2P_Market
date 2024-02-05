@@ -37,11 +37,11 @@ class Coordinator:
 
     def get_bids(self):
         for i in range(len(self.buildings)):
-            self.building_entity = self.cbc.get_entity(self.buildings[i].building_entity_id)
-            self.bid_entity = self.cbc.get_entity(self.building_entity.refBid.value)
+            self.building_entity = self.cbc.get_entity(self.buildings[i].id)
+            self.bid_entity = self.cbc.get_entity(self.building_entity.refActiveBid.value)
             attributes = [self.bid_entity.price.value, self.bid_entity.quantity.value,
-                          self.bid_entity.role.value, int(self.building_entity.building_id.value)]
-            self.bid[self.building_entity.building_name.value] = attributes
+                          self.bid_entity.role.value, int(self.building_entity.userID.value)]
+            self.bid[self.building_entity.name.value] = attributes
 
     def sort_bids(self):
         nodes, building_params, params, devs_pre_opti, net_data, par_rh = config.get_inputs(config.par_rh,
