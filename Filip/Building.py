@@ -22,7 +22,8 @@ import config
 # import for data model
 import json
 # from jsonschemaparser import JsonSchemaParser
-from data_model.data_model import MarketParticipant, PublishBid, Transaction
+from data_model.data_model import MarketParticipant, PublishBid, Transaction, \
+    CreatedDateTime, Price, Quantity
 
 # Load environment variables from .env file
 load_dotenv()
@@ -75,6 +76,7 @@ class Building(MarketParticipant):
         # self.transaction_entity_title = Transaction(id=f"urn:ngsi-ld:Transaction:{self.userID}",
         #                                             type="Transaction")
         self.transaction_entity_id = f"urn:ngsi-ld:Transaction:{self.userID}"
+        #self.transaction_entity_type = "Transaction"
         self.transaction_topic = f"/v2/transactions/urn:ngsi-ld:Transaction:{self.userID}/attrs"
         # building entity
         self.building_entity = self.create_building_entity()
@@ -91,11 +93,11 @@ class Building(MarketParticipant):
         #     bid_schema = json.load(f)
 
         bid_to_publish = PublishBid(bidID=str(uuid.uuid4()),
-                             createdDateTime=time_index,
-                             price=self.bid[f"bes_{self.userID}"][0],
-                             quantity=self.bid[f"bes_{self.userID}"][1],
+                             bidCreatedDateTime=CreatedDateTime(time=str(time_index)),
+                             expectedPrice=Price(price=self.bid[f"bes_{self.userID}"][0]),
+                             expectedQuantity=Quantity(quantity=self.bid[f"bes_{self.userID}"][1]),
                              marketRole=self.bid[f"bes_{self.userID}"][2],
-                             refMarketparticipant=self.id)
+                             refMarketParticipant=self.id)
         # data_to_publish = {"createdDateTime": time_index,
         #                    "bidround": n_opt,
         #                    "price": self.bid[f"bes_{self.id}"][0],
@@ -112,7 +114,8 @@ class Building(MarketParticipant):
         #                    "buyer": self.bid1[f"bes_{self.id}"][2],
         #                    "number": int(self.bid1[f"bes_{self.id}"][3])}
         # json_data = bid_schema(**data_to_publish)
-        json_data = json.dumps(bid_to_publish)
+        bid_dict = bid_to_publish.dict()
+        json_data = json.dumps(bid_dict)
         # publish the device and data
         self.mqttc.publish(topic=f"/json/{APIKEY_BID}/{self.bid_device_id}/attrs",
                            payload=json_data)
@@ -123,11 +126,11 @@ class Building(MarketParticipant):
         building_entity = ContextEntity(id=self.id,
                                         type=self.type)
 
-        building_name = NamedContextAttribute(name='name',
+        building_name = NamedContextAttribute(name='buildingName',
                                               type="String",
-                                              value=self.name)
+                                              value=self.buildingName)
         building_id = NamedContextAttribute(name='userID',
-                                            type='Number',
+                                            type='String',
                                             value=self.userID)
         building_bid = NamedContextAttribute(name='refActiveBid',
                                              type='Relationship',
@@ -145,15 +148,15 @@ class Building(MarketParticipant):
 
         bid_id = NamedContextAttribute(name='bidID',
                                        type="String")
-        bid_created_time = NamedContextAttribute(name='bidCreatedTime',
+        bid_created_time = NamedContextAttribute(name='bidCreatedDateTime',
                                                  type="String")
-        bid_price = NamedContextAttribute(name='price',
+        bid_price = NamedContextAttribute(name='expectedPrice',
                                           type='Float')
-        bid_quantity = NamedContextAttribute(name='quantity',
+        bid_quantity = NamedContextAttribute(name='expectedQuantity',
                                              type='Float')
-        bid_role = NamedContextAttribute(name='role',
+        bid_role = NamedContextAttribute(name='marketRole',
                                          type='String')
-        bid_building = NamedContextAttribute(name='refBuilding',
+        bid_building = NamedContextAttribute(name='refMarketParticipant',
                                              type='Relationship',
                                              value=self.id)
 
@@ -179,7 +182,7 @@ class Building(MarketParticipant):
         subscription_dict[
             "descroption"] = f"Subscription to receive MQTT-Notification about urn:ngsi-ld:Transaction:{self.userID}"
         subscription_dict["subject"]["entities"][0]["id"] = self.transaction_entity_id
-        #subscription_dict["subject"]["entities"][1]["type"] = self.transaction_entity_title.type
+        #["subject"]["entities"][1]["type"] = self.transaction_entity_type
         subscription_dict["notification"]["mqtt"]["url"] = f"{MQTT_Broker_URL}"
         subscription_dict["notification"]["mqtt"]["topic"] = self.transaction_topic
         subscription = Subscription(**subscription_dict)

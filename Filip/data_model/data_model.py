@@ -71,7 +71,7 @@ class CreatedDateTime(BaseModel):
     """
     The time of prediction for next hour, it can also identify the bids or transactions in hours.
     """
-    time: datetime
+    time: str
 
 
 class Price(BaseModel):
@@ -79,7 +79,7 @@ class Price(BaseModel):
     The price of the buying or selling will be at first in bids provided from every building. But the final transacted
     price will be by coordinator with multiple trading round determined.
     """
-    price: Decimal
+    price: float
 
 
 class Quantity(BaseModel):
@@ -87,21 +87,23 @@ class Quantity(BaseModel):
     Quantity will be at first in bids provided. After matching among buyers and sellers, appropriate matches will have
     a certain quantity to exchange. One seller can sell its energy to one or more buyers.
     """
-    quantity: Decimal
+    quantity: float
+
 
 class CoordinatorGateTime(BaseModel):
     """
     Coordinator has time schedule for the whole trading. The pertinent activity can only be conducted in permitted time.
     """
     gate: datetime
-# class PowerDirection(BaseModel):
-#     """
-#     There will be 3 types of final transaction: 'buy', 'sell' and 'not participate'. For the buy and sell type, respond
-#     should contain id, role, time, price and quantity. But for 'not participate' type, respond should id, role, time and
-#     the message 'No Transaction'.
-#     """
-#     powerDirection: str
 
+
+class TradeResults(BaseModel):
+    """
+    The results of transaction
+    """
+    realPrice: Price = Field(description='...')
+    realQuantity: Quantity = Field(description='...')
+    powerDirection: str = Field(description='...')
 
 # class MarketType(str, Enum):
 #     marketType = 'HAM'
@@ -119,7 +121,7 @@ class CoordinatorGateTime(BaseModel):
 class MarketParticipant(BaseModel):
     id: str = Field(description="Entity ID of MarketParticipant")
     type: str = Field(description="Entity type of MarketParticipant")
-    name: str = Field(description="Building's name")
+    buildingName: str = Field(description="Building's name")
     userID: str = Field(description='The user name for the Building')
     refActiveBid: str = Field(description="Entity ID of relevant active bid")
     refTransaction: str = Field(description="Entity ID of relevant Transaction result")
@@ -131,28 +133,28 @@ class MarketParticipant(BaseModel):
 # print(MarketParticipant.schema_json(indent=2))
 class PublishBid(BaseModel):
     bidID: str = Field(description='...')
-    createdDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
-    price: Price
-    quantity: Quantity
+    bidCreatedDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
+    expectedPrice: Price
+    expectedQuantity: Quantity
     marketRole: MarketRole = Field(description='An identification of a party acting in a electricity market business process')
-    refMarketparticipant: str = Field(description="...")
+    refMarketParticipant: str = Field(description="...")
 
 
-class Bid(BaseModel):
-    """
-    Represents  bid to purchase or sell energy in electricity market
-    """
-    id: str = Field(description="...")
-    type: str = Field(description="...")
-    bidID: str = Field(description='...')
-    createdDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
-    price: Price
-    quantity: Quantity
-    marketRole: MarketRole = Field(description='An identification of a party acting in a electricity market business process')
-    refMarketparticipant: str = Field(description="...")
-
-    class Config:
-        title = 'Bid'
+# class Bid(BaseModel):
+#     """
+#     Represents  bid to purchase or sell energy in electricity market
+#     """
+#     id: str = Field(description="...")
+#     type: # str = Field(description="...")
+#     bidID: str = Field(description='...')
+#     transactionCreatedDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
+#     price: Price
+#     quantity: Quantity
+#     marketRole: MarketRole = Field(description='An identification of a party acting in a electricity market business process')
+#     refMarketparticipant: str = Field(description="...")
+#
+#     class Config:
+#         title = 'Bid'
 
 class Coordinator(BaseModel):
     id: str = Field(description="...")
@@ -160,27 +162,23 @@ class Coordinator(BaseModel):
     marketType: str = 'Hour Ahead Market'
     bidStartTime: CoordinatorGateTime = Field(description="Start time and date for bid applies.")
     bidStopTime: CoordinatorGateTime = Field(description="")
-
+    transactionStartTime: CoordinatorGateTime = Field(description="Start time and date for bid applies.")
+    transactionStopTime: CoordinatorGateTime = Field(description="")
 # print(Bid.schema_json(indent=2))
 
 
-class Transaction(BaseModel):
+class PublishTransaction(BaseModel):
     """
     Represents transaction of power direction and negotiated price and quantity
     """
-    id: str = Field(description="...")
-    type: str = Field(description="...")
-    createdDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
-#     price: Price = Field(description='A number of monetary units specified in a unit of currency')
-#     quantity: Quantity = Field(description='The quantity value.')
-#     powerDirection: PowerDirection = Field(description='Both parties involved in the transaction')
-#     userID: BuildingID = Field(description='The user name for the Building')
+    # id: str = Field(description="...")
+    # type: # str = Field(description="...")
+    transactionID: str = Field(description='...')
+    transactionCreatedDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
+    tradeResults: Optional[TradeResults] = Field(default=None, description='...')
+    refMarketParticipant: str = Field(description="...")
 #
-#     class Config:
-#         title = 'Transaction'
-#
-#
-# print(Transaction.schema_json(indent=2))
+print(PublishTransaction.schema_json(indent=2))
 #
 #
 # class Coordinator(BaseModel):

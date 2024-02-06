@@ -39,9 +39,9 @@ class Coordinator:
         for i in range(len(self.buildings)):
             self.building_entity = self.cbc.get_entity(self.buildings[i].id)
             self.bid_entity = self.cbc.get_entity(self.building_entity.refActiveBid.value)
-            attributes = [self.bid_entity.price.value, self.bid_entity.quantity.value,
-                          self.bid_entity.role.value, int(self.building_entity.userID.value)]
-            self.bid[self.building_entity.name.value] = attributes
+            attributes = [self.bid_entity.expectedPrice.value['price'], self.bid_entity.expectedQuantity.value['quantity'],
+                          self.bid_entity.marketRole.value, int(self.building_entity.userID.value)]
+            self.bid[self.building_entity.buildingName.value] = attributes
 
     def sort_bids(self):
         nodes, building_params, params, devs_pre_opti, net_data, par_rh = config.get_inputs(config.par_rh,
@@ -303,7 +303,7 @@ class Coordinator:
             seller_dic = {}
             transaction_list = []
             transaction = {}
-            # if the transactions is not empty
+            # if the transactions are not empty
             if self.transactions:
                 for n in range(len(self.transactions)):
                     buyer_dic[n] = {}
@@ -371,7 +371,7 @@ class Coordinator:
                     transaction_list.clear()
                     self.cbc.patch_entity(entity=self.transaction_entity)
 
-            # if the transaction is empty
+            # if the transactions are empty
             else:
                 self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
                                                         type=self.entity_type)

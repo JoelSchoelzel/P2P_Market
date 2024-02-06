@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     # call Class Building
     buildings = [Building(id=f"urn:ngsi-ld:Building:{i}", type="Building",
-                          userID=str(i), name=f"bes_{i}",
+                          userID=str(i), buildingName=f"bes_{i}",
                           refTransaction="Test", refActiveBid="Test") for i in range(building_number)]
     for building in buildings:
         building.add_fiware_interface(cbc=cbc_instance, iotac=iotac_instance)
@@ -55,12 +55,13 @@ if __name__ == '__main__':
 
     for n_opt in range(par_rh['n_opt']):  # par_rh['n_opt'] is 744h in one Month
         print(f"n_opt = {n_opt}")
-        time_index = str(start_datetime)
+        print(str(start_datetime))
+        # time_index = str(start_datetime)
         # calculate and publish bids
         for building in buildings:
             #building.p2p_bid(n_time=n_opt)
             building.formulate_bid(n_time=n_opt)
-            building.publish_data(time_index)
+            building.publish_data(start_datetime)
         # the next round beginns in 1 hour
         start_datetime += interval
         # recieving bids
