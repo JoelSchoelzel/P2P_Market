@@ -22,7 +22,7 @@ import config
 # import for data model
 import json
 # from jsonschemaparser import JsonSchemaParser
-from data_model.data_model import MarketParticipant, PublishBid, Transaction, \
+from data_model.data_model import MarketParticipant, PublishBid, \
     CreatedDateTime, Price, Quantity
 
 # Load environment variables from .env file

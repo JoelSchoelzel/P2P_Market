@@ -74,6 +74,7 @@ class CreatedDateTime(BaseModel):
     time: str
 
 
+
 class Price(BaseModel):
     """
     The price of the buying or selling will be at first in bids provided from every building. But the final transacted
@@ -167,6 +168,8 @@ class Coordinator(BaseModel):
 # print(Bid.schema_json(indent=2))
 
 
+
+
 class PublishTransaction(BaseModel):
     """
     Represents transaction of power direction and negotiated price and quantity
@@ -174,10 +177,11 @@ class PublishTransaction(BaseModel):
     # id: str = Field(description="...")
     # type: # str = Field(description="...")
     transactionID: str = Field(description='...')
-    transactionCreatedDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
-    tradeResults: Optional[TradeResults] = Field(default=None, description='...')
+    transactionCreatedDateTime: str = Field(description='Date and time that this Bid was created')
+    tradeResults: Union[TradeResults, str] = Field(default=None, description='...')
     refMarketParticipant: str = Field(description="...")
-#
+
+
 print(PublishTransaction.schema_json(indent=2))
 #
 #

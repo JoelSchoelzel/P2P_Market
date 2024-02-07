@@ -34,11 +34,14 @@ if __name__ == '__main__':
     buildings = [Building(id=f"urn:ngsi-ld:Building:{i}", type="Building",
                           userID=str(i), buildingName=f"bes_{i}",
                           refTransaction="Test", refActiveBid="Test") for i in range(building_number)]
+
+    # call Class Coordinator, the coordinator should have and its own information and buildings'
+    coordinator = Coordinator(cbc=cbc_instance, iotac=iotac_instance, buildings=buildings)
+
     for building in buildings:
         building.add_fiware_interface(cbc=cbc_instance, iotac=iotac_instance)
         building.initial_fiware_information()
-    # call Class Coordinator, the coordinator should have and its own information and buildings'
-    coordinator = Coordinator(cbc=cbc_instance, iotac=iotac_instance, buildings=buildings)
+        coordinator.platform_configuration(number_building=int(building.userID))
 
     # use timestamp to input the time
     start_timestamp = 1443657600
@@ -62,7 +65,7 @@ if __name__ == '__main__':
             #building.p2p_bid(n_time=n_opt)
             building.formulate_bid(n_time=n_opt)
             building.publish_data(start_datetime)
-        # the next round beginns in 1 hour
+        # the next round begins in 1 hour
         start_datetime += interval
         # recieving bids
         # Get corresponding entities and coordinator can get bids from entities
@@ -81,7 +84,7 @@ if __name__ == '__main__':
         #  move the sending transaction into a method of coordinator, like publish_transaction
         #  coordinator send transaction to context broker subscription
         # coordinator sends the transaction to context broker so that buildings can get transaction
-        coordinator.create_publish_transaction_entity(n_opt=n_opt)
+        coordinator.reformat_publish_transaction(n_opt=n_opt)
         # clear sorted_bids and transactions so that these are empty for next hour
 
 
