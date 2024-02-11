@@ -350,8 +350,10 @@ def update_prop(mar_dict, par_rh, n_opt, bes, options, pars_li, trade_res, strat
     old_prop = mar_dict["propensities"][n_opt]
     # new propensities for the next market round
     new_prop = {}
+
+    t = par_rh["time_steps"][n_opt][0]
     #if no supply or demand at all (trading not possible), the propensities do not change
-    if dem_total[n_opt] == 0 or sup_total[n_opt] == 0:
+    if dem_total[t] == 0 or sup_total[t] == 0:
         new_prop = old_prop
 
     else:
