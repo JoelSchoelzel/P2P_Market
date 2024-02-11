@@ -83,7 +83,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
 
             # calculate new flexibility characteristics for 3 steps using the SOC from optimization results
             new_characs = characs.calc_characs(nodes=nodes, options=options, par_rh=par_rh, opti_res=opti_res,
-                                               start=n_opt, length=3)
+                                               start_step=n_opt, length=3)
 
             # compute bids
             mar_dict["bid"][n_opt], bes = mar_pre.compute_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,

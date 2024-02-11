@@ -1,8 +1,9 @@
 import datetime
+import math
 import pickle
 
 
-def calc_characs(nodes, options, par_rh, opti_res: dict = None, start: int = None, length: int = 3):
+def calc_characs(nodes, options, par_rh, opti_res: dict = None, start_step: int = None, length: int = 3):
     """
     Calculate KPIs to evaluate different flexibilities of each building according to Stinner et al.
     "https://linkinghub.elsevier.com/retrieve/pii/S0306261916311424"
@@ -15,9 +16,9 @@ def calc_characs(nodes, options, par_rh, opti_res: dict = None, start: int = Non
         options (dict):
         par_rh (dict):
         opti_res: optimization result to get SOC, if not provided a empty/full SOC is assumed
-        start: starting optimization step for which flexibility characs are calculated,
+        start_step: starting optimization step for which flexibility characs are calculated,
             if not provided all optimization steps are calculated
-        length: amount of optimization steps to be calculated, only relevant when start is provided
+        length: amount of optimization steps to be calculated, only relevant when start_step is provided
 
     Returns:
         characs (dict): Dictionary containing the following KPIs:
@@ -98,11 +99,12 @@ def calc_characs(nodes, options, par_rh, opti_res: dict = None, start: int = Non
         characs[n]["beta_th"] = beta_th
 
         # set step params
-        if start is not None:
+        if start_step is not None:
+            start_hour = par_rh["hour_start"][start_step]
             # when a start step is provided, start and length is used:
-            max_step = start + par_rh["n_hours"]  # set the starting step + 36 hours as the maximum step
-            data_steps = list(range(start, max_step))  # use the data for 36 hours (optimization horizon)
-            result_steps = list(range(start, start + length))  # only calculate results for the specified steps
+            max_step = start_hour + par_rh["n_hours"]  # set the starting step + 36 hours as the maximum step
+            data_steps = list(range(start_hour, max_step))  # use the data for 36 hours (optimization horizon)
+            result_steps = list(range(start_hour, start_hour + length))  # only calculate results for the specified steps
         else:
             # when no start step is provided, all steps in par_rh are used
             max_step = par_rh["n_opt"]  # maximum step is end of data
@@ -110,7 +112,7 @@ def calc_characs(nodes, options, par_rh, opti_res: dict = None, start: int = Non
             result_steps = list(range(par_rh["n_opt"]))  # calculate results for all steps
         if opti_res is not None:
             # use the SOC from optimization results if provided
-            soc_opti = {step: opti_res[start][n][3]["tes"][step] for step in data_steps}
+            soc_opti = {step: opti_res[start_step][n][3]["tes"][step] for step in data_steps}
         else:
             # set to None if optimization results are not provided
             soc_opti = None
@@ -270,6 +272,8 @@ def calc_characs(nodes, options, par_rh, opti_res: dict = None, start: int = Non
                 # time of the cycle is sum of tau_forced at n_opt and tau_delayed at (n_opt + tau_forced)
                 try:
                     power_cycle_forced = energy_forced / (characs[n]["tau_forced"][n_opt] + characs[n]["tau_delayed"][n_opt + int(characs[n]["tau_forced"][n_opt])])
+                    if math.isnan(power_cycle_forced):
+                        power_cycle_forced = 0
                 except ZeroDivisionError:
                     power_cycle_forced = 0
             # if tau_delayed at (n_opt + tau_forced) doesn't exist because it exceeds the data,
@@ -277,6 +281,8 @@ def calc_characs(nodes, options, par_rh, opti_res: dict = None, start: int = Non
             else:
                 try:
                     power_cycle_forced = energy_forced / (characs[n]["tau_forced"][n_opt] + characs[n]["tau_delayed"][n_opt])
+                    if math.isnan(power_cycle_forced):
+                        power_cycle_forced = 0
                 except ZeroDivisionError:
                     power_cycle_forced = 0
 
@@ -305,6 +311,8 @@ def calc_characs(nodes, options, par_rh, opti_res: dict = None, start: int = Non
                 # time of the cycle is sum of tau_delayed at n_opt and tau_forced at (n_opt + tau_delayed)
                 try:
                     power_cycle_delayed = energy_delayed / (characs[n]["tau_delayed"][n_opt] + characs[n]["tau_forced"][n_opt + int(characs[n]["tau_delayed"][n_opt])])
+                    if math.isnan(power_cycle_delayed):
+                        power_cycle_delayed = 0
                 except ZeroDivisionError:
                     power_cycle_delayed = 0
             # if tau_forced at (n_opt + tau_delayed) doesn't exist because it exceeds the data,
@@ -314,9 +322,13 @@ def calc_characs(nodes, options, par_rh, opti_res: dict = None, start: int = Non
                     power_cycle_delayed = energy_delayed / (characs[n]["tau_delayed"][n_opt] + characs[n]["tau_forced"][n_opt])
                 except ZeroDivisionError:
                     power_cycle_delayed = 0
+                    if math.isnan(power_cycle_delayed):
+                        power_cycle_delayed = 0
             # power_avg_delayed is discharged energy (energy_delayed) divided by duration of discharging (tau_delayed)
             try:
                 power_avg_delayed = energy_delayed / characs[n]["tau_delayed"][n_opt]
+                if math.isnan(power_avg_delayed):
+                    power_avg_delayed = 0
             except ZeroDivisionError:
                 power_avg_delayed = 0
             # store all the calculated characs
@@ -338,7 +350,7 @@ def calc_characs(nodes, options, par_rh, opti_res: dict = None, start: int = Non
         print("Building " + str(n) + " finished.")
 
     # only save when calculated for a large amount of steps or all steps
-    if start is None or length > 700:
+    if start_step is None or length > 700:
         with open(options["path_results"] + "/P2P_characteristics/" + datetime.datetime.now().strftime("%m-%d-%H-%M") +
                   ".p", 'wb') as fp:
             pickle.dump(characs, fp)
