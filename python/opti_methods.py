@@ -15,6 +15,8 @@ import python.bidding_strategies as bd
 import python.auction as auction
 import python.characteristics as characs
 import python.parse_inputs as parse_inputs
+import python.matching_negotiation as mat_neg
+from python import matching_negotiation
 
 
 def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
@@ -82,6 +84,10 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) +
                   "% of optimizations processed.")
 
+            # calculate new flexibility characteristics for 3 steps using the SOC from optimization results
+            new_characs = characs.calc_characs(nodes=nodes, options=options, par_rh=par_rh, opti_res=opti_res,
+                                               start_step = n_opt, length=3)
+
             # compute bids
             if options["bid_type"] == "block":
                 mar_dict["block_bid"][n_opt], bes = mar_pre.compute_block_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,
@@ -89,20 +95,28 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             else: # hourly bids
                 mar_dict["bid"][n_opt], bes = mar_pre.compute_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,
                                                                options, nodes, init_val, mar_dict["propensities"][n_opt], strategies)
-            # separate bids in buying and selling, sort by price
+
+            # separate bids in buying and selling, sort by mean price, mean quantity or flexibility characteristic
             if options["bid_type"] == "block":
-                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_block_bids(mar_dict["block_bid"][n_opt], options, characteristics, n_opt, par_rh, opti_res)
+                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_block_bids(mar_dict["block_bid"][n_opt], options, characs, n_opt, par_rh, opti_res)
             else: # hourly bids
                 mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt], options, characteristics, n_opt)
 
+
+            # match the block bids to each other according to crit
+            matched_bids = mat_neg.matching(mar_dict["sorted_bids"][n_opt])
+
             # run the auction with multiple trading rounds if "multi_round" is True in options
-            if options["multi_round"]:
-                mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.multi_round(
-                    mar_dict["sorted_bids"][n_opt], options["trading_rounds"])
+            # if options["multi_round"]:
+            #    mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.multi_round(
+            #        mar_dict["sorted_bids"][n_opt], options["trading_rounds"])
             # otherwise run the auction with a single trading round
-            else:
-                mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.single_round(
-                    mar_dict["sorted_bids"][n_opt])
+            #else:
+            #    mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.single_round(
+            #        mar_dict["sorted_bids"][n_opt])
+
+
+
 
             # create categories in trade_res and set to 0
             for cat in ("revenue", "cost", "el_to_distr", "el_from_distr", "el_to_grid", "el_from_grid"):

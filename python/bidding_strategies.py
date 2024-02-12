@@ -162,7 +162,8 @@ class mar_agent_bes(object):
         """Create an empty bid when no electricity needs to be bought or sold."""
         p = 0
         q = 0
-        buying = str("True")
+        buying = str("None")
+        # buying = str("True")
         return [p, q, buying, n], 0
 
 

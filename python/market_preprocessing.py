@@ -521,6 +521,24 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
 
     return block_bid, bes
 
+# CALCULATE CRITERIA FOR SORTING BLOCK BIDS (mean price, mean quantity, or characteristic)
+def mean_all(block_bid):
+    total_price = 0
+    count = 0
+    sum_energy = 0
+
+    for t in block_bid:
+        total_price += block_bid[t][0] * block_bid[t][1]
+        count += 1
+        sum_energy += block_bid[t][1]
+        bes_id = block_bid[t][3]
+
+    mean_price = total_price / sum_energy if sum_energy > 0 else 0
+    mean_quantity = sum_energy / count if count > 0 else 0
+
+
+    return mean_price, sum_energy, total_price, mean_quantity #, bes_id
+
 def sort_block_bids(block_bid, options, characs, n_opt, par_rh, opti_res):
     
     """All block bids are sorted by the criteria specified in options["crit_prio"].
@@ -528,64 +546,64 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh, opti_res):
     Returns:
         block_bids (nested dict): {buy/sell: position i: time steps t0-t2: [p, q, n]} """
 
-
-    buy_list = {}  # dictionary for all buying bids
-    sell_list = {}  # dictionary for all selling bids
+    buy_list = [] # dictionary for all buying bids
+    sell_list = []  # dictionary for all selling bids
 
     # SEPARATE BLOCK BIDS INTO BUY AND SELL LISTS
-    for n in range(len(opti_res)):  # iterate through buildings
+    for n in range(len(block_bid)):  # iterate through buildings
+        block_bid_info = {}
+        mean_price, sum_energy, total_price, mean_quantity = mean_all(block_bid["bes_" + str(n)])
+        bes_id=[f[3] for f in block_bid["bes_" + str(n)].values()]
+        # bes_id=list(block_bid["bes_" + str(n)].values())[0]
+        block_bid_info= {"mean_price": mean_price, "sum_energy": sum_energy, "total_price": total_price, "mean_quantity": mean_quantity, "bes_id": bes_id[0]}
+        block_bid["bes_" + str(n)].update(block_bid_info)
 
-        # Don't consider block_bids that have quantity = 0 in every time step
-        if all(block_bid["bes_" + str(n)][t][1] == 0 for t in par_rh["time_steps"][n_opt][0:3]):
-            continue  # Skip this block_bid if all quantities are zero
+        # Add str whether buying or not to bool_list
+        # Add the value at position 2 (str if buying = True, False, None) in the lists inside block_bid to bool_list
+        bool_list= []
+        for t in block_bid["bes_" + str(n)]:
+            if isinstance(block_bid["bes_" + str(n)][t], list):
+                bool_list.append(block_bid["bes_" + str(n)][t][2])
 
-        # If there is buying == "True" in any of the time steps, block bid is added to buy_list at position i
-        if any(block_bid["bes_" + str(n)][t][2] == "True" for t in par_rh["time_steps"][n_opt][0:3]):
-            # If any condition is True, add all block_bids for the first three time steps to buy_list
-            for t in par_rh["time_steps"][n_opt][0:3]:
-                i = len(buy_list)
-                buy_list[i] = {
-                    "price": block_bid["bes_" + str(n)][t][0],
-                    "quantity": block_bid["bes_" + str(n)][t][1],
-                    "building": block_bid["bes_" + str(n)][t][3]
-                }
-
-        # If there is buying == "False" in any of the time steps, block bid is added to buy_list at position i
-        if any(block_bid["bes_" + str(n)][t][2] == "False" for t in par_rh["time_steps"][n_opt][0:3]):
-            # If any condition is False, add all block_bids for the first three time steps to sell_list
-            for t in par_rh["time_steps"][n_opt][0:3]:
-                i = len(sell_list)
-                sell_list[i] = {
-                    "price": block_bid["bes_" + str(n)][t][0],
-                    "quantity": block_bid["bes_" + str(n)][t][1],
-                    "building": block_bid["bes_" + str(n)][t][3]
-                }
+        # if entry in bool_list is "True", add block_bid to buy_list
+        if "True" in bool_list:
+            buy_list.append(block_bid["bes_" + str(n)])
+        # if any entry in bool_list is "False", add block_bid to sell_list
+        elif "False" in bool_list:
+            sell_list.append(block_bid["bes_" + str(n)])
+        # if all entries in bool_list are "None", continue
+        else:
+            continue
 
 
     # SORT BLOCK BIDS BY CRITERIA DEFINED IN OPTIONS
 
-    # sort buy_list and sell_list by price if price has been specified as criteria in options
-    if options["crit_prio"] == "price":
+    # sort buy_list and sell_list by mean price of block_bids if mean price has been specified as criteria in options
+    if options["crit_prio"] == "mean_price":
         # highest paying and lowest asking first if descending has been set True in options
         if options["descending"]:
-            sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["price"], reverse=True)
-            sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["price"])
-        # otherwise lowest paying and highest asking first
+            sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_price"], reverse=True)
+            sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_price"], reverse=True)
+        # otherwise lowest mean price first
         else:
-            sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["price"])
-            sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["price"], reverse=True)
+            sorted_buy_list = sorted(buy_list,  key=lambda x: x["mean_price"])
+            sorted_sell_list = sorted(sell_list,  key=lambda x: x["mean_price"])
 
-    # sort buy_list and sell_list by quantity if quantity has been specified as criteria in options
-    elif options["crit_prio"] == "quantity":
+
+    # sort buy_list and sell_list by mean quantity if mean quantity has been specified as criteria in options
+    elif options["crit_prio"] == "mean_quantity":
         # highest quantity first if descending has been set True in options
         if options["descending"]:
-            sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["quantity"], reverse=True)
-            sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["quantity"], reverse=True)
+            sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_quantity"], reverse=True)
+            sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_quantity"], reverse=True)
         # otherwise lowest quantity first
         else:
-            sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["quantity"])
-            sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["quantity"])
+            sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_quantity"])
+            sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_quantity"])
 
+
+
+    # TODO: adapt to structure of characteristics!
     # else if a crit from characteristics (KPIs describing flexibility) is specified:
     else:
         # add the delayed flexibility of the chosen characteristic as crit for all buying block_bids
@@ -603,12 +621,20 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh, opti_res):
             sorted_buy_list = sorted(buy_list.items(), key=lambda x: x[1]["crit"])
             sorted_sell_list = sorted(sell_list.items(), key=lambda x: x[1]["crit"])
 
+    # TODO: adapt structure!
+
     # store buy_list and sell_list in one dictionary to return
     # index 1 at end of list to fix changes made to structure while sorting
+    #block_bids = {
+    #    "buy": {i: sorted_buy_list[i][1] for i in range(len(sorted_buy_list))},
+    #    "sell": {i: sorted_sell_list[i][1] for i in range(len(sorted_sell_list))}
+    #}
+
     block_bids = {
-        "buy": {i: sorted_buy_list[i][1] for i in range(len(sorted_buy_list))},
-        "sell": {i: sorted_sell_list[i][1] for i in range(len(sorted_sell_list))}
+        "buy_blocks": sorted_buy_list,
+        "sell_blocks": sorted_sell_list
     }
+
     print(block_bids)
 
     return block_bids

@@ -1,11 +1,24 @@
 import datetime
 import pickle
+import math
 
 
-def calc_characs(nodes, options, par_rh):
+def calc_characs(nodes, options, par_rh, opti_res: dict = None, start_step: int = None, length: int = 3):
     """
     Calculate KPIs to evaluate different flexibilities of each building according to Stinner et al.
     "https://linkinghub.elsevier.com/retrieve/pii/S0306261916311424"
+
+    If an optimization result is provided, the SOC of the result is used. Otherwise an empty storage is assumed for
+    forced flexibility and a full storage is assumed for delayed flexibility.
+
+    Args:
+        nodes (dict):
+        options (dict):
+        par_rh (dict):
+        opti_res: optimization result to get SOC, if not provided a empty/full SOC is assumed
+        start_step: starting optimization step for which flexibility characs are calculated,
+            if not provided all optimization steps are calculated
+        length: amount of optimization steps to be calculated, only relevant when start_step is provided
 
     Returns:
         characs (dict): Dictionary containing the following KPIs:
@@ -85,16 +98,40 @@ def calc_characs(nodes, options, par_rh):
         beta_th = Q_stor_avg * n_hours / (Q_SH + Q_DHW)
         characs[n]["beta_th"] = beta_th
 
+        # set step params
+        if start_step is not None:
+            start_hour = par_rh["hour_start"][start_step]
+            # when a start step is provided, start and length is used:
+            max_step = start_hour + par_rh["n_hours"]  # set the starting step + 36 hours as the maximum step
+            data_steps = list(range(start_hour, max_step))  # use the data for 36 hours (optimization horizon)
+            result_steps = list(range(start_hour, start_hour + length))  # only calculate results for the specified steps
+        else:
+            # when no start step is provided, all steps in par_rh are used
+            max_step = par_rh["n_opt"]  # maximum step is end of data
+            data_steps = list(range(par_rh["n_opt"]))  # use data of all steps
+            result_steps = list(range(par_rh["n_opt"]))  # calculate results for all steps
+        if opti_res is not None:
+            # use the SOC from optimization results if provided
+            soc_opti = {step: opti_res[start_step][n][3]["tes"][step] for step in data_steps}
+        else:
+            # set to None if optimization results are not provided
+            soc_opti = None
 
         ### elec
 
-        for n_opt in range(par_rh["n_opt"]):
+        # calculate temporal and power flexibility for all data steps
+        for n_opt in data_steps:
 
-            ### temporal flexibility
+        ### temporal flexibility
 
-            # forced flexibility, time until TES is fully charged with maximum charging
-            # TES assumed to be fully discharged at beginning
-            charge = 0
+        # forced flexibility, time until TES is fully charged with maximum charging
+
+            if soc_opti is not None:
+                # use SOC from optimization results when provided
+                charge = soc_opti[n_opt]
+            else:
+                # TES assumed to be fully discharged at beginning if no SOC is provided
+                charge = 0
             # tau_forced: time it takes to charge
             tau_forced = 0
             # loop until the TES is fully charged
@@ -117,33 +154,39 @@ def calc_characs(nodes, options, par_rh):
                     # charge is set to the capacity
                     charge = nodes[n]["devs"]["tes"]["cap"]
                 # check whether end of data is reached
-                if n_opt + tau_forced >= par_rh["n_opt"]:
+                if n_opt + tau_forced >= max_step:
                     break
 
             characs[n]["tau_forced"][n_opt] = tau_forced
 
             # delayed flexibility, time until TES is fully discharged with no charging
 
-            # check whether TES can be fully charged during preceding time steps
-            # max heat production must be greater than heat demand in every considered timestep to be sure
-            fully_charged = True
-            # iterate through last few hours
-            for i in range(24):
-                # set fully_charged to False if demand was greater the capacity of heaters
-                if (sum(nodes[n]["devs"][dev]["cap"] for dev in heaters) - nodes[n]["heat"][n_opt - i] - (0.5 * nodes[n]["dhw"][n_opt - i])) < 0:
-                    fully_charged = False
-            charge = nodes[n]["devs"]["tes"]["cap"]
-            # determine the maximum possible charge when demand was greater than max production at any point
-            if not fully_charged:
+            if soc_opti is not None:
+                # use SOC from optimization results when provided
+                charge = soc_opti[n_opt]
+            else:
+                # when SOC is not provided
+                # check whether TES can be fully charged during preceding time steps
+                # max heat production must be greater than heat demand in every considered timestep to be sure
+                fully_charged = True
                 # iterate through last few hours
                 for i in range(24):
-                    # add maximum charging (difference between capacity of heaters and heat demand) to charge
-                    charge += sum(nodes[n]["devs"][dev]["cap"] for dev in heaters) - nodes[n]["heat"][n_opt - i] - (0.5 * nodes[n]["dhw"][n_opt - i])
-                    # make sure charge stays between the maximum and minimum value (between capacity and 0)
-                    if charge >= nodes[n]["devs"]["tes"]["cap"]:
-                        charge = nodes[n]["devs"]["tes"]["cap"]
-                    elif charge < 0:
-                        charge = 0
+                    # set fully_charged to False if demand was greater the capacity of heaters
+                    if (sum(nodes[n]["devs"][dev]["cap"] for dev in heaters) - nodes[n]["heat"][n_opt - i] - (0.5 * nodes[n]["dhw"][n_opt - i])) < 0:
+                        fully_charged = False
+                charge = nodes[n]["devs"]["tes"]["cap"]
+                # determine the maximum possible charge when demand was greater than max production at any point
+                if not fully_charged:
+                    # iterate through last few hours
+                    for i in range(24):
+                        # add maximum charging (difference between capacity of heaters and heat demand) to charge
+                        charge += sum(nodes[n]["devs"][dev]["cap"] for dev in heaters) - nodes[n]["heat"][n_opt - i] - (0.5 * nodes[n]["dhw"][n_opt - i])
+                        # make sure charge stays between the maximum and minimum value (between capacity and 0)
+                        if charge >= nodes[n]["devs"]["tes"]["cap"]:
+                            charge = nodes[n]["devs"]["tes"]["cap"]
+                        elif charge < 0:
+                            charge = 0
+
             # tau_delayed: time it takes to discharge
             tau_delayed = 0
             # loop until the storage is fully discharged
@@ -162,7 +205,7 @@ def calc_characs(nodes, options, par_rh):
                     tau_delayed += charge / discharging
                     charge = 0
                 # check whether end of data is reached
-                if n_opt + tau_delayed >= par_rh["n_opt"]:
+                if n_opt + tau_delayed >= max_step:
                     break
 
             characs[n]["tau_delayed"][n_opt] = tau_delayed
@@ -204,7 +247,8 @@ def calc_characs(nodes, options, par_rh):
 
         print("Part 1 finished.")
 
-        for n_opt in range(par_rh["n_opt"]):
+        # calculate average and cycle power as well as energy flexibility for result steps only
+        for n_opt in result_steps:
 
             # average and cycle power flexibility
 
@@ -216,21 +260,34 @@ def calc_characs(nodes, options, par_rh):
                 energy_forced += characs[n]["power_flex_forced"][n_opt + i]
                 i += 1
                 # check whether end of data is reached
-                if n_opt + i >= par_rh["n_opt"]-1:
+                if n_opt + i >= max_step-1:
                     break
             # add the energy charged during the remaining fraction of an hour, time is described by (tau_forced - i)
             energy_forced += characs[n]["power_flex_forced"][n_opt + i] * (characs[n]["tau_forced"][n_opt] - i)
 
             # cycle describes time frame of first charging and then discharging the storage afterwards and vice versa
             # check whether data for the whole cycle exists, n_opt + tau_forced must be within n_opts of the simulation
-            if n_opt + int(characs[n]["tau_forced"][n_opt]) < par_rh["n_opt"]:
+            if n_opt + int(characs[n]["tau_forced"][n_opt]) < max_step:
                 # power_cycle_forced is the forced energy divided by the duration of the cycle
                 # time of the cycle is sum of tau_forced at n_opt and tau_delayed at (n_opt + tau_forced)
-                power_cycle_forced = energy_forced / (characs[n]["tau_forced"][n_opt] + characs[n]["tau_delayed"][n_opt + int(characs[n]["tau_forced"][n_opt])])
+                try:
+                    power_cycle_forced = energy_forced / (characs[n]["tau_forced"][n_opt] +
+                                                          characs[n]["tau_delayed"][n_opt +
+                                                          int(characs[n]["tau_forced"][n_opt])])
+                    if math.isnan(power_cycle_forced):
+                        power_cycle_forced = 0
+                except ZeroDivisionError:
+                    power_cycle_forced = 0
             # if tau_delayed at (n_opt + tau_forced) doesn't exist because it exceeds the data,
             # tau_delayed at n_opt instead of (n_opt + tau_forced) is used
             else:
-                power_cycle_forced = energy_forced / (characs[n]["tau_forced"][n_opt] + characs[n]["tau_delayed"][n_opt])
+                try:
+                    power_cycle_forced = energy_forced / (characs[n]["tau_forced"][n_opt] +
+                                                          characs[n]["tau_delayed"][n_opt])
+                    if math.isnan(power_cycle_forced):
+                        power_cycle_forced = 0
+                except ZeroDivisionError:
+                    power_cycle_forced = 0
 
             # power_average_forced is charged energy (energy_forced) divided by duration of charging (tau_forced)
             # check whether tau_forced > 0 to avoid division by zero
@@ -247,22 +304,39 @@ def calc_characs(nodes, options, par_rh):
                 energy_delayed += characs[n]["power_flex_delayed"][n_opt + i]
                 i += 1
                 # check whether end of data is reached
-                if n_opt + i >= par_rh["n_opt"] - 1:
+                if n_opt + i >= max_step - 1:
                     break
             # add the energy discharged during the remaining fraction of an hour, time is described by (tau_delayed - i)
             energy_delayed += characs[n]["power_flex_delayed"][n_opt + i] * (characs[n]["tau_delayed"][n_opt] - i)
             # check whether data for the whole cycle exists, n_opt + tau_delayed must be within n_opts of the simulation
-            if n_opt + int(characs[n]["tau_delayed"][n_opt]) < par_rh["n_opt"]:
+            if n_opt + int(characs[n]["tau_delayed"][n_opt]) < max_step:
                 # power_cycle_delayed is the delayed energy divided by the duration of the cycle
                 # time of the cycle is sum of tau_delayed at n_opt and tau_forced at (n_opt + tau_delayed)
-                power_cycle_delayed = energy_delayed / (characs[n]["tau_delayed"][n_opt] + characs[n]["tau_forced"][n_opt + int(characs[n]["tau_delayed"][n_opt])])
+                try:
+                    power_cycle_delayed = energy_delayed / (characs[n]["tau_delayed"][n_opt] +
+                                                            characs[n]["tau_forced"][n_opt +
+                                                            int(characs[n]["tau_delayed"][n_opt])])
+                    if math.isnan(power_cycle_delayed):
+                        power_cycle_delayed = 0
+                except ZeroDivisionError:
+                    power_cycle_delayed = 0
             # if tau_forced at (n_opt + tau_delayed) doesn't exist because it exceeds the data,
             # tau_forced at n_opt instead of (n_opt + tau_delayed) is used
             else:
-                power_cycle_delayed = energy_delayed / (characs[n]["tau_delayed"][n_opt] + characs[n]["tau_forced"][n_opt])
-
+                try:
+                    power_cycle_delayed = energy_delayed / (characs[n]["tau_delayed"][n_opt] +
+                                                            characs[n]["tau_forced"][n_opt])
+                except ZeroDivisionError:
+                    power_cycle_delayed = 0
+                    if math.isnan(power_cycle_delayed):
+                        power_cycle_delayed = 0
             # power_avg_delayed is discharged energy (energy_delayed) divided by duration of discharging (tau_delayed)
-            power_avg_delayed = energy_delayed / characs[n]["tau_delayed"][n_opt]
+            try:
+                power_avg_delayed = energy_delayed / characs[n]["tau_delayed"][n_opt]
+            except ZeroDivisionError:
+                power_avg_delayed = 0
+                if math.isnan(power_avg_delayed):
+                    power_avg_delayed = 0
 
             # store all the calculated characs
             characs[n]["power_avg_forced"][n_opt] = power_avg_forced
@@ -282,7 +356,10 @@ def calc_characs(nodes, options, par_rh):
 
         print("Building " + str(n) + " finished.")
 
-    with open(options["path_results"] + "/P2P_characteristics/" + datetime.datetime.now().strftime("%m-%d-%H-%M") + ".p",
-              'wb') as fp: pickle.dump(characs, fp)
+    # only save when calculated for a large amount of steps or all steps
+    if start_step is None or length > 700:
+        with open(options["path_results"] + "/P2P_characteristics/" + datetime.datetime.now().strftime("%m-%d-%H-%M") +
+                  ".p", 'wb') as fp:
+            pickle.dump(characs, fp)
 
     return characs
