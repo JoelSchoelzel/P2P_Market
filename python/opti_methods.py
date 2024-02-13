@@ -45,7 +45,9 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         trade_res = {}
 
         # calculate characteristics (Flexibilitätskennzahlen) Stinner et. al 2016
-        characteristics = characs.calc_characs(nodes, options, par_rh)
+        # characteristics = characs.calc_characs(nodes, options, par_rh)
+
+        # calculate new flexibility characteristics for 3 steps using the SOC from optimization results
 
         # parameters for learning bidding strategy
         pars_li = parse_inputs.learning_bidding()
@@ -98,9 +100,9 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
 
             # separate bids in buying and selling, sort by mean price, mean quantity or flexibility characteristic
             if options["bid_type"] == "block":
-                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_block_bids(mar_dict["block_bid"][n_opt], options, characs, n_opt, par_rh, opti_res)
+                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_block_bids(mar_dict["block_bid"][n_opt], options, new_characs, n_opt, par_rh, opti_res)
             else: # hourly bids
-                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt], options, characteristics, n_opt)
+                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt], options, new_characs, n_opt)
 
 
             # match the block bids to each other according to crit
