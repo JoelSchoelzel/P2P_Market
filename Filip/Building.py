@@ -48,6 +48,7 @@ fiware_header = FiwareHeader(service=os.getenv('Service'),
 # class Building:
 class Building(MarketParticipant):
     model_config = ConfigDict(extra="allow")
+
     # def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, id):
     # def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, **data: Any):
     #     super().__init__(**data)
@@ -76,7 +77,7 @@ class Building(MarketParticipant):
         # self.transaction_entity_title = Transaction(id=f"urn:ngsi-ld:Transaction:{self.userID}",
         #                                             type="Transaction")
         self.transaction_entity_id = f"urn:ngsi-ld:Transaction:{self.userID}"
-        #self.transaction_entity_type = "Transaction"
+        # self.transaction_entity_type = "Transaction"
         self.transaction_topic = f"/v2/transactions/urn:ngsi-ld:Transaction:{self.userID}/attrs"
         # building entity
         self.building_entity = self.create_building_entity()
@@ -93,11 +94,11 @@ class Building(MarketParticipant):
         #     bid_schema = json.load(f)
 
         bid_to_publish = PublishBid(bidID=str(uuid.uuid4()),
-                             bidCreatedDateTime=CreatedDateTime(time=str(time_index)),
-                             expectedPrice=Price(price=self.bid[f"bes_{self.userID}"][0]),
-                             expectedQuantity=Quantity(quantity=self.bid[f"bes_{self.userID}"][1]),
-                             marketRole=self.bid[f"bes_{self.userID}"][2],
-                             refMarketParticipant=self.id)
+                                    bidCreatedDateTime=CreatedDateTime(time=str(time_index)),
+                                    expectedPrice=Price(price=self.bid[f"bes_{self.userID}"][0]),
+                                    expectedQuantity=Quantity(quantity=self.bid[f"bes_{self.userID}"][1]),
+                                    marketRole=self.bid[f"bes_{self.userID}"][2],
+                                    refMarketParticipant=self.id)
         # data_to_publish = {"createdDateTime": time_index,
         #                    "bidround": n_opt,
         #                    "price": self.bid[f"bes_{self.id}"][0],
@@ -182,7 +183,7 @@ class Building(MarketParticipant):
         subscription_dict[
             "descroption"] = f"Subscription to receive MQTT-Notification about urn:ngsi-ld:Transaction:{self.userID}"
         subscription_dict["subject"]["entities"][0]["id"] = self.transaction_entity_id
-        #["subject"]["entities"][1]["type"] = self.transaction_entity_type
+        # ["subject"]["entities"][1]["type"] = self.transaction_entity_type
         subscription_dict["notification"]["mqtt"]["url"] = f"{MQTT_Broker_URL}"
         subscription_dict["notification"]["mqtt"]["topic"] = self.transaction_topic
         subscription = Subscription(**subscription_dict)
@@ -235,19 +236,21 @@ class Building(MarketParticipant):
             print("Starting optimization: n_time: " + str(n_time) + ", building:" + str(self.userID) + ".")
             self.init_val[n_time]["building_" + str(self.userID)] = {}
             opti_res[n_time][self.userID] = config.decentral_operation(nodes[int(self.userID)], params, par_rh,
-                                                                   building_params,
-                                                                   self.init_val[n_time]["building_" + str(self.userID)],
-                                                                   n_time,
-                                                                   config.options)
+                                                                       building_params,
+                                                                       self.init_val[n_time][
+                                                                           "building_" + str(self.userID)],
+                                                                       n_time,
+                                                                       config.options)
             self.init_val[n_time + 1]["building_" + str(self.userID)] = config.init_val_decentral_operation(
                 opti_res[n_time][self.userID],
                 par_rh, n_time)
         else:
             opti_res[n_time][self.userID] = config.decentral_operation(nodes[int(self.userID)], params, par_rh,
-                                                                   building_params,
-                                                                   self.init_val[n_time]["building_" + str(self.userID)],
-                                                                   n_time,
-                                                                   config.options)
+                                                                       building_params,
+                                                                       self.init_val[n_time][
+                                                                           "building_" + str(self.userID)],
+                                                                       n_time,
+                                                                       config.options)
             if n_time < par_rh["n_hours"] - 1:
                 self.init_val[n_time + 1]["building_" + str(self.userID)] = config.init_val_decentral_operation(
                     opti_res[n_time][self.userID], par_rh, n_time)

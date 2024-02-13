@@ -21,7 +21,7 @@ from decimal import Decimal
 #     """
 #     The Type of entity
 #     """
-#     type: str
+#     type: # str
 #
 #
 # class RefEntityID(BaseModel):
@@ -74,7 +74,6 @@ class CreatedDateTime(BaseModel):
     time: str
 
 
-
 class Price(BaseModel):
     """
     The price of the buying or selling will be at first in bids provided from every building. But the final transacted
@@ -104,7 +103,8 @@ class TradeResults(BaseModel):
     """
     realPrice: Price = Field(description='...')
     realQuantity: Quantity = Field(description='...')
-    powerDirection: str = Field(description='...')
+    # powerDirection: str = Field(description='...')
+
 
 # class MarketType(str, Enum):
 #     marketType = 'HAM'
@@ -137,7 +137,8 @@ class PublishBid(BaseModel):
     bidCreatedDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
     expectedPrice: Price
     expectedQuantity: Quantity
-    marketRole: MarketRole = Field(description='An identification of a party acting in a electricity market business process')
+    marketRole: MarketRole = Field(
+        description='An identification of a party acting in a electricity market business process')
     refMarketParticipant: str = Field(description="...")
 
 
@@ -165,9 +166,9 @@ class Coordinator(BaseModel):
     bidStopTime: CoordinatorGateTime = Field(description="")
     transactionStartTime: CoordinatorGateTime = Field(description="Start time and date for bid applies.")
     transactionStopTime: CoordinatorGateTime = Field(description="")
+
+
 # print(Bid.schema_json(indent=2))
-
-
 
 
 class PublishTransaction(BaseModel):
@@ -178,7 +179,7 @@ class PublishTransaction(BaseModel):
     # type: # str = Field(description="...")
     transactionID: str = Field(description='...')
     transactionCreatedDateTime: str = Field(description='Date and time that this Bid was created')
-    tradeResults: Union[TradeResults, str] = Field(default=None, description='...')
+    tradeResults: Union[list, str] = Field(default=None, description='...')
     refMarketParticipant: str = Field(description="...")
 
 
@@ -199,7 +200,6 @@ print(PublishTransaction.schema_json(indent=2))
 # print(Coordinator.schema_json(indent=2))
 
 
-
 # class MarketParticipant(BaseModel):
 #     name: BuildingName
 #     refBid: RefBid
@@ -210,14 +210,11 @@ print(PublishTransaction.schema_json(indent=2))
 #     id: BuildingID
 
 
-
-
 # todo convert pydantic model to json schema
 # bid_schema = schema_json_of(Bid, indent=2)
-#print(bid_schema)
+# print(bid_schema)
 
 # with open('bid_schema.json', 'w') as f:
 #     f.write(bid_schema)
-    # bid_schema_dict = json.loads(bid_schema)
-    # json.dump(bid_schema_dict, f, indent=2)
-
+# bid_schema_dict = json.loads(bid_schema)
+# json.dump(bid_schema_dict, f, indent=2)

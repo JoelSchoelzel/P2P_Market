@@ -21,7 +21,7 @@ service_group = ServiceGroup(apikey=APIKEY,
 class Coordinator:
 
     def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, buildings):
-        self.transaction_entity: ContextEntity = None
+        self.transaction_entity: ContextEntity
         self.cbc = cbc
         self.iotac = iotac
         self.buildings = buildings
@@ -309,7 +309,7 @@ class Coordinator:
         transaction_created_time = NamedContextAttribute(name='transactionCreatedDateTime',
                                                          type='Text')
         transaction_results = NamedContextAttribute(name='tradeResults',
-                                                    type='Text')
+                                                    type='StructuredValue')
         transaction_building = NamedContextAttribute(name='refMarketParticipant',
                                                      type='Text')
         transaction_entity.add_attributes(
@@ -317,7 +317,7 @@ class Coordinator:
         return transaction_entity
 
     def post_transaction_entities(self):
-        self.cbc.patch_entity(entity=self.transaction_entity)
+        self.cbc.post_entity(entity=self.transaction_entity)
 
     def reformat_publish_transaction(self, n_opt):  # TODO Set the number of buildings, time of running hour
         # add the relevant information from transaction to the corresponding building entity
@@ -341,8 +341,7 @@ class Coordinator:
                     # self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
                     #                                         type=self.transaction_entity_type)
                     self.transaction_to_publish = PublishTransaction(transactionID=str(uuid.uuid4()),
-                                                                     transactionCreatedDateTime=CreatedDateTime(
-                                                                         time=str(n_opt)),
+                                                                     transactionCreatedDateTime=str(n_opt),
                                                                      tradeResults='No Transaction',
                                                                      refMarketParticipant=f"urn:ngsi-ld:Building:{cleints}")
                     # transaction_dict = self.transaction_to_publish.dict()
@@ -379,8 +378,7 @@ class Coordinator:
                     # self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
                     #                                         type=self.transaction_entity_type)
                     self.transaction_to_publish = PublishTransaction(transactionID=str(uuid.uuid4()),
-                                                                     transactionCreatedDateTime=CreatedDateTime(
-                                                                         time=str(n_opt)),
+                                                                     transactionCreatedDateTime=str(n_opt),
                                                                      tradeResults=transaction_list,
                                                                      refMarketParticipant=f"urn:ngsi-ld:Building:{cleints}")
                     # attribute_test = NamedContextAttribute(
@@ -405,8 +403,7 @@ class Coordinator:
                             transaction_list.append(transaction.copy())
 
                     self.transaction_to_publish = PublishTransaction(transactionID=str(uuid.uuid4()),
-                                                                     transactionCreatedDateTime=CreatedDateTime(
-                                                                         time=str(n_opt)),
+                                                                     transactionCreatedDateTime=str(n_opt),
                                                                      tradeResults=transaction_list,
                                                                      refMarketParticipant=f"urn:ngsi-ld:Building:{cleints}")
                     # self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
@@ -447,10 +444,10 @@ class Coordinator:
             transaction_dict = self.transaction_to_publish.model_dump()
 
             # TODO try request
-            res = ....post(url=url,  # todo .../entities/id/attrs
-                            headers=headers,
-                            json=transaction_dict,
-                            params=params)
+            # res = ....post(url=url,  # todo .../entities/id/attrs
+            #                 headers=headers,
+            #                 json=transaction_dict,
+            #                 params=params)
 
 
             # self.transaction_entity.add_attributes(transaction_dict)
@@ -460,14 +457,14 @@ class Coordinator:
                                                )
             transaction_id = NamedContextAttribute(name='transactionID',
                                                    type='Text',
-                                                   value=str(uuid.uuid4())
+                                                   value=transaction_dict["transactionID"]
                                                    )
             transaction_created_time = NamedContextAttribute(name='transactionCreatedDateTime',
                                                              type='Text',
                                                              value=transaction_dict["transactionCreatedDateTime"]
                                                              )
             transaction_results = NamedContextAttribute(name='tradeResults',
-                                                        type='Text',
+                                                        type='StructuredValue',
                                                         value=transaction_dict["tradeResults"]
                                                         )
             transaction_building = NamedContextAttribute(name='refMarketParticipant',
@@ -476,29 +473,29 @@ class Coordinator:
                                                          )
             transaction_entity = {"id": f"urn:ngsi-ld:Transaction:{cleints}", "type": self.transaction_entity_type}
             transaction_entity.update({transaction_id.name: {
-                "type": transaction_created_time.type,
-                "value": transaction_created_time.value
+                "type": transaction_id.type,
+                "value": transaction_id.value
             }})
             transaction_entity.update({transaction_created_time.name: {
                 "type": transaction_created_time.type,
                 "value": transaction_created_time.value
             }})
             transaction_entity.update({transaction_results.name: {
-                "type": transaction_created_time.type,
-                "value": transaction_created_time.value
+                "type": transaction_results.type,
+                "value": transaction_results.value
             }})
             transaction_entity.update({transaction_building.name: {
-                "type": transaction_created_time.type,
-                "value": transaction_created_time.value
+                "type": transaction_building.type,
+                "value": transaction_building.value
             }})
             self.cbc.update_entity(entity=ContextEntity(**transaction_entity))
 
 
-            transaction_entity.add_attributes(
-                [transaction_id, transaction_created_time, transaction_results, transaction_building])
+            # transaction_entity.add_attributes(
+            #     [transaction_id, transaction_created_time, transaction_results, transaction_building])
             # self.transaction_entity.update_attribute([])
             # self.cbc.update_existing_entity_attributes()
-            self.cbc.update_entity(entity=transaction_entity)
+            # self.cbc.update_entity(entity=transaction_entity)
             # self.cbc.patch_entity(entity=self.transaction_entity)
             # self.cbc.update_existing_entity_attributes(entity_id=f"urn:ngsi-ld:Transaction:{cleints}",
             #                                            entity_type=self.transaction_entity_type,
