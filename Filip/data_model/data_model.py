@@ -97,13 +97,17 @@ class CoordinatorGateTime(BaseModel):
     gate: datetime
 
 
-class TradeResults(BaseModel):
+class TradeInformation(BaseModel):
     """
     The results of transaction
     """
     realPrice: Price = Field(description='...')
     realQuantity: Quantity = Field(description='...')
-    # powerDirection: str = Field(description='...')
+    powerDirection: str = Field(description='...')
+
+
+class TradeResults(BaseModel):
+    tradeResults: list[TradeInformation]
 
 
 # class MarketType(str, Enum):
@@ -175,12 +179,15 @@ class PublishTransaction(BaseModel):
     """
     Represents transaction of power direction and negotiated price and quantity
     """
-    # id: str = Field(description="...")
-    # type: # str = Field(description="...")
     transactionID: str = Field(description='...')
     transactionCreatedDateTime: str = Field(description='Date and time that this Bid was created')
-    tradeResults: Union[list, str] = Field(default=None, description='...')
+    tradeResults: TradeResults = Field(default=None, description='...')
     refMarketParticipant: str = Field(description="...")
+
+
+class FIWAREPublishTransaction(PublishTransaction):
+    id: str = Field(description="...")
+    type:  str = Field(description="...")
 
 
 print(PublishTransaction.schema_json(indent=2))

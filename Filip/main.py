@@ -65,8 +65,8 @@ if __name__ == '__main__':
             #building.p2p_bid(n_time=n_opt)
             building.formulate_bid(n_time=n_opt)
             building.publish_data(start_datetime)
-        # the next round begins in 1 hour
-        start_datetime += interval
+
+
         # recieving bids
         # Get corresponding entities and coordinator can get bids from entities
         # coordinator should know the market participants
@@ -84,8 +84,10 @@ if __name__ == '__main__':
         #  move the sending transaction into a method of coordinator, like publish_transaction
         #  coordinator send transaction to context broker subscription
         # coordinator sends the transaction to context broker so that buildings can get transaction
-        coordinator.reformat_publish_transaction(n_opt=n_opt)
+        coordinator.reformat_publish_transaction(start_datetime)
         # clear sorted_bids and transactions so that these are empty for next hour
+        # the next round begins in 1 hour
+        start_datetime += interval
 
 
 

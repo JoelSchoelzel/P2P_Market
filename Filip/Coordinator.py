@@ -18,7 +18,7 @@ service_group = ServiceGroup(apikey=APIKEY,
                              resource="/iot/json")
 
 
-class Coordinator:
+class Coordinator():
 
     def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, buildings):
         self.transaction_entity: ContextEntity
@@ -319,7 +319,7 @@ class Coordinator:
     def post_transaction_entities(self):
         self.cbc.post_entity(entity=self.transaction_entity)
 
-    def reformat_publish_transaction(self, n_opt):  # TODO Set the number of buildings, time of running hour
+    def reformat_publish_transaction(self, start_datetime):  # TODO Set the number of buildings, time of running hour
         # add the relevant information from transaction to the corresponding building entity
         # once the transaction entity is created, it will be published to context broker
         for cleints in range(len(self.buildings)):
@@ -341,7 +341,7 @@ class Coordinator:
                     # self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
                     #                                         type=self.transaction_entity_type)
                     self.transaction_to_publish = PublishTransaction(transactionID=str(uuid.uuid4()),
-                                                                     transactionCreatedDateTime=str(n_opt),
+                                                                     transactionCreatedDateTime=str(start_datetime),
                                                                      tradeResults='No Transaction',
                                                                      refMarketParticipant=f"urn:ngsi-ld:Building:{cleints}")
                     # transaction_dict = self.transaction_to_publish.dict()
@@ -378,7 +378,7 @@ class Coordinator:
                     # self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
                     #                                         type=self.transaction_entity_type)
                     self.transaction_to_publish = PublishTransaction(transactionID=str(uuid.uuid4()),
-                                                                     transactionCreatedDateTime=str(n_opt),
+                                                                     transactionCreatedDateTime=str(start_datetime),
                                                                      tradeResults=transaction_list,
                                                                      refMarketParticipant=f"urn:ngsi-ld:Building:{cleints}")
                     # attribute_test = NamedContextAttribute(
@@ -403,7 +403,7 @@ class Coordinator:
                             transaction_list.append(transaction.copy())
 
                     self.transaction_to_publish = PublishTransaction(transactionID=str(uuid.uuid4()),
-                                                                     transactionCreatedDateTime=str(n_opt),
+                                                                     transactionCreatedDateTime=str(start_datetime),
                                                                      tradeResults=transaction_list,
                                                                      refMarketParticipant=f"urn:ngsi-ld:Building:{cleints}")
                     # self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
@@ -424,7 +424,7 @@ class Coordinator:
             # if the transactions are empty
             else:
                 self.transaction_to_publish = PublishTransaction(transactionID=str(uuid.uuid4()),
-                                                                 transactionCreatedDateTime=str(n_opt),
+                                                                 transactionCreatedDateTime=str(start_datetime),
                                                                  # transactionCreatedDateTime=CreatedDateTime(
                                                                  #     time=str(n_opt)),
                                                                  tradeResults='No Transaction',
@@ -471,6 +471,7 @@ class Coordinator:
                                                          type='Text',
                                                          value=transaction_dict["refMarketParticipant"]
                                                          )
+            # TODO transaction_entity = self.transaction_to_publish.model_dump()
             transaction_entity = {"id": f"urn:ngsi-ld:Transaction:{cleints}", "type": self.transaction_entity_type}
             transaction_entity.update({transaction_id.name: {
                 "type": transaction_id.type,
