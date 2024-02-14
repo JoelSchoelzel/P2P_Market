@@ -1,7 +1,7 @@
 import filip.models.ngsi_v2.context
 from pydantic import BaseModel, Field, schema_json_of
 from filip.models.base import DataType
-from typing import Union, Optional, Annotated
+from typing import Union, Optional, Annotated, List
 from aenum import Enum
 from datetime import datetime
 from uuid import UUID
@@ -107,7 +107,7 @@ class TradeInformation(BaseModel):
 
 
 class TradeResults(BaseModel):
-    tradeResults: list[TradeInformation]
+    tradeResults: List[TradeInformation]
 
 
 # class MarketType(str, Enum):
@@ -180,17 +180,17 @@ class PublishTransaction(BaseModel):
     Represents transaction of power direction and negotiated price and quantity
     """
     transactionID: str = Field(description='...')
-    transactionCreatedDateTime: str = Field(description='Date and time that this Bid was created')
-    tradeResults: TradeResults = Field(default=None, description='...')
+    transactionCreatedDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
+    tradeResults: Union[TradeResults, list] = Field(default=None, description='...')
     refMarketParticipant: str = Field(description="...")
 
 
 class FIWAREPublishTransaction(PublishTransaction):
     id: str = Field(description="...")
     type:  str = Field(description="...")
+    # publishTransaction: PublishTransaction = Field(description='...')
 
-
-print(PublishTransaction.schema_json(indent=2))
+# print(PublishTransaction.schema_json(indent=2))
 #
 #
 # class Coordinator(BaseModel):
