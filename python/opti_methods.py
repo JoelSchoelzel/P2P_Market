@@ -44,10 +44,17 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         # create trade_res to store results
         trade_res = {}
 
+        # create matched bids dict to store information about matched block bids and optimization results during negotiation
+        matched_bids_info = {}
+        opti_nego_res = {}
+
+        # create characteristics to store flexibility characteristics of each building
+        characteristics = {}
+
         # calculate characteristics (Flexibilitätskennzahlen) Stinner et. al 2016
         # characteristics = characs.calc_characs(nodes, options, par_rh)
 
-        # calculate new flexibility characteristics for 3 steps using the SOC from optimization results
+
 
         # parameters for learning bidding strategy
         pars_li = parse_inputs.learning_bidding()
@@ -56,6 +63,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             mar_dict["propensities"][0], strategies = mar_pre.initial_prop(par_rh, options, pars_li)
         else:
             strategies = {}
+
 
         # START OPTIMIZATION (Start optimizations for the first time step of the block bids)
 
@@ -87,27 +95,34 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                   "% of optimizations processed.")
 
             # calculate new flexibility characteristics for 3 steps using the SOC from optimization results
-            new_characs = characs.calc_characs(nodes=nodes, options=options, par_rh=par_rh, opti_res=opti_res,
+            characteristics[n_opt] = characs.calc_characs(nodes=nodes, options=options, par_rh=par_rh, opti_res=opti_res,
                                                start_step = n_opt, length=3)
 
             # compute bids
             if options["bid_type"] == "block":
                 mar_dict["block_bid"][n_opt], bes = mar_pre.compute_block_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,
                                                               options, nodes, init_val, mar_dict["propensities"][n_opt], strategies)
-            else: # hourly bids
+            elif options["bid_type"] == "single":
                 mar_dict["bid"][n_opt], bes = mar_pre.compute_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,
                                                                options, nodes, init_val, mar_dict["propensities"][n_opt], strategies)
 
             # separate bids in buying and selling, sort by mean price, mean quantity or flexibility characteristic
             if options["bid_type"] == "block":
-                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_block_bids(mar_dict["block_bid"][n_opt], options, new_characs, n_opt, par_rh, opti_res)
-            else: # hourly bids
-                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt], options, new_characs, n_opt)
+                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_block_bids(mar_dict["block_bid"][n_opt], options, characteristics[n_opt], n_opt, par_rh, opti_res)
+            elif options["bid_type"] == "single":
+                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_bids(mar_dict["bid"][n_opt], options, characteristics[n_opt], n_opt)
 
 
-            # match the block bids to each other according to crit
-            matched_bids = mat_neg.matching(mar_dict["sorted_bids"][n_opt])
+            # matching and negotiation of block bids
+            if options["bid_type"] == "block":
+                # match the block bids to each other according to crit
+                matched_bids_info[n_opt] = mat_neg.matching(mar_dict["sorted_bids"][n_opt], n_opt)
 
+                # run optimization again during negotiation (with constraints adapted to matched peer)
+                opti_nego_res[n_opt] = mat_neg.negotiation(nodes[n], params, par_rh, building_params, init_val[n_opt]["building_" + str(n)], n_opt, options, matched_bids_info, mar_dict["block_bid"][n_opt])
+
+
+            #elif options["bid_type"] == "single":
             # run the auction with multiple trading rounds if "multi_round" is True in options
             # if options["multi_round"]:
             #    mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.multi_round(
@@ -116,9 +131,6 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             #else:
             #    mar_dict["transactions"][n_opt], mar_dict["sorted_bids"][n_opt] = auction.single_round(
             #        mar_dict["sorted_bids"][n_opt])
-
-
-
 
             # create categories in trade_res and set to 0
             for cat in ("revenue", "cost", "el_to_distr", "el_from_distr", "el_to_grid", "el_from_grid"):
@@ -168,7 +180,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                     opti_res_new[n_opt][i][n] = {}
                     opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]
 
-        return opti_res_new, mar_dict, trade_res, characteristics #opti_res,
+        return opti_res_new, mar_dict, trade_res, characteristics  #opti_res,
 
     elif options["optimization"] == "P2P_typeWeeks":
         # runs optimization for type weeks instead of whole month/year
