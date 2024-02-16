@@ -18,6 +18,6 @@ subscription = {
         }
     }
 }
-file_path = "subscription.json"
+file_path = "transaction_subscription.json"
 with open(file_path, 'w') as json_file:
     json.dump(subscription, json_file, indent=2)

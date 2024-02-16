@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name": "scenario_test",  # name of csv input file
+        "scenario_name": "ma_zehao",  # name of csv input file
     }
 
     '''
@@ -120,7 +120,7 @@ if __name__ == '__main__':
                # "tweeks": 4,  # number of typical weeks
                "Dorfnetz": False,  # grid type # todo: aktuell klappt nur Vorstadtnetz, da bei Dorfnetz noch 1 Gebäude fehlt
                "neighborhood": "district01",     # name of neighborhood
-               #"pv_share": 0.5,  # 0.25, 0.5, 0.75, 1.0
+               # "pv_share": 0.5,  # 0.25, 0.5, 0.75, 1.0
                "ev_share": 0.0,  # 0.25, 0.5, 0.75, 1.0
                "ev_public": True,  # Skript für Opti von öffentlichen Ladestationen
                "grid": False,  # True -> consider grid constraints, False -> dont
@@ -143,7 +143,7 @@ if __name__ == '__main__':
         "n_hours": 36, # ----,      number of hours of prediction horizon for rolling horizon
         "n_hours_ov": 35, # ----,      number of hours of overlap horizon for rolling horizon
         "n_opt_max": 8760 , #8760  # -----,       maximum number of optimizations
-        "month": 1,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
+        "month": 12,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data
 
         # Parameters for rolling horizon with aggregated foresight

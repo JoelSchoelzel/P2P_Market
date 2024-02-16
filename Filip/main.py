@@ -1,10 +1,10 @@
 from Building import Building
 from Coordinator import Coordinator
 from filip.models.base import FiwareHeader
-from filip.utils.cleanup import clear_context_broker, clear_iot_agent
+from filip.utils.cleanup import clear_context_broker, clear_iot_agent, clear_quantumleap
 import os
 from datetime import datetime, timedelta
-from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient
+from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient, QuantumLeapClient
 
 
 
@@ -17,14 +17,17 @@ fiware_header = FiwareHeader(service=os.getenv('Service'),
                              service_path=os.getenv('Service_path'))
 CB_URL = os.getenv('CB_URL')
 IOTA_URL = os.getenv('IOTA_URL')
+Ql_URL = os.getenv('QL_URL')
 
 if __name__ == '__main__':
     clear_context_broker(url=CB_URL, fiware_header=fiware_header)
     clear_iot_agent(url=IOTA_URL, fiware_header=fiware_header)
+    clear_quantumleap(url=Ql_URL, fiware_header=fiware_header)
 
     # create a cleint in context broker and iot agent for all buildings
     cbc_instance = ContextBrokerClient(url=CB_URL, fiware_header=fiware_header)
     iotac_instance = IoTAClient(url=IOTA_URL, fiware_header=fiware_header)
+    qlc_instance = QuantumLeapClient(url=Ql_URL, fiware_header=fiware_header)
 
     # get the building number from scenario
     scenario = pd.read_csv(config.options["full_path_scenario"])
@@ -36,7 +39,7 @@ if __name__ == '__main__':
                           refTransaction="Test", refActiveBid="Test") for i in range(building_number)]
 
     # call Class Coordinator, the coordinator should have and its own information and buildings'
-    coordinator = Coordinator(cbc=cbc_instance, iotac=iotac_instance, buildings=buildings)
+    coordinator = Coordinator(cbc=cbc_instance, iotac=iotac_instance, qlc=qlc_instance, buildings=buildings)
 
     for building in buildings:
         building.add_fiware_interface(cbc=cbc_instance, iotac=iotac_instance)

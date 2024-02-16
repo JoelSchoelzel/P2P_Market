@@ -2,14 +2,16 @@
 import config
 import python.characteristics as characs
 from filip.models.ngsi_v2.context import ContextEntity, NamedContextAttribute
-from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient
+# from filip.models.base import FiwareHeader
+from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient, QuantumLeapClient
+from filip.models.ngsi_v2.subscriptions import Subscription, Message
 from filip.models.ngsi_v2.iot import ServiceGroup
 import os
 from dotenv import load_dotenv
-from data_model.data_model import PublishTransaction, CreatedDateTime, TradeResults, Price, Quantity, TradeInformation, \
-    FIWAREPublishTransaction
+from data_model.data_model import PublishTransaction, CreatedDateTime, Price, Quantity, TradeInformation
 import uuid
 import json
+import requests
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,14 +19,22 @@ APIKEY = os.getenv('APIKEY_Coordinator')
 # Create a service group and add it to your devices
 service_group = ServiceGroup(apikey=APIKEY,
                              resource="/iot/json")
+# fiware_header = FiwareHeader(service=os.getenv('Service'),
+#                              service_path=os.getenv('Service_path'))
+fiware_headers = {
+  'fiware-service': os.getenv('Service'),
+  'fiware-servicepath': os.getenv('Service_path'),
+  'Content-Type': 'application/json'}
+
 
 
 class Coordinator():
 
-    def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, buildings):
+    def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, qlc: QuantumLeapClient, buildings):
         self.transaction_entity: ContextEntity
         self.cbc = cbc
         self.iotac = iotac
+        self.qlc = qlc
         self.buildings = buildings
         self.building_entity = {}
         self.bid_entity = {}
@@ -41,6 +51,13 @@ class Coordinator():
         self.iotac.post_group(service_group=service_group, update=True)
         self.transaction_entity = self.create_transaction_attributes(number_building)
         self.post_transaction_entities()
+        with open('historic_transaction_subscription.json') as f:
+            historic_transaction_subscription_dict = json.load(f)
+            historic_transaction_subscription_dict['subject']['entities'][0]['id'] = f"urn:ngsi-ld:Transaction:{number_building}"
+            historic_transaction_subscription_dict['subject']['entities'][1]['type'] = self.transaction_entity_type
+            historic_transaction_subscription_dict['subject']['condition']['attrs'] = 'transactionID'
+            historic_transaction_subscription = Subscription(**historic_transaction_subscription_dict)
+        self.cbc.post_subscription(subscription=historic_transaction_subscription)
 
     def get_bids(self):
         for i in range(len(self.buildings)):
@@ -458,14 +475,17 @@ class Coordinator():
                 # self.transaction_entity.add_attributes([attribute_test])
             # self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
             #                                         type=self.transaction_entity_type)
-            # transaction_dict = self.transaction_to_publish.model_dump()
+            transaction_dict = self.transaction_to_publish.model_dump()
 
             # TODO try request
+            url = f"http://134.130.166.184:1026/v2/entities/urn:ngsi-ld:Transaction:{cleints}/attrs?options=keyValues"
+            payload = json.dumps(transaction_dict)
             # res = ....post(url=url,  # todo .../entities/id/attrs
-            #                 headers=headers,
+            #                 headers=fiware_header,
             #                 json=transaction_dict,
             #                 params=params)
-
+            response = requests.request("PATCH", url, headers=fiware_headers, data=payload)
+            print(response.text)
             # self.transaction_entity.add_attributes(transaction_dict)
 
             # transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
@@ -488,17 +508,17 @@ class Coordinator():
             #                                              value=transaction_dict["refMarketParticipant"]
             #                                              )
             # TODO transaction_entity = self.transaction_to_publish.model_dump()
-            fiwarePublishTransaction = FIWAREPublishTransaction(id=f"urn:ngsi-ld:Transaction:{0}",
-                                                                type=self.transaction_entity_type,
-                                                                transactionID=self.transaction_to_publish.transactionID,
-                                                                transactionCreatedDateTime=self.transaction_to_publish.transactionCreatedDateTime,
-                                                                tradeResults=self.transaction_to_publish.tradeResults,
-                                                                refMarketParticipant=self.transaction_to_publish.refMarketParticipant
-                                                                )
+            # fiwarePublishTransaction = FIWAREPublishTransaction(id=f"urn:ngsi-ld:Transaction:{0}",
+            #                                                     type=self.transaction_entity_type,
+            #                                                     transactionID=self.transaction_to_publish.transactionID,
+            #                                                     transactionCreatedDateTime=self.transaction_to_publish.transactionCreatedDateTime,
+            #                                                     tradeResults=self.transaction_to_publish.tradeResults,
+            #                                                     refMarketParticipant=self.transaction_to_publish.refMarketParticipant
+            #                                                     )
             # transaction_entity['id'] = f"urn:ngsi-ld:Transaction:{cleints}"
             # transaction_entity['type'] = self.transaction_entity_type
             # transaction_entity = {"id": f"urn:ngsi-ld:Transaction:{cleints}", "type": self.transaction_entity_type}
-            transaction_entity = fiwarePublishTransaction.model_dump()
+            # transaction_entity = fiwarePublishTransaction.model_dump()
             # transaction_entity.update({transaction_id.name: {
             #     "type": transaction_id.type,
             #     "value": transaction_id.value
@@ -515,7 +535,7 @@ class Coordinator():
             #     "type": transaction_building.type,
             #     "value": transaction_building.value
             # }})
-            self.cbc.update_entity(entity=ContextEntity(**transaction_entity))
+            # self.cbc.update_entity(entity=ContextEntity(**transaction_entity))
 
             # transaction_entity.add_attributes(
             #     [transaction_id, transaction_created_time, transaction_results, transaction_building])
@@ -531,3 +551,14 @@ class Coordinator():
         # the sorted bids and transactions should be cleared, so that it won't affect the next trading
         self.sorted_bids.clear()
         self.transactions.clear()
+
+    def get_historic_data(self, number_building):
+        historic_transactions = {}
+        for i in range(len(self.buildings)):
+            historic_transaction = self.qlc.get_entity_by_id(
+                entity_id=f"urn:ngsi-ld:Transaction:{number_building}",
+                entity_type=self.transaction_entity_type,
+                last_n=10000
+            )
+            historic_transaction = historic_transaction.to_pandas()
+            print(historic_transaction)

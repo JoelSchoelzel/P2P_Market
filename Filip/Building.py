@@ -177,7 +177,7 @@ class Building(MarketParticipant):
     def platform_configuration(self):
         # Subscription in context broker so that the transaction can be received by mqtt clients
         # load the subscription template from outside
-        with open("subscription.json") as f:
+        with open("transaction_subscription.json") as f:
             subscription_dict = json.load(f)
         # set the unique subscription for every building
         subscription_dict[

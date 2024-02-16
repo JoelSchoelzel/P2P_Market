@@ -7,7 +7,7 @@ from classes import Datahandler
 
 # Set options for DistrictGenerator
 options_DG = {
-    "scenario_name": "scenario_test",  # name of csv input file
+    "scenario_name": "ma_zehao",  # name of csv input file
 }
 
 # create district with load (elec, heat, ..) and generation (pv, bz ..)  profiles as input for MAScity
@@ -58,7 +58,7 @@ par_rh = {
     "n_hours": 36,  # ----,      number of hours of prediction horizon for rolling horizon
     "n_hours_ov": 35,  # ----,      number of hours of overlap horizon for rolling horizon
     "n_opt_max": 8760,  # 8760  # -----,       maximum number of optimizations
-    "month": 1,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
+    "month": 12,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
     # set month to 0 for clustered input data
 
     # Parameters for rolling horizon with aggregated foresight
