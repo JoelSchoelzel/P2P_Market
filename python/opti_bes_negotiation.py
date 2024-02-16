@@ -22,8 +22,15 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
 
     # Extract parameters
     dt = par_rh["duration"][n_opt]
+
     # Create list of time steps per optimization horizon (dt --> hourly resolution)
-    time_steps = par_rh["time_steps"][n_opt]
+    bes_0 = block_bid['bes_0']
+    # List of known non-time-step keys
+    non_time_step_keys = ["bes_id", "mean_price", "sum_energy", "total_price", "mean_quantity", "mean_energy_forced", "mean_energy_delayed"]
+    # Count keys that are integers (time steps t) and not in the list of known non-time-step keys
+    block_length = sum(1 for key in bes_0 if str(key).isdigit() and key not in non_time_step_keys)
+    time_steps = par_rh["time_steps"][n_opt][0:block_length]
+
     # Durations of time steps # for aggregated RH
     #duration = par_rh["duration"][n_opt]
 
@@ -171,14 +178,14 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
     price_buyer = {}
     price_seller = {}
     # matched_bids_info = mat_neg.matching()
-    block_length = len(block_bid)
 
     for match in range(len(matched_bids_info)):
-        for t in block_length:
-            quantity_bid_buyer[t] = matched_bids_info[match][0][t][1]
-            quantity_bid_seller[t] = matched_bids_info[match][1][t][1]
-            price_buyer[t] = matched_bids_info[match][0][t][0]
-            price_seller[t] = matched_bids_info[match][1][t][0]
+        for t in time_steps:
+        #for t in par_rh["time_steps"][n_opt][0:block_length]:
+            quantity_bid_buyer[t] = matched_bids_info[n_opt][match][0][t][1]
+            quantity_bid_seller[t] = matched_bids_info[n_opt][match][1][t][1]
+            price_buyer[t] = matched_bids_info[n_opt][match][0][t][0]
+            price_seller[t] = matched_bids_info[n_opt][match][1][t][0]
 
     for t in time_steps:
         p_imp[t] = model.addVar(vtype="C", name="P_imp_" + str(t))
