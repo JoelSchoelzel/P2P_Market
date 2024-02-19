@@ -4,11 +4,11 @@ import python.characteristics as characs
 from filip.models.ngsi_v2.context import ContextEntity, NamedContextAttribute
 # from filip.models.base import FiwareHeader
 from filip.clients.ngsi_v2 import ContextBrokerClient, IoTAClient, QuantumLeapClient
-from filip.models.ngsi_v2.subscriptions import Subscription, Message
+from filip.models.ngsi_v2.subscriptions import Subscription
 from filip.models.ngsi_v2.iot import ServiceGroup
 import os
 from dotenv import load_dotenv
-from data_model.data_model import PublishTransaction, CreatedDateTime, Price, Quantity, TradeInformation
+from data_model.data_model import PublishTransaction, CreatedDateTime, Price, Quantity, TradeInformation, PowerDirection
 import uuid
 import json
 import requests
@@ -22,10 +22,9 @@ service_group = ServiceGroup(apikey=APIKEY,
 # fiware_header = FiwareHeader(service=os.getenv('Service'),
 #                              service_path=os.getenv('Service_path'))
 fiware_headers = {
-  'fiware-service': os.getenv('Service'),
-  'fiware-servicepath': os.getenv('Service_path'),
-  'Content-Type': 'application/json'}
-
+    'fiware-service': os.getenv('Service'),
+    'fiware-servicepath': os.getenv('Service_path'),
+    'Content-Type': 'application/json'}
 
 
 class Coordinator():
@@ -53,8 +52,9 @@ class Coordinator():
         self.post_transaction_entities()
         with open('historic_transaction_subscription.json') as f:
             historic_transaction_subscription_dict = json.load(f)
-            historic_transaction_subscription_dict['subject']['entities'][0]['id'] = f"urn:ngsi-ld:Transaction:{number_building}"
-            historic_transaction_subscription_dict['subject']['entities'][1]['type'] = self.transaction_entity_type
+            historic_transaction_subscription_dict['subject']['entities'][0][
+                'id'] = f"urn:ngsi-ld:Transaction:{number_building}"
+            historic_transaction_subscription_dict['subject']['entities'][0]['type'] = self.transaction_entity_type
             historic_transaction_subscription_dict['subject']['condition']['attrs'] = 'transactionID'
             historic_transaction_subscription = Subscription(**historic_transaction_subscription_dict)
         self.cbc.post_subscription(subscription=historic_transaction_subscription)
@@ -431,7 +431,9 @@ class Coordinator():
 
                     TradeResults = [TradeInformation(realPrice=Price(price=transaction_item['Price']),
                                                      realQuantity=Quantity(quantity=transaction_item['Quantity']),
-                                                     powerDirection=f"buyer: {transaction_item['Buyer']}")
+                                                     powerDirection=PowerDirection(tradingObjectRole='buyer',
+                                                                                   tradingObjectID=f"{transaction_item['Buyer']}"))
+                                                     # f"buyer: {transaction_item['Buyer']}")
                                     for transaction_item in transaction_list]
 
                     self.transaction_to_publish = PublishTransaction(transactionID=str(uuid.uuid4()),
@@ -552,13 +554,14 @@ class Coordinator():
         self.sorted_bids.clear()
         self.transactions.clear()
 
-    def get_historic_data(self, number_building):
-        historic_transactions = {}
+    def get_historic_data(self):
+        # historic_transactions = {}
         for i in range(len(self.buildings)):
             historic_transaction = self.qlc.get_entity_by_id(
-                entity_id=f"urn:ngsi-ld:Transaction:{number_building}",
+                entity_id=f"urn:ngsi-ld:Transaction:{i}",
                 entity_type=self.transaction_entity_type,
                 last_n=10000
             )
             historic_transaction = historic_transaction.to_pandas()
+            historic_transaction = historic_transaction.replace('', 0)
             print(historic_transaction)

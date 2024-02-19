@@ -96,6 +96,10 @@ class CoordinatorGateTime(BaseModel):
     """
     gate: datetime
 
+class PowerDirection(BaseModel):
+    tradingObjectRole: MarketRole
+    tradingObjectID: str = Field(description='...')
+
 
 class TradeInformation(BaseModel):
     """
@@ -103,7 +107,7 @@ class TradeInformation(BaseModel):
     """
     realPrice: Price = Field(description='...')
     realQuantity: Quantity = Field(description='...')
-    powerDirection: str = Field(description='...')
+    powerDirection: PowerDirection = Field(description='...')
 
 
 class TradeResults(BaseModel):
