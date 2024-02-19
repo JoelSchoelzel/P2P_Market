@@ -24,7 +24,7 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
     dt = par_rh["duration"][n_opt]
 
     # Create list of time steps per optimization horizon (dt --> hourly resolution)
-    bes_0 = block_bid['bes_0']
+    bes_0 = block_bid["bes_0"]
     # List of known non-time-step keys
     non_time_step_keys = ["bes_id", "mean_price", "sum_energy", "total_price", "mean_quantity", "mean_energy_forced", "mean_energy_delayed"]
     # Count keys that are integers (time steps t) and not in the list of known non-time-step keys
@@ -177,15 +177,13 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
     quantity_bid_buyer = {}
     price_buyer = {}
     price_seller = {}
-    # matched_bids_info = mat_neg.matching()
 
     for match in range(len(matched_bids_info)):
         for t in time_steps:
-        #for t in par_rh["time_steps"][n_opt][0:block_length]:
-            quantity_bid_buyer[t] = matched_bids_info[n_opt][match][0][t][1]
-            quantity_bid_seller[t] = matched_bids_info[n_opt][match][1][t][1]
-            price_buyer[t] = matched_bids_info[n_opt][match][0][t][0]
-            price_seller[t] = matched_bids_info[n_opt][match][1][t][0]
+            quantity_bid_buyer[t] = matched_bids_info[match][0][t][1]
+            quantity_bid_seller[t] = matched_bids_info[match][1][t][1]
+            price_buyer[t] = matched_bids_info[match][0][t][0]
+            price_seller[t] = matched_bids_info[match][1][t][0]
 
     for t in time_steps:
         p_imp[t] = model.addVar(vtype="C", name="P_imp_" + str(t))
@@ -253,25 +251,26 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
 
 
     #### Constraints for trade power and price
-    model.addConstr(cost_trade == sum(power_trade["buyer"][t] * price_trade[t] for t in time_steps))
-    model.addConstr(revenue_trade == sum(power_trade["seller"][t] * price_trade[t] for t in time_steps))
+    model.addConstr(cost_trade == sum(power_trade["buyer"][t] * price_trade[t] for t in time_steps),
+                   name="Power_trade_costs")
+    model.addConstr(revenue_trade == sum(power_trade["seller"][t] * price_trade[t] for t in time_steps),
+                    name="Power_trade_revenue")
 
 
     ### Constraints for trading power and price
     # constraints for trading power
     for peer in ["buyer", "seller"]:
         for t in time_steps:
-            model.addConstr(power_trade[peer][t] >= min(quantity_bid_seller[t], quantity_bid_buyer[t]))
-            model.addConstr(power_trade[peer][t] <= max(quantity_bid_seller[t], quantity_bid_buyer[t]))
+           model.addConstr(power_trade[peer][t] >= min(quantity_bid_seller[t], quantity_bid_buyer[t]), name="Power_trade_min_" + peer)
+           model.addConstr(power_trade[peer][t] <= max(quantity_bid_seller[t], quantity_bid_buyer[t]), name="Power_trade_max_" + peer)
 
 
     # constraints for trading price
     for t in time_steps:
-        model.addConstr(price_trade[t] >= min(price_buyer[t], price_seller[t]))
-        model.addConstr(price_trade[t] <= max(price_buyer[t], price_seller[t]))
-
-
-
+        model.addConstr(price_trade[t] >= min(price_buyer[t], price_seller[t]),
+                        name="Price_trade_min")
+        model.addConstr(price_trade[t] <= max(price_buyer[t], price_seller[t]),
+                        name="Price_trade_max")
 
 
 
@@ -469,9 +468,9 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
 
     for t in time_steps:
         # TODO: net params
-        model.addConstr(y["house_load"][t] * ratedPower >= p_imp[t])  # Big M Methode --> Methodik
+        model.addConstr(y["house_load"][t] * ratedPower >= p_imp[t])  # Big M Methode --> Methodik #  + power_trade["buyer"][t]
         model.addConstr(p_imp[t] >= 0)
-        model.addConstr((1 - y["house_load"][t]) * ratedPower >= p_sell["pv"][t] + p_sell["chp"][t])
+        model.addConstr((1 - y["house_load"][t]) * ratedPower >= p_sell["pv"][t] + p_sell["chp"][t] )  # 43.5: max Leistung am Hausanschluss #+ power_trade["seller"][t]
 
     # Split CHP and PV generation into self-consumed and sold powers
     for dev in ("chp", "pv"):
@@ -483,14 +482,16 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
     model.Params.TimeLimit = params["gp"]["time_limit"]
     model.Params.MIPGap = params["gp"]["mip_gap"]
     model.Params.MIPFocus = params["gp"]["numeric_focus"]
+    model.Params.NonConvex = 2
 
     # Execute calculation
     model.optimize()
     #        model.write("model.ilp")
-
+    status = model.status
     # Write errorfile if optimization problem is infeasible or unbounded
     if model.status == gp.GRB.Status.INFEASIBLE or model.status == gp.GRB.Status.INF_OR_UNBD:
         model.computeIIS()
+        model.write("model.ilp")
         f = open('errorfile_hp.txt', 'w')
         f.write(str(datetime.datetime.now()) + '\nThe following constraint(s) cannot be satisfied:\n')
         for c in model.getConstrs():
@@ -549,6 +550,14 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
         res_p_use[dev] = {(t): p_use[dev][t].X for t in time_steps}
         res_p_sell[dev] = {(t): p_sell[dev][t].X for t in time_steps}
 
+
+    res_power_trade = {}
+    for peer in ["buyer", "seller"]:
+        res_power_trade[peer] = {(t): power_trade[peer][t].X for t in time_steps}
+
+    res_price_trade = {(t): price_trade[t].X for t in time_steps}
+
+
     obj = model.ObjVal
     print("Obj: " + str(model.ObjVal))
     objVal = obj
@@ -572,7 +581,8 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
     return (res_y, res_power, res_heat, res_soc,
             res_p_imp, res_p_ch, res_p_dch, res_p_use, res_p_sell,
             obj, res_c_dem, res_rev, res_soc_nom, node,
-            objVal, runtime, soc_init_rh, res_gas_sum)
+            objVal, runtime, soc_init_rh, res_gas_sum,
+            res_power_trade, res_price_trade, price_buyer, price_seller)
 
 
 def compute_initial_values(opti_bes, par_rh, n_opt): # computes the initial values of the BES for the given prediction horizon

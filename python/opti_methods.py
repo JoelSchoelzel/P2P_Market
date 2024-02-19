@@ -118,8 +118,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                 # match the block bids to each other according to crit
                 matched_bids_info[n_opt] = mat_neg.matching(mar_dict["sorted_bids"][n_opt], n_opt)
 
-                # run optimization again during negotiation (with constraints adapted to matched peer)
-                opti_nego_res[n_opt] = mat_neg.negotiation(nodes[n], params, par_rh, building_params, init_val[n_opt]["building_" + str(n)], n_opt, options, matched_bids_info, mar_dict["block_bid"][n_opt])
+                # run optimization during negotiation (with constraints adapted to matched peer)
+                opti_nego_res[n_opt] = mat_neg.negotiation(nodes[n], params, par_rh, building_params, init_val[n_opt]["building_" + str(n)], n_opt, options, matched_bids_info[n_opt], mar_dict["block_bid"][n_opt])
 
 
             #elif options["bid_type"] == "single":
@@ -174,7 +174,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         opti_res_new = {}
         for n_opt in range(par_rh["n_opt"]):
             opti_res_new[n_opt] = {}
-            for i in range(18): # 18 is the number of result categories; if number of result categories changes, this needs to be changed as well
+            for i in range(18): # 18 is the number of result categories in opti_bes
+                # if number of result categories changes, this needs to be changed as well!!!
                 opti_res_new[n_opt][i] = {}
                 for n in range(options["nb_bes"]):
                     opti_res_new[n_opt][i][n] = {}
