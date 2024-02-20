@@ -46,7 +46,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
 
         # create matched bids dict to store information about matched block bids and optimization results during negotiation
         matched_bids_info = {}
-        opti_nego_res = {}
+        negotiation_res = {}
 
         # create characteristics to store flexibility characteristics of each building
         characteristics = {}
@@ -119,7 +119,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                 matched_bids_info[n_opt] = mat_neg.matching(mar_dict["sorted_bids"][n_opt], n_opt)
 
                 # run optimization during negotiation (with constraints adapted to matched peer)
-                opti_nego_res[n_opt] = mat_neg.negotiation(nodes[n], params, par_rh, building_params, init_val[n_opt]["building_" + str(n)], n_opt, options, matched_bids_info[n_opt], mar_dict["block_bid"][n_opt])
+                negotiation_res[n_opt] = mat_neg.negotiation(nodes[n], params, par_rh, building_params, init_val[n_opt]["building_" + str(n)], n_opt, options, matched_bids_info[n_opt], mar_dict["block_bid"][n_opt])
 
 
             #elif options["bid_type"] == "single":

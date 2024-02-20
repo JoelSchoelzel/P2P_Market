@@ -31,13 +31,6 @@ def negotiation(node, params, par_rh, building_param, init_val, n_opt, options, 
     """Run the optimization problem for the negotiation phase (taking into account
     quantities and prices of matched peer."""
 
-    # Run the optimization until trading price of both peers converges to the average of
-    # buying/selling price (with a certain tolerance)
-
-    opti_bes_res = opti_bes_negotiation.compute_opti(node, params, par_rh, building_param, init_val, n_opt, options, matched_bids_info, block_bid)
-    # current_price_trade = {}
-
-    # rerun the optimization model so that the price_trade iteratively converges to the average of the buying/selling price
 
     # Create list of time steps per optimization horizon (dt --> hourly resolution)
     bes_0 = block_bid["bes_0"]
@@ -46,20 +39,43 @@ def negotiation(node, params, par_rh, building_param, init_val, n_opt, options, 
     # Count keys that are integers (time steps t) and not in the list of known non-time-step keys
     block_length = sum(1 for key in bes_0 if str(key).isdigit() and key not in non_time_step_keys)
     time_steps = par_rh["time_steps"][n_opt][0:block_length]
-    iteration = 0
-    max_iterations = 10
 
-    for t in time_steps:
-        while abs(opti_bes_res["price_trade"][t] - (opti_bes_res["price_buyer"][t] + opti_bes_res["price_seller"][t]) / 2) > 0.01 and iteration < max_iterations:
-            iteration += 1
-            opti_bes_res = opti_bes_negotiation.compute_opti(node, params, par_rh, building_param, init_val, n_opt, options, matched_bids_info, block_bid)
+    # Create a dictionary to store the results of the negotiation
+    negotiation_res = {}
 
-    final_price_trade = opti_bes_res["res_price_trade"]
-    final_power_trade = opti_bes_res["res_power_trade"]
+    # buyer and seller of each match run their optimization model
+    for match in range(len(matched_bids_info)):
+        opti_bes_res_buyer = opti_bes_negotiation.compute_opti(node, params, par_rh, building_param, init_val,
+                                                               n_opt, options, matched_bids_info[match],
+                                                               block_bid, is_buying=True)
+        opti_bes_res_seller = opti_bes_negotiation.compute_opti(node, params, par_rh, building_param, init_val,
+                                                                n_opt, options, matched_bids_info[match],
+                                                                block_bid, is_buying=False)
 
-    opti_nego_res = (final_price_trade, final_power_trade)
+        current_price_trade_buyer = opti_bes_res_buyer["res_price_trade"]
+        current_price_trade_seller = opti_bes_res_seller["res_price_trade"]["seller"]
 
-    return opti_nego_res
+        # rerun the optimization while the difference of res_price_trade of the buyer and seller is greater than 0.01
+        # rerun the optimization model so that the price_trade iteratively converges to the average of the buying/selling price
+        while abs(current_price_trade_buyer - current_price_trade_seller) > 0.01:
+            opti_bes_res_buyer = opti_bes_negotiation.compute_opti(node, params, par_rh, building_param, init_val,
+                                                                   n_opt, options, matched_bids_info[match],
+                                                                   block_bid, is_buying=True)
+            opti_bes_res_seller = opti_bes_negotiation.compute_opti(node, params, par_rh, building_param, init_val,
+                                                                    n_opt, options, matched_bids_info[match],
+                                                                    block_bid, is_buying=False)
+
+            current_price_trade_buyer = opti_bes_res_buyer["res_price_trade"]
+            current_price_trade_seller = opti_bes_res_seller["res_price_trade"]
+
+
+
+            negotiation_res[match]= {
+                "buyer": opti_bes_res_buyer,
+                "seller": opti_bes_res_seller
+            }
+
+    return negotiation_res
 
 
 
