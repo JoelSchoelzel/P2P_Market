@@ -52,28 +52,47 @@ def negotiation(node, params, par_rh, building_param, init_val, n_opt, options, 
                                                                 n_opt, options, matched_bids_info[match],
                                                                 block_bid, is_buying=False)
 
-        current_price_trade_buyer = opti_bes_res_buyer["res_price_trade"]
-        current_price_trade_seller = opti_bes_res_seller["res_price_trade"]["seller"]
-
-        # rerun the optimization while the difference of res_price_trade of the buyer and seller is greater than 0.01
-        # rerun the optimization model so that the price_trade iteratively converges to the average of the buying/selling price
-        while abs(current_price_trade_buyer - current_price_trade_seller) > 0.01:
-            opti_bes_res_buyer = opti_bes_negotiation.compute_opti(node, params, par_rh, building_param, init_val,
-                                                                   n_opt, options, matched_bids_info[match],
-                                                                   block_bid, is_buying=True)
-            opti_bes_res_seller = opti_bes_negotiation.compute_opti(node, params, par_rh, building_param, init_val,
-                                                                    n_opt, options, matched_bids_info[match],
-                                                                    block_bid, is_buying=False)
-
-            current_price_trade_buyer = opti_bes_res_buyer["res_price_trade"]
-            current_price_trade_seller = opti_bes_res_seller["res_price_trade"]
 
 
+    # rerun the optimization for matched buyer and seller until price_trade difference of buyer and seller
+    # is less than 0.05 or the maximum iteration is reached
+    for match in range(len(matched_bids_info)):
+        price_bid_buyer = {}
+        price_bid_buyer[match] = {}
+        price_bid_seller = {}
+        price_bid_seller[match] = {}
+        price_difference = {}
+        for t in time_steps:
+            price_bid_buyer[match][t] = matched_bids_info[0][0][t][0]
+            price_bid_seller[t] = matched_bids_info[0][1][t][0]
+            price_difference[t] = abs(price_bid_buyer[t]-price_bid_seller[t])
+            iteration = 0
+            max_iteration = 10
+            while price_difference[t] > 0.05 and iteration < max_iteration:
+                opti_bes_res_buyer = opti_bes_negotiation.compute_opti(node, params, par_rh, building_param, init_val,
+                                                                       n_opt, options, matched_bids_info[match],
+                                                                       block_bid, is_buying=True)
+                opti_bes_res_seller = opti_bes_negotiation.compute_opti(node, params, par_rh, building_param, init_val,
+                                                                        n_opt, options, matched_bids_info[match],
+                                                                        block_bid, is_buying=False)
 
-            negotiation_res[match]= {
-                "buyer": opti_bes_res_buyer,
-                "seller": opti_bes_res_seller
-            }
+                # store new quantities and prices of buyer and seller optimization results
+                buyer = {}
+                buyer[t] = (opti_bes_res_buyer["res_price_trade"][t], opti_bes_res_buyer["res_power_trade"][t])
+                seller = {}
+                seller[t] = (opti_bes_res_seller["res_price_trade"][t], opti_bes_res_seller["res_power_trade"][t])
+                matched_bids_info[match] = (buyer, seller)
+
+                # update the price difference and iteration step
+                price_difference = abs(opti_bes_res_buyer["res_price_trade"][t] - opti_bes_res_seller["res_price_trade"][t])
+                iteration += 1
+
+        negotiation_res[match] = {
+            "buyer": opti_bes_res_buyer,
+            "seller": opti_bes_res_seller
+        }
+
+
 
     return negotiation_res
 

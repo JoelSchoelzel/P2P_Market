@@ -220,7 +220,6 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
             y[dev][t] = model.addVar(vtype="B", lb=0.0, ub=1.0, name="y_" + dev + "_" + str(t))
 
 
-
     # Update
     model.update()
 
@@ -265,19 +264,32 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
     ### Constraints for trading power and price
     # constraints for trading power
 
-    for peer in ["buyer", "seller"]:
-        for t in time_steps:
-           model.addConstr(power_trade[peer][t] <= min(quantity_bid_seller[t], quantity_bid_buyer[t]), name="max_Power_trade_" + peer)
-           model.addConstr(power_trade[peer][t] >= 0, name="min_Power_trade_" + peer)
+    #for peer in ["buyer", "seller"]:
+    for t in time_steps:
+        if is_buying:
+           model.addConstr(power_trade["buyer"][t] <= quantity_bid_seller[t],
+                           name="max_Power_trade_buyer")
+           model.addConstr(power_trade["buyer"][t] >= 0,
+                           name = "min_Power_trade_buyer")
+           #model.addConstr(power_trade["buyer"][t] >= min(quantity_bid_seller[t], quantity_bid_buyer[t]),
+                           #
+        else:
+           model.addConstr(power_trade["seller"][t] <= quantity_bid_buyer[t],
+                           name="max_Power_trade_seller")
+           model.addConstr(power_trade["seller"][t] >= 0,
+                           name="min_Power_trade_seller")
+           #model.addConstr(power_trade["seller"][t] >= min(quantity_bid_seller[t], quantity_bid_buyer[t]),
+                     #      name="min_Power_trade_seller")
+
 
 
     # constraints for trading price
-
+    # TODO: Addition/substraction of delta_price to converge to average price of buyer and seller
     for t in time_steps:
-        model.addConstr(price_trade[t] >= min(price_bid_buyer[t], price_bid_seller[t]),
-                        name="Price_trade_min")
-        model.addConstr(price_trade[t] <= max(price_bid_buyer[t], price_bid_seller[t]),
-                        name="Price_trade_max")
+        model.addConstr(price_trade[t] == 0.15 )#min (price_bid_buyer[t], price_bid_seller[t]),
+                        #name="Price_trade_min")
+        #model.addConstr(price_trade[t] <= max(price_bid_buyer[t], price_bid_seller[t]),
+                       # name="Price_trade_max")
 
 
 
@@ -455,17 +467,16 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
         if is_buying:
             model.addConstr(demands["elec"][t] + p_ch["bat"][t] - p_dch["bat"][t] + p_ch["ev"][t] - p_dch["ev"][t]
                             + power["hp35"][t] + power["hp55"][t] + power["eh"][t] - p_use["chp"][t] - p_use["pv"][t]
-                            - power_trade["buyer"][t]
-                            == p_imp[t],
+
+                            == p_imp[t] + power_trade["buyer"][t],
                             name="Electricity_balance_" + str(t))
         else:
+            model.addConstr(p_imp[t] == 0)
             model.addConstr(demands["elec"][t] + p_ch["bat"][t] - p_dch["bat"][t] + p_ch["ev"][t] - p_dch["ev"][t]
                             + power["hp35"][t] + power["hp55"][t] + power["eh"][t] - p_use["chp"][t] - p_use["pv"][t]
                             + power_trade["seller"][t]
                             == p_imp[t],
                             name="Electricity_balance_" + str(t))
-
-
 
 
     # Guarantee that just feed-in OR load is possible
@@ -583,10 +594,10 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
     runtime = model.getAttr("Runtime")
     datetime.datetime.now()
     #        model.computeIIS()
-    #        model.write("model.ilp")
-    #        print('\nConstraints:')
-    #        for c in model.getConstrs():
-    #            if c.IISConstr:
+     #       model.write("model.ilp")
+     #       print('\nConstraints:')
+     #       for c in model.getConstrs():
+    #          if c.IISConstr:
     #                print('%s' % c.constrName)
     #        print('\nBounds:')
     #        for v in model.getVars():
