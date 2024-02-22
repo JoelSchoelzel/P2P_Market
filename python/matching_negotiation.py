@@ -42,9 +42,11 @@ def negotiation(node, params, par_rh, building_param, init_val, n_opt, options, 
 
     # Create a dictionary to store the results of the negotiation
     negotiation_res = {}
+    all_matches = len(matched_bids_info)
+
 
     # buyer and seller of each match run their optimization model
-    for match in range(len(matched_bids_info)):
+    for match in range(all_matches):
         opti_bes_res_buyer = opti_bes_negotiation.compute_opti(node, params, par_rh, building_param, init_val,
                                                                n_opt, options, matched_bids_info[match],
                                                                block_bid, is_buying=True)
@@ -52,11 +54,13 @@ def negotiation(node, params, par_rh, building_param, init_val, n_opt, options, 
                                                                 n_opt, options, matched_bids_info[match],
                                                                 block_bid, is_buying=False)
 
+        current_price_trade_buyer = opti_bes_res_buyer["res_price_trade"]
+        current_price_trade_seller = opti_bes_res_seller["res_price_trade"]
 
 
     # rerun the optimization for matched buyer and seller until price_trade difference of buyer and seller
     # is less than 0.05 or the maximum iteration is reached
-    for match in range(len(matched_bids_info)):
+    """for match in range(len(matched_bids_info)):
         price_bid_buyer = {}
         price_bid_buyer[match] = {}
         price_bid_seller = {}
@@ -85,12 +89,12 @@ def negotiation(node, params, par_rh, building_param, init_val, n_opt, options, 
 
                 # update the price difference and iteration step
                 price_difference = abs(opti_bes_res_buyer["res_price_trade"][t] - opti_bes_res_seller["res_price_trade"][t])
-                iteration += 1
+                iteration += 1"""
 
-        negotiation_res[match] = {
+    negotiation_res[match] = {
             "buyer": opti_bes_res_buyer,
             "seller": opti_bes_res_seller
-        }
+    }
 
 
 

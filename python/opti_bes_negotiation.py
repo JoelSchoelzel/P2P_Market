@@ -284,12 +284,28 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
 
 
     # constraints for trading price
-    # TODO: Addition/substraction of delta_price to converge to average price of buyer and seller
     for t in time_steps:
-        model.addConstr(price_trade[t] == 0.15 )#min (price_bid_buyer[t], price_bid_seller[t]),
+        #model.addConstr(price_trade[t] == 0.15 )#min (price_bid_buyer[t], price_bid_seller[t]),
                         #name="Price_trade_min")
         #model.addConstr(price_trade[t] <= max(price_bid_buyer[t], price_bid_seller[t]),
                        # name="Price_trade_max")
+
+        # if buying bid price is higher than selling bid price,price_trade is set to average of both
+        if price_bid_buyer[t] >= price_bid_seller[t]:
+            model.addConstr(price_trade[t] == 0.5 * (price_bid_buyer[t] + price_bid_seller[t]),
+                            name="Price_trade_min")
+
+        # if selling bid price is higher than buying bid price, price_trade is iteratively adjusted towards average
+        else:
+            delta_price = 0.05
+            if is_buying:
+                model.addConstr(price_trade[t] == price_bid_buyer[t] + delta_price)
+                model.addConstr(price_trade[t] <= 0.5*(price_bid_buyer[t] + price_bid_seller[t]),
+                                name="Price_trade_max")
+            else:
+                model.addConstr(price_trade[t] == price_bid_seller[t] - delta_price)
+                model.addConstr(price_trade[t] >= 0.5 * (price_bid_buyer[t] + price_bid_seller[t]),
+                                name="Price_trade_max")
 
 
 
