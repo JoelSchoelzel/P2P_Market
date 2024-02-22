@@ -398,7 +398,8 @@ class Coordinator():
 
                     TradeResults = [TradeInformation(realPrice=Price(price=transaction_item['Price']),
                                                      realQuantity=Quantity(quantity=transaction_item['Quantity']),
-                                                     powerDirection=f"seller: {transaction_item['Seller']}")
+                                                     powerDirection=PowerDirection(tradingObjectRole='seller',
+                                                                                   tradingObjectID=f"{transaction_item['Seller']}"))
                                     for transaction_item in transaction_list]
                     # self.transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{cleints}",
                     #                                         type=self.transaction_entity_type)
