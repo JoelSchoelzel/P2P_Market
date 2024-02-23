@@ -121,10 +121,10 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             heat[dev][t] = model.addVar(vtype="C", lb=0, name="Q_" + dev + "_" + str(t))
 
     for dev in ["eh"]:
-        dhw[dev] = {}
+        heat[dev] = {}
         power[dev] = {}
         for t in time_steps:
-            dhw[dev][t] = model.addVar(vtype="C", name="Q_" + dev + "_" + str(t))
+            heat[dev][t] = model.addVar(vtype="C", name="Q_" + dev + "_" + str(t))
             power[dev][t] = model.addVar(vtype="C", lb=0, name="P_" + dev + "_" + str(t))
 
     for dev in ["pv"]:
@@ -252,6 +252,26 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         model.addConstr(heat["boiler"][t] == node["devs"]["boiler"]["eta_th"] * gas["boiler"][t],
                         name="Power_equation_" + dev + "_" + str(t))
 
+        # EH (electrical heater)
+        # The EH is only used in combination with HPs to increase DHW temperature.
+        if node["devs"]["eh"]["cap"] > 0:
+            # Get the max output temperature of the HP, depending on the HP type (HP35 or HP55).
+            if node["devs"]["hp35"]["cap"] > 0:
+                hp_temp = 35
+            elif node["devs"]["hp55"]["cap"] > 0:
+                hp_temp = 55
+            else:
+                # The EH should only exist, when a HP is used. Therefore, either HP35 or HP55 should be found.
+                raise Exception("EH capacity is not 0 but no HP is found.")
+
+            # The HP heats from 25°C to the maximum temperature hp_temp.
+            # EH provides the remaining heat required to raise the DHW temperature to 60°C.
+            model.addConstr(heat["eh"][t] == (60 - hp_temp) / (60 - 25) * demands["dhw"][t],
+                            name="Heat_operation_EH_" + str(t))
+
+        # Degree of efficiency of EH is 1
+        model.addConstr(power["eh"][t] == heat["eh"][t], name="Power_equation_EH_" + str(t))
+
     # Solar components
     for dev in solar:
         for t in time_steps:
@@ -286,10 +306,11 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             soc_prev = soc[dev][t - 1]
 
         # Maximal charging
-        model.addConstr(p_ch[dev][t] == eta_ch * (heat["chp"][t] + heat["hp35"][t] + heat["hp55"][t] + heat["boiler"][t]),
+        model.addConstr(p_ch[dev][t] == eta_ch * (heat["chp"][t] + heat["hp35"][t] + heat["hp55"][t] + heat["boiler"][t]
+                                                  + heat["eh"][t]),
                         name="Heat_charging_" + str(t))
         # Maximal discharging
-        model.addConstr(p_dch[dev][t] == (1 / eta_dch) * (demands["heat"][t] + 0.5 * demands["dhw"][t]),
+        model.addConstr(p_dch[dev][t] == (1 / eta_dch) * (demands["heat"][t] + demands["dhw"][t]),
                         name="Heat_discharging_" + str(t))
 
         # Minimal and maximal soc
@@ -307,10 +328,6 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         # if t == last_time_step:
         #    model.addConstr(soc[device][t] == soc_init[device],
         #                    name="End_TES_Storage_" + str(t))
-
-    # eletric heater covers 50% of the dhw
-    for t in time_steps:
-        model.addConstr(dhw["eh"][t] == 0.5 * demands["dhw"][t], name="El_heater_act_" + str(t))
 
 
 
@@ -438,7 +455,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     res_soc = {}
     for dev in ["bat", "ev", "house_load"]:
         res_y[dev] = {(t): y[dev][t].X for t in time_steps}
-    for dev in ["hp35", "hp55", "chp", "boiler"]:
+    for dev in ["hp35", "hp55", "chp", "boiler", "eh"]:
         res_power[dev] = {(t): power[dev][t].X for t in time_steps}
         res_heat[dev] = {(t): heat[dev][t].X for t in time_steps}
     for dev in ["pv"]:
@@ -569,8 +586,8 @@ def initial_values_flex(opti_res, par_rh, n_opt, nodes, options, trade_res, prev
         else:
             charge_tes = eta_ch * sum(opti_res[n][2][dev][t] for dev in heaters)
 
-        # TES is discharged by required heat and 50% of required heat for dhw
-        discharge_tes = (1 / eta_dch) * (nodes[n]["heat"][n_opt] + 0.5 * nodes[n]["dhw"][n_opt])
+        # TES is discharged by required heat and dhw
+        discharge_tes = (1 / eta_dch) * (nodes[n]["heat"][n_opt] + nodes[n]["dhw"][n_opt])
 
         # new initial value is previous minus the losses (eta_tes) plus difference between charge and discharge
         init_val["building_" + str(n)]["soc"]["tes"] = soc_prev["tes"] * eta_tes + (
