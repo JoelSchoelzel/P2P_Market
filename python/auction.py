@@ -242,24 +242,3 @@ def multi_round2(sorted_bids):
 
     return transactions, bids
 
-def devices_blockbids_negotiation(bes_list, block_bids, options, nodes, init_val, propensities, strategies):
-    """
-    Implements the negotiation process between BESs.
-
-    :param bes_list: List of BuildingEnergySystem objects
-    :param block_bids: Dictionary of block bids for each BES
-    :return: Dictionary of block bids for each BES after negotiation
-    """
-
-    # create dictionary for transactions
-    transactions = {}
-
-    # create dictionary for bids
-    bids = {}
-
-    # create dictionary for sorted bids
-    sorted_bids = {}
-
-    # create dictionary for unflexible bids
-    unflex = {}
-

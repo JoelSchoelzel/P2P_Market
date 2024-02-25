@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name": "scenario3",  # name of csv input file
+        "scenario_name": "scenario2",  # name of csv input file
     }
 
     '''
@@ -107,7 +107,7 @@ if __name__ == '__main__':
     # Set options for MAScity
     options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
                "bid_strategy": "devices",  # zero for zero-intelligence, learning, devices
-                "crit_prio": "price",  # criteria to assign priority for trading: price, alpha_el_flex, quantity ...
+               "crit_prio": "mean_price",  # criteria to assign priority for trading: price, mean_price, mean_quantity, mean_energy, alpha_el_flex, quantity ...
                "descending": True,  # True: highest value of chosen has highest priority, False: lowest
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
                "trading_rounds": 0,  # Number of trading rounds for multi round trading, 0 for unlimited
@@ -131,7 +131,7 @@ if __name__ == '__main__':
                "time_zone": districtData.site['timeZone'],  # ---,      time zone
                "location": districtData.site['location'],  # degree,   latitude, longitude of location
                "altitude": districtData.site['altitude'],  # m,        height of location above sea level
-               "bid_type": "block",  # block, hourly
+               "bid_type": "block",  # block, single
               }
 
     # load heating devs per building

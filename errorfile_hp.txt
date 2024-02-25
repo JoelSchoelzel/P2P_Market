@@ -1,9 +1,3 @@
-2024-01-31 16:03:27.389946
+2024-02-23 15:49:27.507453
 The following constraint(s) cannot be satisfied:
-Max_heat_operation_boiler
-Max_heat_operation_chp
-Max_heat_operation_hp35
-Max_heat_operation_hp55
-Heat_charging_5229
-Heat_discharging_5229
-Storage_bal_tes_5229
+R11

@@ -43,7 +43,6 @@ class mar_agent_bes(object):
         # compute bids with DEVICE ORIENTED STRATEGY
         if bid_strategy == "devices":
             #x = []
-
             #for i in range(7):
             #    x.append(sum(dem_heat[i * 24:i * 24 + 24]) + 0.5 * sum(dem_dhw[i * 24:i * 24 + 24]))
             # soc_set_max = max(x)

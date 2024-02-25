@@ -95,7 +95,7 @@ def compute_pars_rh(param, options, districtData): # computes parameters for rol
     param["month_start"][5] = 2880
     param["month_start"][6] = 3624
     param["month_start"][7] = 4344
-    param["month_start"][8] = 5088
+    param["month_start"][8] = 5150 #5088
     param["month_start"][9] = 5832
     param["month_start"][10] = 6552
     param["month_start"][11] = 7296
