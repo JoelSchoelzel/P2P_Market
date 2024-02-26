@@ -687,7 +687,7 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
         "price_bid_seller": price_bid_seller,
         "power_bid_buyer": quantity_bid_buyer,
         "power_bid_seller": quantity_bid_seller,
-        "average_trade_price": average_trade_price
+        "average_bids_price": average_trade_price
     }
 
     return opti_bes_res

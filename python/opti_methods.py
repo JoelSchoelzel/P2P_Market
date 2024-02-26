@@ -11,6 +11,7 @@ import numpy as np
 import python.opti_bes as decentral_opti
 import python.opti_city as central_opti
 import python.market_preprocessing as mar_pre
+import python.market_preprocessing_nego as mar_pre_nego
 import python.bidding_strategies as bd
 import python.auction as auction
 import python.characteristics as characs
@@ -97,18 +98,26 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             characteristics[n_opt] = characs.calc_characs(nodes=nodes, options=options, par_rh=par_rh, opti_res=opti_res,
                                                start_step = n_opt, length=3)
 
-            # compute bids
+            # P2P TRADING WITH BLOCK BIDS
             if options["bid_type"] == "block":
-                mar_dict["block_bid"][n_opt], bes = mar_pre.compute_block_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,
-                                                              options, nodes, init_val, mar_dict["propensities"][n_opt], strategies)
-                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_block_bids(mar_dict["block_bid"][n_opt], options,
-                                                                         characteristics[n_opt], n_opt, par_rh, opti_res)
-                # match the block bids to each other according to crit
-                matched_bids_info[n_opt] = mat_neg.matching(mar_dict["sorted_bids"][n_opt], n_opt)
 
-                # run optimization during negotiation (with constraints adapted to matched peer)
-                negotiation_res[n_opt], total_market_info[n_opt] = mat_neg.negotiation(nodes[n], params, par_rh, building_params, init_val[n_opt]["building_" + str(n)],
-                                                             n_opt, options, matched_bids_info[n_opt], mar_dict["block_bid"][n_opt])
+                # compute the block bids for each building
+                mar_dict["block_bid"][n_opt], bes = \
+                    mar_pre_nego.compute_block_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,options, nodes,
+                                                    init_val, mar_dict["propensities"][n_opt], strategies)
+
+                # separate bids in buying and selling, sort by mean price, mean quantity or flexibility characteristic
+                mar_dict["sorted_bids"][n_opt] = \
+                    mar_pre_nego.sort_block_bids(mar_dict["block_bid"][n_opt], options, characteristics[n_opt], n_opt,
+                                                 par_rh, opti_res)
+                # match the block bids to each other according to crit
+                mar_dict["matched_bids_info"][n_opt] = (
+                    mat_neg.matching(mar_dict["sorted_bids"][n_opt], n_opt))
+
+                # run optimization during negotiation (with constraints adapted to matched peer) and save results
+                mar_dict["negotiation_results"][n_opt], mar_dict["total_market_info"][n_opt] \
+                    = mat_neg.negotiation(nodes[n], params, par_rh, building_params, init_val[n_opt]["building_" + str(n)],
+                                                             n_opt, options, mar_dict["matched_bids_info"][n_opt], mar_dict["block_bid"][n_opt])
 
 
 
@@ -165,19 +174,20 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                         mar_dict["propensities"][n_opt + 1] = mar_pre.update_prop(mar_dict, par_rh, n_opt, bes, options,
                                                                                   pars_li, trade_res[n_opt], strategies)
 
-        # change structure of results to be sorted by res instead of building
-        # from opti_res[n_opt][building][result category] to new_opti_res[n_opt][result category][building]
-        opti_res_new = {}
-        for n_opt in range(par_rh["n_opt"]):
-            opti_res_new[n_opt] = {}
-            for i in range(18): # 18 is the number of result categories in opti_bes
-                # if number of result categories changes, this needs to be changed as well!!!
-                opti_res_new[n_opt][i] = {}
-                for n in range(options["nb_bes"]):
-                    opti_res_new[n_opt][i][n] = {}
-                    opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]
+                # change structure of results to be sorted by res instead of building
+                # from opti_res[n_opt][building][result category] to new_opti_res[n_opt][result category][building]
+                opti_res_new = {}
+                for n_opt in range(par_rh["n_opt"]):
+                    opti_res_new[n_opt] = {}
+                    for i in range(18): # 18 is the number of result categories in opti_bes
+                        # if number of result categories changes, this needs to be changed as well!!!
+                        opti_res_new[n_opt][i] = {}
+                        for n in range(options["nb_bes"]):
+                            opti_res_new[n_opt][i][n] = {}
+                            opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]
 
-        return opti_res_new, mar_dict, trade_res, characteristics  #opti_res,
+        # return opti_res_new, mar_dict, trade_res, characteristics  #opti_res,
+        return mar_dict
 
     elif options["optimization"] == "P2P_typeWeeks":
         # runs optimization for type weeks instead of whole month/year
