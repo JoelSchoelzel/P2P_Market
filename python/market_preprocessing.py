@@ -10,6 +10,7 @@ def dict_for_market_data(par_rh):
         "block_bid": {},
         "sorted_bids": {},
         "matched_bids_info": {},
+        "unmatched_bids": {},
         "negotiation_results": {},
         "total_market_info": {},
         "propensities": {n_opt: {} for n_opt in range(par_rh["n_opt"])}

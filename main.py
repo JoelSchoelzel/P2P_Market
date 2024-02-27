@@ -107,7 +107,7 @@ if __name__ == '__main__':
     # Set options for MAScity
     options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
                "bid_strategy": "devices",  # zero for zero-intelligence, learning, devices
-               "crit_prio": "mean_price",  # criteria to assign priority for trading: price, mean_price, mean_quantity, mean_energy, alpha_el_flex, quantity ...
+               "crit_prio": "mean_quantity",  # criteria to assign priority for trading: price, mean_price, mean_quantity, mean_energy, alpha_el_flex, quantity ...
                "descending": True,  # True: highest value of chosen has highest priority, False: lowest
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
                "trading_rounds": 0,  # Number of trading rounds for multi round trading, 0 for unlimited
@@ -137,12 +137,12 @@ if __name__ == '__main__':
     # load heating devs per building
     #scenarios = scenarios.get_scenarios(options)  # Stadtnetz: 195 scenarios
     #scn = 0                                     # selected scenario
-
+    len_block_bids = 3
     # Set rolling horizon options
     par_rh = {
         # Parameters for operational optimization
         "n_hours": 36,  # ----,      number of hours of prediction horizon for rolling horizon
-        "n_hours_ov": 35,  # ----,      number of hours of overlap horizon for rolling horizon
+        "n_hours_ov": 36-len_block_bids,  # ----,      number of hours of overlap horizon for rolling horizon
         "n_opt_max": 8760,  # 8760  # -----,       maximum number of optimizations (one year)
         "month": 8,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data

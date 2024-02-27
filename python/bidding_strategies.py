@@ -19,6 +19,8 @@ class mar_agent_bes(object):
         self.power_nom_bat = node["devs"]["bat"]["max_ch"]
         self.heat_hp_min = 0
         self.heat_hp_max = node["devs"]["hp35"]["cap"] + node["devs"]["hp55"]["cap"]
+        self.heat_chp_min = 0
+        self.heat_chp_max = node["devs"]["chp"]["cap"]
         self.eta_ch = node["devs"]["tes"]["eta_ch"]
         self.eta_dch = node["devs"]["tes"]["eta_dch"]
 

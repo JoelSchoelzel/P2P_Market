@@ -1,3 +1,5 @@
-2024-02-23 15:49:27.507453
+2024-02-27 16:17:19.363262
 The following constraint(s) cannot be satisfied:
-R11
+Heat_discharging_5106
+max_cap_tes_5106
+Storage_bal_tes_5106

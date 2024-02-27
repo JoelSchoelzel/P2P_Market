@@ -30,6 +30,7 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
     # Count keys that are integers (time steps t) and not in the list of known non-time-step keys
     block_length = sum(1 for key in bes_0 if str(key).isdigit() and key not in non_time_step_keys)
     time_steps = par_rh["time_steps"][n_opt][0:block_length]
+    last_time_step = time_steps[-1]
 
     # Durations of time steps # for aggregated RH
     #duration = par_rh["duration"][n_opt]
@@ -696,3 +697,26 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
            # obj, res_c_dem, res_rev, res_soc_nom, node,
            # objVal, runtime, soc_init_rh, res_gas_sum,
            # res_power_trade, res_price_trade, price_buyer, price_seller)
+
+
+def compute_initial_values_block(nb_buildings, opti_res, nego_transactions, last_time_step): # computes the initial values of the BES for the given prediction horizon
+
+    init_val_block = {}
+    # create dict to store initial values of all BES
+    for n in range(nb_buildings):
+        init_val_block["building_"+ str(n)] = {}
+        init_val_block["building_"+ str(n)]["soc"] = {}
+        # fill this dict with initial SoC values of first optimisation
+        for dev in ["tes", "bat", "ev"]:
+            init_val_block["building_" + str(n)]["soc"][dev] = opti_res[n][3][dev][last_time_step]
+
+    # for all buildings in nego_transaction, their SoC values are updated with the SoC values of the last time step
+    # of the negotiation optimisation
+    for match in nego_transactions:
+        b  = nego_transactions[match]["buyer"]
+        s = nego_transactions[match]["seller"]
+        for dev in ["tes", "bat", "ev"]:
+            init_val_block["building_" + str(b)]["soc"][dev] = nego_transactions[match]["opti_bes_res_buyer"]["res_soc"][dev][last_time_step]
+            init_val_block["building_" + str(s)]["soc"][dev] = nego_transactions[match]["opti_bes_res_seller"]["res_soc"][dev][last_time_step]
+
+    return init_val_block
