@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name": "scenario2",  # name of csv input file
+        "scenario_name": "scenario3",  # name of csv input file
     }
 
     '''
@@ -101,18 +101,16 @@ if __name__ == '__main__':
     data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=True) #(calcUserProfiles=False, saveUserProfiles=True)
     data.designDevicesComplete(saveGenerationProfiles=True)
     data.clusterProfiles()
-
     districtData = data
 
     # Set options for MAScity
     options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
                "bid_strategy": "devices",  # zero for zero-intelligence, learning, devices
-               "crit_prio": "mean_quantity",  # criteria to assign priority for trading: price, mean_price, mean_quantity, mean_energy, alpha_el_flex, quantity ...
+               "crit_prio": "mean_quantity",  # criteria to assign priority for trading: (price, alpha_el_flex, quantity...) for single, (mean_price, mean_quantity, mean_energy) for block
                "descending": True,  # True: highest value of chosen has highest priority, False: lowest
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
                "trading_rounds": 0,  # Number of trading rounds for multi round trading, 0 for unlimited
                "flexible_demands": False,  # True: flexible demands aren't necessarily fulfilled every step
-
                "number_typeWeeks": 0,  # set 0 in case no type weeks are investigated
                "full_path_scenario": ("/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/districtgenerator/data/scenarios/" +
                                       options_DG["scenario_name"] + ".csv"),  # scenario csv, name set for DG is used
@@ -132,19 +130,24 @@ if __name__ == '__main__':
                "location": districtData.site['location'],  # degree,   latitude, longitude of location
                "altitude": districtData.site['altitude'],  # m,        height of location above sea level
                "bid_type": "block",  # block, single
+               "negotiation": True,  # True: negotiation, False: auction
               }
 
     # load heating devs per building
     #scenarios = scenarios.get_scenarios(options)  # Stadtnetz: 195 scenarios
     #scn = 0                                     # selected scenario
-    len_block_bids = 3
+
+    if options["bid_type"] == "block":
+        block_length = 3
+    else: block_length = 1
+
     # Set rolling horizon options
     par_rh = {
         # Parameters for operational optimization
         "n_hours": 36,  # ----,      number of hours of prediction horizon for rolling horizon
-        "n_hours_ov": 36-len_block_bids,  # ----,      number of hours of overlap horizon for rolling horizon
+        "n_hours_ov": 36 - block_length,  # ----,      number of hours of overlap horizon for rolling horizon
         "n_opt_max": 8760,  # 8760  # -----,       maximum number of optimizations (one year)
-        "month": 8,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
+        "month": 5,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data
 
         # Parameters for rolling horizon with aggregated foresight
@@ -160,19 +163,21 @@ if __name__ == '__main__':
     # Run (rolling horizon) optimization for whole year or month
     if options["optimization"] == "P2P":
         # run optimization incl. trading
-        opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
-                                                                                               building_params, params) #opti_res
+        #opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
+                                                                                               #building_params, params)
 
+        mar_dict, characteristics = opti_methods.rolling_horizon_opti(options=options, nodes=nodes, par_rh=par_rh,
+                                                                      building_params=building_params, params=params, block_length=block_length)
         # Compute plots
-        criteria = output.compute_out_P2P(options, options_DG, par_rh, opti_results, params, building_params, trade_res,
-                                          mar_dict)
+        #criteria = output.compute_out_P2P(options, options_DG, par_rh, opti_results, params, building_params, trade_res,
+        #                                  mar_dict)
 
         try:
             # Save results
-            with open(options["path_results"] + "/P2P_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-                pickle.dump(opti_results, fp)
-            with open(options["path_results"] + "/P2P_characteristics/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-                pickle.dump(characteristics, fp)
+            #with open(options["path_results"] + "/P2P_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
+            #    pickle.dump(opti_results, fp)
+            #with open(options["path_results"] + "/P2P_characteristics/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
+             #   pickle.dump(characteristics, fp)
             with open(options["path_results"] + "/P2P_mar_dict/" + options_DG["scenario_name"] + "_" +
                       options["crit_prio"] + ".p", 'wb') as fp:
                 pickle.dump(mar_dict, fp)
@@ -186,8 +191,8 @@ if __name__ == '__main__':
                                                                                                  building_params, params)
 
         # Compute plots
-        criteria_typeweeks, criteria_year = output.compute_out_P2P_typeWeeks(options, options_DG, par_rh, opti_results,
-                                                    districtData.weights, params, building_params, trade_res, mar_dict)
+        #criteria_typeweeks, criteria_year = output.compute_out_P2P_typeWeeks(options, options_DG, par_rh, opti_results,
+                              #                      districtData.weights, params, building_params, trade_res, mar_dict)
 
         # Save results
         with open(options["path_results"] + "/P2P_typeWeeks_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:

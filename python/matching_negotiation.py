@@ -10,7 +10,8 @@ def matching (block_bids, n_opt):
     Returns:
         matched_bids_info (list): List of all matched block_bids in tuples.
         Each tuple contains a dict (key [O]= buyer, [1]= seller).
-        Buyer and seller each have a dict (time steps t as key) which contains a list [price, quantity, buying:True/False, building_id]"""
+        Buyer and seller each have a dict (time steps t as key) which contains a
+        list [price, quantity, buying:True/False/None, building_id]"""
 
    # Create a list of tuples where each tuple contains matched buy and sell bids (1st buy bid matches with 1st sell bid,
    # 2nd buy bid matches with 2nd sell bid, etc.)
@@ -41,7 +42,12 @@ def matching (block_bids, n_opt):
 def negotiation(node, params, par_rh, building_param, init_val, n_opt, options, matched_bids_info, block_bid):
 
     """Run the optimization problem for the negotiation phase (taking into account
-    bid quantities and prices of matched peer."""
+    bid quantities and prices of matched peer).
+
+    Returns:
+        nego_transactions (dict): Dictionary containing the results of the negotiation phase for each match.
+        total_market_info (dict): Dictionary containing the results of the total market (all matches).
+        last_time_step (int): Last time step of the optimization horizon."""
 
 
     # Create list of time steps per optimization horizon (dt --> hourly resolution)
@@ -101,7 +107,7 @@ def negotiation(node, params, par_rh, building_param, init_val, n_opt, options, 
             buyer_diff_to_average[t] = float('inf')
             seller_diff_to_average[t] = float('inf')
 
-            while buyer_diff_to_average[t] > 0.05 and seller_diff_to_average[t] > 0.05:
+            while buyer_diff_to_average[t] > 0.005 and seller_diff_to_average[t] > 0.005:
 
                 opti_bes_res_buyer = opti_bes_negotiation.compute_opti(node, params, par_rh, building_param, init_val,
                                                                        n_opt, options, matched_bids_info[match],
@@ -118,7 +124,7 @@ def negotiation(node, params, par_rh, building_param, init_val, n_opt, options, 
                 seller_diff_to_average[t] = abs(seller_trade_price[t] - average_bids_price[t])
 
                 # update delta price
-                delta_price += 0.05
+                delta_price += 0.005
 
                 # if difference is less than 0.05, trade power and trade price of this match are set
                 trade_power[t] = min(opti_bes_res_buyer["res_power_trade"][t], opti_bes_res_seller["res_power_trade"][t])

@@ -13,8 +13,16 @@ import datetime
 import python.matching_negotiation as mat_neg
 
 def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options, matched_bids_info, block_bid, is_buying, delta_price): # computes the optimal operation of the BES for the given prediction horizon
-    # Define subsets
 
+    """Optimization model for the buyers and sellers participating in the negotiation. It is the same as the initial
+    optimization model run in opti_bes, but with the difference that there are additional constraints and variables
+    regarding trading price and power.
+
+    Returns: opti_bes_res (dict): Dictionary containing the results of the optimization model.
+      """
+
+
+    # Define subsets
     heater = ("boiler", "chp", "eh", "hp35", "hp55")
     storage = ("bat", "tes", "ev")
     solar = ("pv",)    #, "stc"
@@ -33,6 +41,7 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
     last_time_step = time_steps[-1]
 
     # Durations of time steps # for aggregated RH
+    #duration = par_rh["duration"][n_opt]
     #duration = par_rh["duration"][n_opt]
 
     # get relevant input data (elec, dhw, heat) for prediction horizon
@@ -699,7 +708,19 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
            # res_power_trade, res_price_trade, price_buyer, price_seller)
 
 
-def compute_initial_values_block(nb_buildings, opti_res, nego_transactions, last_time_step): # computes the initial values of the BES for the given prediction horizon
+
+def compute_initial_values_block(nb_buildings, opti_res, nego_transactions, last_time_step):
+    """
+    Computes the SoC values for each BES at the last time step of the block bid
+    for the current optimization step.
+    First all SoC resulting from initial optimization (in opti_methods) are stored in a dict.
+    Then, for each BES listed in transaction in nego_transactions, the SoC values of the buyer and seller are
+    updated with the SoC resulting from the last time step of the negotiation optimization (in matching_negotiation).
+
+    Returns:
+    init_val_block: dict with SoC values of all BES at the last time step of the block bid for the
+    current optimization step
+    """
 
     init_val_block = {}
     # create dict to store initial values of all BES

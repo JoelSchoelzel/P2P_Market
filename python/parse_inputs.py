@@ -57,14 +57,14 @@ def read_economics():
                 for key in pC.keys()}
     
     # Always EUR per kWh (meter per anno)
-    params["eco"]["sell_pv"]    = 0.082 # €/kWh valid for pv systems with < 10 kWp
+    params["eco"]["sell_pv"]    = 0.081 # €/kWh valid for pv systems with < 10 kWp 0.082
     params["eco"]["sell_chp"] = 0.191 # €/kWh (average Q4 2021 - Q2 2022 + avoided costs for grid usage)
     params["eco"]["co2_gas"] = 0.411 # kg/kWh (Germany, 2019; https://de.statista.com/statistik/daten/studie/38897/umfrage/co2-emissionsfaktor-fuer-den-strommix-in-deutschland-seit-1990/)
     params["eco"]["co2_el"] = 0.241 # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
     params["eco"]["co2_pv"] = 0.056 # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
 
     # calculate costs with prices of Q3+Q4 2021
-    params["eco"]["pr",   "el"]     = 0.3287 # €/kWh, Q3+Q4 2021 (https://www-genesis.destatis.de/genesis/online?operation=previous&levelindex=1&step=1&titel=Ergebnis&levelid=1663949631295&acceptscookies=false#abreadcrumb)
+    params["eco"]["pr",   "el"]     = 0.4627 # 0.3287 €/kWh, Q3+Q4 2021 (https://www-genesis.destatis.de/genesis/online?operation=previous&levelindex=1&step=1&titel=Ergebnis&levelid=1663949631295&acceptscookies=false#abreadcrumb)
     params["eco"]["gas"]     = 0.0683   # €/kWh, Q3+Q4 2021 (https://www-genesis.destatis.de/genesis/online?sequenz=tabelleErgebnis&selectionname=61243-0010&language=de#abreadcrumb)
 
     # calculate costs with raised el/gas prices of Q3 2022

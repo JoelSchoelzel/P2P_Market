@@ -1,7 +1,7 @@
 import numpy as np
 
 def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes, init_val, propensities,
-                       strategies):
+                       strategies, block_length):
     """
     Compute block bids of 3 time steps for all buildings. The bids are created by each building's mar_agent.
 
@@ -19,7 +19,7 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
         block_bid["bes_" + str(n)] = {}
 
         # GET PARAMETERS AT EACH TIMESTEP T FOR BIDDING
-        for t in par_rh["time_steps"][n_opt][0:3]:  # for t, t+1, t+2
+        for t in par_rh["time_steps"][n_opt][0:block_length]:  # for t, t+1, t+2
             # t = par_rh["time_steps"][n_opt][0]
             p_imp = opti_res[n][4][t]
             chp_sell = opti_res[n][8]["chp"][t]
@@ -38,12 +38,10 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
             power_hp = max(opti_res[n][1]["hp35"][t], opti_res[n][1]["hp55"][t])
             heat_devs = sum([opti_res[n][2]["hp35"][t], opti_res[n][2]["hp55"][t], opti_res[n][2]["chp"][t],
                              opti_res[n][2]["boiler"][t], dem_dhw * 0.5])
-
-            # if n_opt == 0:
+            #if n_opt == 0:
             soc = opti_res[n][3]["tes"][t]
-            # else:
-
-            # soc = init_val[n_opt]["building_" + str(n)]["soc"]["tes"]
+            #else:
+                #soc = init_val[n_opt]["building_" + str(n)]["soc"]["tes"]
 
             x = []
             for i in range(7):
@@ -82,6 +80,9 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
 
 # CALCULATE CRITERIA FOR SORTING BLOCK BIDS (mean price, mean quantity, or characteristic)
 def mean_all(block_bid, new_characs):
+    """Calculates the mean value of the matching criteria of a block bid.
+     Returns: mean_price, mean_quantity, mean_energy_forced, mean_energy_delayed, bes_id"""
+
     # calculate mean price, mean quantity (stored in block_bid)
     total_price = 0
     count = 0
