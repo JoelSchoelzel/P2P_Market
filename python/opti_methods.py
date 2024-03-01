@@ -96,8 +96,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
 
 
             # calculate new flexibility characteristics for 3 steps using the SOC from optimization results
-            characteristics[n_opt] = characs.calc_characs(nodes=nodes, options=options, par_rh=par_rh, opti_res=opti_res,
-                                               start_step = n_opt, length=block_length)
+            characteristics[n_opt] = characs.calc_characs(nodes=nodes, options=options, par_rh=par_rh,
+                                                          opti_res=opti_res, start_step=n_opt, length=block_length)
 
             # P2P TRADING NEGOTIATION WITH BLOCK BIDS
             if options["negotiation"] == True:
@@ -106,13 +106,15 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 mar_dict["block_bid"][n_opt], bes = \
                     mar_pre_nego.compute_block_bids(bes=bes, opti_res=opti_res[n_opt], par_rh=par_rh,
                                                     mar_agent_prosumer=mar_agent_bes, n_opt=n_opt, options=options,
-                                                    nodes=nodes, init_val=init_val, propensities=mar_dict["propensities"][n_opt],
-                                                    strategies=strategies, block_length=block_length)
+                                                    nodes=nodes, init_val=init_val[n_opt],
+                                                    propensities=mar_dict["propensities"][n_opt], strategies=strategies,
+                                                    block_length=block_length)
 
                 # separate bids in buying and selling, sort by crit (mean price, mean quantity or flexibility characteristic)
                 mar_dict["sorted_bids"][n_opt] = \
-                    mar_pre_nego.sort_block_bids(block_bid=mar_dict["block_bid"][n_opt], options=options, new_characs=characteristics[n_opt],
-                                                 n_opt=n_opt, par_rh=par_rh, opti_res=opti_res)
+                    mar_pre_nego.sort_block_bids(block_bid=mar_dict["block_bid"][n_opt], options=options,
+                                                 new_characs=characteristics[n_opt],
+                                                 n_opt=n_opt, par_rh=par_rh, opti_res=opti_res[n_opt])
 
                 # match the block bids to each other according to crit
                 mar_dict["matched_bids_info"][n_opt] \
@@ -120,10 +122,10 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
 
                 # run negotiation optimization (with constraints adapted to matched peer) and save results
                 mar_dict["negotiation_results"][n_opt], mar_dict["total_market_info"][n_opt], last_time_step[n_opt]\
-                    = mat_neg.negotiation(node=nodes[n], params=params, par_rh=par_rh, building_param=building_params,
-                                          init_val=init_val[n_opt]["building_" + str(n)], n_opt=n_opt, options=options,
+                    = mat_neg.negotiation(node=nodes, params=params, par_rh=par_rh, building_param=building_params,
+                                          init_val=init_val[n_opt], n_opt=n_opt, options=options,
                                           matched_bids_info=mar_dict["matched_bids_info"][n_opt],
-                                          block_bid=mar_dict["block_bid"][n_opt])
+                                          block_bid=mar_dict["block_bid"][n_opt], block_length=block_length) #init_val_n_opt["building_" + str(n)]
 
                 # create initial SoC values for next optimization step
                 init_val[n_opt + 1] \
@@ -203,7 +205,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                             opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]"""
 
         # return opti_res_new, mar_dict, trade_res, characteristics  #opti_res,
-        return mar_dict, characteristics
+        return mar_dict, characteristics, init_val
 
     elif options["optimization"] == "P2P_typeWeeks":
         # runs optimization for type weeks instead of whole month/year

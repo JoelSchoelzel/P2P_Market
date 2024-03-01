@@ -39,7 +39,7 @@ def matching (block_bids, n_opt):
 
 
 
-def negotiation(node, params, par_rh, building_param, init_val, n_opt, options, matched_bids_info, block_bid):
+def negotiation(node, params, par_rh, building_param, init_val, n_opt, options, matched_bids_info, block_bid, block_length):
 
     """Run the optimization problem for the negotiation phase (taking into account
     bid quantities and prices of matched peer).
@@ -51,11 +51,12 @@ def negotiation(node, params, par_rh, building_param, init_val, n_opt, options, 
 
 
     # Create list of time steps per optimization horizon (dt --> hourly resolution)
-    bes_0 = block_bid["bes_0"]
+    #bes_0 = block_bid["bes_0"]
     # List of known non-time-step keys
-    non_time_step_keys = ["bes_id", "mean_price", "sum_energy", "total_price", "mean_quantity", "mean_energy_forced", "mean_energy_delayed"]
+    #non_time_step_keys = ["bes_id", "mean_price", "sum_energy", "total_price", "mean_quantity", "mean_energy_forced", "mean_energy_delayed"]
     # Count keys that are integers (time steps t) and not in the list of known non-time-step keys
-    block_length = sum(1 for key in bes_0 if str(key).isdigit() and key not in non_time_step_keys)
+    #block_length = sum(1 for key in bes_0 if str(key).isdigit() and key not in non_time_step_keys)
+
     time_steps = par_rh["time_steps"][n_opt][0:block_length]
     last_time_step = time_steps[-1]
 
@@ -106,15 +107,29 @@ def negotiation(node, params, par_rh, building_param, init_val, n_opt, options, 
             seller_trade_price[t] = {}
             buyer_diff_to_average[t] = float('inf')
             seller_diff_to_average[t] = float('inf')
+            buyer_id = matched_bids_info[match][0]["bes_id"]
+            seller_id = matched_bids_info[match][1]["bes_id"]
 
             while buyer_diff_to_average[t] > 0.005 and seller_diff_to_average[t] > 0.005:
 
-                opti_bes_res_buyer = opti_bes_negotiation.compute_opti(node, params, par_rh, building_param, init_val,
-                                                                       n_opt, options, matched_bids_info[match],
-                                                                       block_bid, is_buying=True, delta_price=delta_price)
-                opti_bes_res_seller = opti_bes_negotiation.compute_opti(node, params, par_rh, building_param, init_val,
-                                                                        n_opt, options, matched_bids_info[match],
-                                                                        block_bid, is_buying=False, delta_price=delta_price)
+                opti_bes_res_buyer \
+                        = opti_bes_negotiation.compute_opti(node=node[buyer_id], params=params, par_rh=par_rh,
+                                                            building_param=building_param,
+                                                            init_val=init_val["building_" + str(buyer_id)],
+                                                            n_opt=n_opt, options=options,
+                                                            matched_bids_info=matched_bids_info[match],
+                                                            block_bid=block_bid, is_buying=True,
+                                                            delta_price=delta_price, block_length=block_length)
+                opti_bes_res_seller \
+                        = opti_bes_negotiation.compute_opti(node=node[seller_id], params=params, par_rh=par_rh,
+                                                            building_param=building_param,
+                                                            init_val=init_val["building_" + str(seller_id)],
+                                                            n_opt=n_opt, options=options,
+                                                            matched_bids_info=matched_bids_info[match],
+                                                            block_bid=block_bid, is_buying=False,
+                                                            delta_price=delta_price, block_length=block_length)
+
+
 
                 # compare trade price of buyer and seller (resulting from opti) with average price of initial bids
                 average_bids_price[t] = opti_bes_res_buyer["average_bids_price"][t]
@@ -126,10 +141,12 @@ def negotiation(node, params, par_rh, building_param, init_val, n_opt, options, 
                 # update delta price
                 delta_price += 0.005
 
-                # if difference is less than 0.05, trade power and trade price of this match are set
+                # if difference is less than 0.005, trade power and trade price of this match are set
                 trade_power[t] = min(opti_bes_res_buyer["res_power_trade"][t], opti_bes_res_seller["res_power_trade"][t])
                 trade_price[t] = (buyer_trade_price[t] + seller_trade_price[t]) / 2
 
+
+                ## Calculate results of transaction for this match and all time steps within block bid
                 # calculate sum of traded power and trade price for this match
                 trade_power_sum += trade_power[t]
                 if trade_power_sum > 0:

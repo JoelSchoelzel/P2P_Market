@@ -166,8 +166,9 @@ if __name__ == '__main__':
         #opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
                                                                                                #building_params, params)
 
-        mar_dict, characteristics = opti_methods.rolling_horizon_opti(options=options, nodes=nodes, par_rh=par_rh,
-                                                                      building_params=building_params, params=params, block_length=block_length)
+        mar_dict, characteristics, init_val = opti_methods.rolling_horizon_opti(options=options, nodes=nodes, par_rh=par_rh,
+                                                                      building_params=building_params, params=params,
+                                                                      block_length=block_length)
         # Compute plots
         #criteria = output.compute_out_P2P(options, options_DG, par_rh, opti_results, params, building_params, trade_res,
         #                                  mar_dict)

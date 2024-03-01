@@ -12,7 +12,8 @@ import numpy as np
 import datetime
 import python.matching_negotiation as mat_neg
 
-def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options, matched_bids_info, block_bid, is_buying, delta_price): # computes the optimal operation of the BES for the given prediction horizon
+def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options, matched_bids_info, block_bid,
+                 is_buying, delta_price, block_length): # computes the optimal operation of the BES for the given prediction horizon
 
     """Optimization model for the buyers and sellers participating in the negotiation. It is the same as the initial
     optimization model run in opti_bes, but with the difference that there are additional constraints and variables
@@ -32,11 +33,11 @@ def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options,
     dt = par_rh["duration"][n_opt]
 
     # Create list of time steps per optimization horizon (dt --> hourly resolution)
-    bes_0 = block_bid["bes_0"]
+    #bes_0 = block_bid["bes_0"]
     # List of known non-time-step keys
-    non_time_step_keys = ["bes_id", "mean_price", "sum_energy", "total_price", "mean_quantity", "mean_energy_forced", "mean_energy_delayed"]
+    #non_time_step_keys = ["bes_id", "mean_price", "sum_energy", "total_price", "mean_quantity", "mean_energy_forced", "mean_energy_delayed"]
     # Count keys that are integers (time steps t) and not in the list of known non-time-step keys
-    block_length = sum(1 for key in bes_0 if str(key).isdigit() and key not in non_time_step_keys)
+    #block_length = sum(1 for key in bes_0 if str(key).isdigit() and key not in non_time_step_keys)
     time_steps = par_rh["time_steps"][n_opt][0:block_length]
     last_time_step = time_steps[-1]
 
