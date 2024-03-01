@@ -3,13 +3,11 @@ import pickle
 import math
 
 
-def calc_characs(nodes, options, par_rh, opti_res: dict = None, start_step: int = None, length: int = 3):
+def calc_characs(nodes, options, par_rh, block_length, opti_res: dict = None, start_step: int = None): #length: int = 3
     """
     Calculate KPIs to evaluate different flexibilities of each building according to Stinner et al.
-    "https://linkinghub.elsevier.com/retrieve/pii/S0306261916311424"
 
     If an optimization result is provided, the SOC of the result is used. Otherwise an empty storage is assumed for
-    forced flexibility and a full storage is assumed for delayed flexibility.
 
     Args:
         nodes (dict):
@@ -18,7 +16,7 @@ def calc_characs(nodes, options, par_rh, opti_res: dict = None, start_step: int 
         opti_res: optimization result to get SOC, if not provided a empty/full SOC is assumed
         start_step: starting optimization step for which flexibility characs are calculated,
             if not provided all optimization steps are calculated
-        length: amount of optimization steps to be calculated, only relevant when start_step is provided
+        block_length: amount of optimization steps to be calculated, only relevant when start_step is provided
 
     Returns:
         characs (dict): Dictionary containing the following KPIs:
@@ -101,10 +99,10 @@ def calc_characs(nodes, options, par_rh, opti_res: dict = None, start_step: int 
         # set step params
         if start_step is not None:
             start_hour = par_rh["hour_start"][start_step]
-            # when a start step is provided, start and length is used:
+            # when a start step is provided, start and block_length is used:
             max_step = start_hour + par_rh["n_hours"]  # set the starting step + 36 hours as the maximum step
             data_steps = list(range(start_hour, max_step))  # use the data for 36 hours (optimization horizon)
-            result_steps = list(range(start_hour, start_hour + length))  # only calculate results for the specified steps
+            result_steps = list(range(start_hour, start_hour + block_length))  # only calculate results for the specified steps
         else:
             # when no start step is provided, all steps in par_rh are used
             max_step = par_rh["n_opt"]  # maximum step is end of data
@@ -357,7 +355,7 @@ def calc_characs(nodes, options, par_rh, opti_res: dict = None, start_step: int 
         print("Building " + str(n) + " finished.")
 
     # only save when calculated for a large amount of steps or all steps
-    if start_step is None or length > 700:
+    if start_step is None or block_length > 700:
         with open(options["path_results"] + "/P2P_characteristics/" + datetime.datetime.now().strftime("%m-%d-%H-%M") +
                   ".p", 'wb') as fp:
             pickle.dump(characs, fp)

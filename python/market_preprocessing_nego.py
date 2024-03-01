@@ -1,6 +1,6 @@
 import numpy as np
 
-def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes, init_val, propensities,
+def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes,
                        strategies, block_length):
     """
     Compute block bids of 3 time steps for all buildings. The bids are created by each building's mar_agent.
@@ -38,10 +38,8 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
             power_hp = max(opti_res[n][1]["hp35"][t], opti_res[n][1]["hp55"][t])
             heat_devs = sum([opti_res[n][2]["hp35"][t], opti_res[n][2]["hp55"][t], opti_res[n][2]["chp"][t],
                              opti_res[n][2]["boiler"][t], dem_dhw * 0.5])
-            #if n_opt == 0:
             soc = opti_res[n][3]["tes"][t]
-            #else:
-                #soc = init_val[n_opt]["building_" + str(n)]["soc"]["tes"]
+
 
             x = []
             for i in range(7):
