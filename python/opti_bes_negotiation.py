@@ -12,7 +12,7 @@ import numpy as np
 import datetime
 import python.matching_negotiation as mat_neg
 
-def compute_opti(node, params, par_rh, building_param, init_val, n_opt, options, matched_bids_info,
+def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_info,
                  is_buying, delta_price, block_length): # computes the optimal operation of the BES for the given prediction horizon
 
     """Optimization model for the buyers and sellers participating in the negotiation. It is the same as the initial
@@ -727,7 +727,7 @@ def compute_initial_values_block(nb_buildings, opti_res, nego_transactions, last
     # for all buildings in nego_transaction, their SoC values are updated with the SoC values of the last time step
     # of the negotiation optimisation
     for match in nego_transactions:
-        b  = nego_transactions[match]["buyer"]
+        b = nego_transactions[match]["buyer"]
         s = nego_transactions[match]["seller"]
         for dev in ["tes", "bat", "ev"]:
             init_val_block["building_" + str(b)]["soc"][dev] = nego_transactions[match]["opti_bes_res_buyer"]["res_soc"][dev][last_time_step]

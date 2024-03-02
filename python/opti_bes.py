@@ -202,6 +202,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
     model.addConstr(c_dem[dev] == sum(p_imp[t] * params["eco"]["pr", "el"] for t in time_steps),
                     name="Demand_costs_" + dev)
 
+
     # Revenues for selling electricity to the grid / neighborhood
     for dev in ("chp", "pv"):
         model.addConstr(revenue[dev] == sum(p_sell[dev][t] * params["eco"]["sell" + "_" + dev] for t in time_steps),
@@ -400,6 +401,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
                         == p_imp[t],
                         name="Electricity_balance_" + str(t))
 
+
     # Guarantee that just feed-in OR load is possible
     #for t in time_steps:
     #    # TODO: net params
@@ -496,7 +498,8 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
     res_p_sell = {}
     for dev in ("chp", "pv"):
         res_p_use[dev] = {(t): p_use[dev][t].X for t in time_steps}
-        res_p_sell[dev] = {(t): p_sell[dev][t].X for t in time_steps}
+        #res_p_sell[dev] = {(t): p_sell[dev][t].X for t in time_steps}
+        res_p_sell[dev] = {t: round(p_sell[dev][t].X, 15) for t in time_steps}
 
     obj = model.ObjVal
     print("Obj: " + str(model.ObjVal))

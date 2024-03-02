@@ -39,7 +39,7 @@ def matching (block_bids, n_opt):
 
 
 
-def negotiation(nodes, params, par_rh, building_params, init_val, n_opt, options, matched_bids_info, block_length):
+def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_info, block_length):
 
     """Run the optimization problem for the negotiation phase (taking into account
     bid quantities and prices of matched peer).
@@ -107,14 +107,12 @@ def negotiation(nodes, params, par_rh, building_params, init_val, n_opt, options
 
                 opti_bes_res_buyer \
                         = opti_bes_negotiation.compute_opti(node=nodes[buyer_id], params=params, par_rh=par_rh,
-                                                            building_param=building_params,
                                                             init_val=init_val["building_" + str(buyer_id)],
                                                             n_opt=n_opt, options=options,
                                                             matched_bids_info=matched_bids_info[match], is_buying=True,
                                                             delta_price=delta_price, block_length=block_length)
                 opti_bes_res_seller \
                         = opti_bes_negotiation.compute_opti(node=nodes[seller_id], params=params, par_rh=par_rh,
-                                                            building_param=building_params,
                                                             init_val=init_val["building_" + str(seller_id)],
                                                             n_opt=n_opt, options=options,
                                                             matched_bids_info=matched_bids_info[match], is_buying=False,

@@ -40,7 +40,6 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
                              opti_res[n][2]["boiler"][t], dem_dhw * 0.5])
             soc = opti_res[n][3]["tes"][t]
 
-
             x = []
             for i in range(7):
                 x.append(sum(nodes[n]["heat"][i * 24:i * 24 + 24]) + 0.5 * sum(nodes[n]["dhw"][i * 24:i * 24 + 24]))
@@ -49,25 +48,30 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
             # COMPUTE BLOCK BIDS AND INFLEXIBLE DEMANDS
 
             # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
-            if power_hp >= 0.0 and p_imp > 0.0 and pv_sell == 0:
+            #if power_hp >= 0.0 and p_imp > 0.0 and pv_sell == 0:
+            if power_hp >= 0.0 and p_imp > 0.0 and pv_sell < 1e-8:
                 block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
-                    mar_agent_prosumer[n].compute_hp_bids(p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp,
-                                                          options, strategies, weights, heat_hp, heat_devs, soc_set_max)
+                    mar_agent_prosumer[n].compute_hp_bids(p_imp=p_imp, n=n, bid_strategy=bid_strategy, dem_heat=dem_heat,
+                                                          dem_dhw=dem_dhw, soc=soc, power_hp=power_hp,options=options,
+                                                          strategies=strategies, weights=weights, heat_hp=heat_hp,
+                                                          heat_devs=heat_devs, soc_set_max=soc_set_max)
 
 
             # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
             elif pv_sell > 0:
                 block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_pv_bids(
-                    dem_elec, soc_bat, power_pv, p_ch_bat, p_dch_bat,
-                    pv_sell, pv_peak, t, n, options["bid_strategy"],
-                    strategies, weights, options)
+                    dem_elec=dem_elec, soc_bat=soc_bat, power_pv=power_pv, p_ch_bat=p_ch_bat, p_dch_bat=p_dch_bat,
+                    pv_sell=pv_sell, pv_peak=pv_peak, t=t, n=n, bid_strategy=options["bid_strategy"],
+                   strategies=strategies, weights=weights, options=options)
                 # bes[n]["hp_dem"][n_opt] = 0
 
             # when electricity from chp needs to be sold, compute_chp_bids() of the mar_agent is called
             elif chp_sell > 0:
                 block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
-                    mar_agent_prosumer[n].compute_chp_bids(chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc, options,
-                                                           strategies, weights, heat_chp, heat_devs, soc_set_max)
+                    mar_agent_prosumer[n].compute_chp_bids(chp_sell=chp_sell, n=n, bid_strategy=bid_strategy,
+                                                           dem_heat=dem_heat, dem_dhw=dem_dhw, soc=soc, options=options,
+                                                           strategies=strategies, weights=weights, heat_chp=heat_chp,
+                                                           heat_devs=heat_devs, soc_set_max=soc_set_max)
 
             # when no electricity needs to be bought or sold, compute_empty_bids() of the mar_agent is called
             else:
@@ -131,10 +135,9 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
 
     # SEPARATE BLOCK BIDS INTO BUY AND SELL LISTS
     for n in range(len(block_bid)):  # iterate through buildings
-        block_bid_info = {}
-        bes_id, mean_price, sum_energy, total_price, mean_quantity, mean_energy_forced, mean_energy_delayed = mean_all(
-            block_bid["bes_" + str(n)], new_characs)
-        # bes_id=[f[3] for f in block_bid["bes_" + str(n)].values()]
+        bes_id, mean_price, sum_energy, total_price, mean_quantity, mean_energy_forced, mean_energy_delayed \
+            = mean_all(block_bid=block_bid["bes_" + str(n)], new_characs=new_characs)
+
         block_bid_info = {"bes_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
                           "total_price": total_price,
                           "mean_quantity": mean_quantity, "mean_energy_forced": mean_energy_forced,

@@ -104,7 +104,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
 
             # calculate new flexibility characteristics for 3 steps using the SOC from optimization results
             characteristics[n_opt] = characs.calc_characs(nodes=nodes, options=options, par_rh=par_rh,
-                                                          block_length=block_length, opti_res=opti_res, start_step=n_opt)
+                                                          block_length=block_length, opti_res=opti_res,
+                                                          start_step=n_opt)
 
             # P2P TRADING NEGOTIATION WITH BLOCK BIDS
             if options["negotiation"] == True:
@@ -115,7 +116,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                     mar_agent_prosumer=mar_agent_bes, n_opt=n_opt, options=options,
                                                     nodes=nodes, strategies=strategies, block_length=block_length)
 
-                # separate bids in buying and selling, sort by crit (mean price, mean quantity or flexibility characteristic)
+                # separate bids in buying & selling, sort by crit (mean price/quantity or flexibility characteristic)
                 mar_dict["sorted_bids"][n_opt] = \
                     mar_pre_nego.sort_block_bids(block_bid=mar_dict["block_bid"][n_opt], options=options,
                                                  new_characs=characteristics[n_opt],
@@ -127,7 +128,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
 
                 # run negotiation optimization (with constraints adapted to matched peer) and save results
                 mar_dict["negotiation_results"][n_opt], mar_dict["total_market_info"][n_opt], last_time_step[n_opt]\
-                    = mat_neg.negotiation(nodes=nodes, params=params, par_rh=par_rh, building_params=building_params,
+                    = mat_neg.negotiation(nodes=nodes, params=params, par_rh=par_rh,
                                           init_val=init_val[n_opt], n_opt=n_opt, options=options,
                                           matched_bids_info=mar_dict["matched_bids_info"][n_opt],
                                           block_length=block_length)
@@ -187,9 +188,9 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     init_val[n_opt + 1] = decentral_opti.initial_values_flex(opti_res[n_opt], par_rh, n_opt, nodes, options,
                                                                              trade_res[n_opt], init_val[n_opt])
 
-                trade_res[n_opt]["dem_total"], trade_res[n_opt]["sup_total"] = mar_pre.total_sup_and_dem(opti_res[n_opt],
-                                                                                                         par_rh, n_opt,
-                                                                                                         options["nb_bes"])
+                trade_res[n_opt]["dem_total"], trade_res[n_opt]["sup_total"] \
+                    = mar_pre.total_sup_and_dem(opti_res[n_opt], par_rh, n_opt, options["nb_bes"])
+
                 # if there's next step:
                 if n_opt < par_rh["n_opt"] - 1:
                     # update propensities
@@ -321,7 +322,8 @@ def decentral_operation(node, params, pars_rh, building_params, init_val, n_opt,
     Internally, the results of the subproblem are stored.
     """
            
-    opti_res = decentral_opti.compute(node, params, pars_rh, building_params, init_val, n_opt, options)
+    opti_res = decentral_opti.compute(node=node, params=params, par_rh=pars_rh, building_param=building_params,
+                                      init_val=init_val, n_opt=n_opt, options=options)
 
     return opti_res
 

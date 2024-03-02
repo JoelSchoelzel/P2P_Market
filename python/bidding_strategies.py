@@ -74,7 +74,6 @@ class mar_agent_bes(object):
 
             q = p_imp # Annahme, dass komplette Menge flexibel ist
 
-            #
             # if p_imp == power_hp:
             #     q = power_hp
             #     q_2 = 0
@@ -173,25 +172,10 @@ class mar_agent_bes(object):
                         strategies, weights, options):
         """Compute the bid when electricity from the PV needs to be sold."""
 
-        soc_nom = self.soc_nom_bat
-        power_nom = self.power_nom_bat
-        soc_set_max = soc_nom - (p_ch_bat + pv_sell) * self.dt
-        soc_set_min = p_dch_bat * self.dt
-        unflex = 0
-
-        if options["flexible_demands"]:
-            if soc_bat >= soc_set_max:
-                unflex = pv_sell
-            else:
-                unflex = 0
-        else:
-            unflex = pv_sell
-
         # compute bids with device oriented strategy
         if bid_strategy == "devices":
             soc_nom = self.soc_nom_bat
             power_nom = self.power_nom_bat
-
             soc_set_max = soc_nom - (p_ch_bat + pv_sell) * self.dt
             soc_set_min = p_dch_bat * self.dt
 
@@ -218,6 +202,17 @@ class mar_agent_bes(object):
         # compute bids with learning
         elif bid_strategy == "learning":
             p = np.random.choice(strategies, p=weights["bes_" + str(n) + "_sell"])
+
+
+        unflex = 0
+        soc_set_max = self.soc_nom_bat - (p_ch_bat + pv_sell) * self.dt
+        if options["flexible_demands"]:
+            if soc_bat >= soc_set_max:
+                unflex = pv_sell
+            else:
+                unflex = 0
+        else:
+            unflex = pv_sell
 
         q = pv_sell
         buying = str("False")
