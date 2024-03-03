@@ -7,11 +7,12 @@ import python.opti_methods as opti_methods
 import python.parse_inputs as parse_inputs
 import python.load_scenarios as scenarios
 import python.load_net as net
+import python.plotting_p2p as plotting
 import python.plots as plots
 import python.calc_output as output
 import pickle
-
-
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import datetime
@@ -169,6 +170,34 @@ if __name__ == '__main__':
         mar_dict, characteristics, init_val = opti_methods.rolling_horizon_opti(options=options, nodes=nodes, par_rh=par_rh,
                                                                       building_params=building_params, params=params,
                                                                       block_length=block_length)
+
+
+
+        # Plotting
+
+        time_steps = []
+        traded_power = []
+        for n_opt in range(len(par_rh["org_time_steps"])):
+            time_steps.append(par_rh["hour_start"][n_opt])
+            traded_power.append(mar_dict["total_market_info"][n_opt]["total_traded_volume"])
+
+        data = {
+            "time_steps": time_steps,
+            "traded_power_within_district": traded_power
+        }
+
+        df = pd.DataFrame(data)
+
+        plt.figure(figsize=(10, 6))  # Optional: Adjusts the figure size
+        plt.plot(df["time_steps"], df["traded_power_within_district"], marker='o')
+        plt.title("Traded power within district")  # Title of the plot
+        plt.xlabel("Timesteps")  # X-axis label
+        plt.ylabel("Traded volume within district")  # Y-axis label
+        plt.grid(True)  # Optional: Shows grid
+        plt.show()  # Displays the plot
+
+
+
         # Compute plots
         #criteria = output.compute_out_P2P(options, options_DG, par_rh, opti_results, params, building_params, trade_res,
         #                                  mar_dict)
