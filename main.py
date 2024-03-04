@@ -171,12 +171,47 @@ if __name__ == '__main__':
                                                                       building_params=building_params, params=params,
                                                                       block_length=block_length)
 
+        with open(options["path_results"] + "/mar_dict_P2P_" + options_DG["scenario_name"] + ".p", 'wb') as fp:
+            pickle.dump(mar_dict, fp)
+
+            """
+            def plot(list1, list2):
+            time_steps = list1
+            traded_power = list2
+
+            data = {
+                "time_steps": time_steps,
+                "traded_power_within_district": traded_power
+            }
+            df = pd.DataFrame(data)
+
+            return df
+
+        list1 = [3, 5, 7, 9]
+        list2 = [2, 6, 4, 8]
+        df = plot(list1, list2)
+        plt.plot(df["time_steps"], df["traded_power_within_district"])
+        plt.xlabel("Timesteps")  # X-axis label
+        plt.ylabel("Traded volume within district")  # Y-axis label
+        plt.title("Traded power within district")  # Title of the plot
+        plt.show()
 
 
-        # Plotting
+        
+        df = plotting.mar_dict_to_df(mar_dict=mar_dict, par_rh=par_rh)
+        plt.figure(figsize=(10, 6))  # Optional: Adjusts the figure size
+        plt.plot(df["time_steps"], df["traded_power_within_district"], marker='o')
+        plt.title("Traded power within district")  # Title of the plot
+        plt.xlabel("Timesteps")  # X-axis label
+        plt.ylabel("Traded volume within district")  # Y-axis label
+        plt.grid(True)  # Optional: Shows grid
+        plt.show()  # Displays the plot
 
-        time_steps = []
-        traded_power = []
+         # Plotting
+        time_steps = [3,6,5,7]
+        traded_power = [2,8,5,0]
+        plt.plot(time_steps, traded_power)
+        plt.show()
         for n_opt in range(len(par_rh["org_time_steps"])):
             time_steps.append(par_rh["hour_start"][n_opt])
             traded_power.append(mar_dict["total_market_info"][n_opt]["total_traded_volume"])
@@ -187,14 +222,13 @@ if __name__ == '__main__':
         }
 
         df = pd.DataFrame(data)
-
         plt.figure(figsize=(10, 6))  # Optional: Adjusts the figure size
         plt.plot(df["time_steps"], df["traded_power_within_district"], marker='o')
         plt.title("Traded power within district")  # Title of the plot
         plt.xlabel("Timesteps")  # X-axis label
         plt.ylabel("Traded volume within district")  # Y-axis label
         plt.grid(True)  # Optional: Shows grid
-        plt.show()  # Displays the plot
+        plt.show()  # Displays the plot"""
 
 
 
@@ -202,7 +236,7 @@ if __name__ == '__main__':
         #criteria = output.compute_out_P2P(options, options_DG, par_rh, opti_results, params, building_params, trade_res,
         #                                  mar_dict)
 
-        try:
+        """try:
             # Save results
             #with open(options["path_results"] + "/P2P_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
             #    pickle.dump(opti_results, fp)
@@ -213,7 +247,7 @@ if __name__ == '__main__':
                 pickle.dump(mar_dict, fp)
 
         except Exception as e:
-            print("Error while trying to save:", str(e))
+            print("Error while trying to save:", str(e))"""
 
     # Run (rolling horizon) optimization for type weeks
     elif options["optimization"] == "P2P_typeWeeks":

@@ -1,9 +1,12 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+import python.opti_methods as opti_methods
+
+
 
 # transform the data saved in mar_dict into a DataFrame, in order to plot them with matplotlib
 
-def mar_dict_to_df(mar_dict,par_rh):
+def mar_dict_to_df(mar_dict, par_rh):
     """Transform the data saved in mar_dict into a DataFrame, in order to plot them with matplotlib"""
 
     time_steps = []
@@ -19,7 +22,47 @@ def mar_dict_to_df(mar_dict,par_rh):
 
     df = pd.DataFrame(data)
 
+    return None
+
+"plot = mar_dict_to_df()"
+
+
+"""def plot(list1, list2):
+    time_steps = list1
+    traded_power = list2
+
+    data = {
+        "time_steps": time_steps,
+        "traded_power_within_district": traded_power
+    }
+
+    df = pd.DataFrame(data)
+
+    return df"""
+
+
+
+def plot(list1, list2):
+    time_steps = list1
+    traded_power = list2
+
+    data = {
+        "time_steps": time_steps,
+        "traded_power_within_district": traded_power
+    }
+
+    df = pd.DataFrame(data)
+
     return df
+
+list1= [3,5,7,9]
+list2 = [2,6,4,8]
+df = plot(list1, list2)
+plt.plot(df["time_steps"], df["traded_power_within_district"])
+plt.xlabel("Timesteps")  # X-axis label
+plt.ylabel("Traded volume within district")  # Y-axis label
+plt.title("Traded power within district")  # Title of the plot
+plt.show()
 
 
 
