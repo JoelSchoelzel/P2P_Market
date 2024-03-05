@@ -11,7 +11,6 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
     """
 
     weights = {}
-
     block_bid = {}
 
     # ITERATE THROUGH ALL BUILDINGS
@@ -49,7 +48,7 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
 
             # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
             #if power_hp >= 0.0 and p_imp > 0.0 and pv_sell == 0:
-            if power_hp >= 0.0 and p_imp > 0.0 and pv_sell < 1e-8:
+            if power_hp >= 0.0 and p_imp > 0.0 and pv_sell < 1e-3:
                 block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
                     mar_agent_prosumer[n].compute_hp_bids(p_imp=p_imp, n=n, bid_strategy=bid_strategy, dem_heat=dem_heat,
                                                           dem_dhw=dem_dhw, soc=soc, power_hp=power_hp,options=options,

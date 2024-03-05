@@ -39,7 +39,7 @@ def matching (block_bids, n_opt):
 
 
 
-def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_info, block_length):
+def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_info, block_bids, block_length):
 
     """Run the optimization problem for the negotiation phase (taking into account
     bid quantities and prices of matched peer).
@@ -58,7 +58,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # initialize all necessary variables
     delta_price = 0
-
     trade_power = {}
     trade_power_sum = 0
     trade_price = {}
@@ -74,9 +73,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
     power_to_grid_sum = 0
 
 
-    sup_total_matched = 0
-    dem_total_matched = 0
-    total_trade_price = 0
+    total_sup_matched = 0
+    total_dem_matched = 0
     total_average_trade_price = 0
     trade_cost_sum = 0
     total_trade_cost_sum = 0
@@ -84,11 +82,15 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
     total_traded_volume = 0
     total_power_to_grid = 0
     total_power_from_grid = 0
+    saved_costs = {}
+    additional_revenue = {}
+
 
     for match in range(len(matched_bids_info)):
         for t in time_steps:
-            sup_total_matched += matched_bids_info[match][1][t][1]
-            dem_total_matched += matched_bids_info[match][0][t][1]
+            total_dem_matched += matched_bids_info[match][0][t][1]
+            total_sup_matched += matched_bids_info[match][1][t][1]
+
 
     # buyer and seller of each match run their optimization model until their price_trade difference to average price
     # is less than 0.05
@@ -102,6 +104,10 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             seller_diff_to_average[t] = float('inf')
             buyer_id = matched_bids_info[match][0]["bes_id"]
             seller_id = matched_bids_info[match][1]["bes_id"]
+            saved_costs[t] = {}
+            additional_revenue[t] = {}
+            saved_costs_sum = 0
+            additional_rev_sum = 0
 
             while buyer_diff_to_average[t] > 0.005 and seller_diff_to_average[t] > 0.005:
 
@@ -153,6 +159,18 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 power_from_grid_sum += power_from_grid[t]
                 power_to_grid_sum += power_to_grid[t]
 
+                # calculate the additional revenue and saved costs for this match compared to trading with grid
+                saved_costs[t] = trade_power[t] * (params["eco"]["pr", "el"] - trade_price[t])
+
+                #TODO: add additional revenue for the sellers in comparison to selling to the grid
+                if opti_bes_res_seller["res_rev"]["chp"][t] > 0:
+                    additional_revenue[t] = trade_power[t] * (trade_price[t] - params["eco"]["sell" + "_" + "chp"])
+                elif opti_bes_res_seller["res_rev"]["pv"][t] > 0:
+                    additional_revenue[t] = trade_power[t] * (trade_price[t] - params["eco"]["sell" + "_" + "pv"])
+
+                additional_rev_sum += additional_revenue[t]
+                saved_costs_sum += saved_costs[t]
+
 
 
         # store the results of the transaction for this match and all time steps within block bid
@@ -166,6 +184,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 "power_to_grid": power_to_grid_sum,
                 "power_from_grid": power_from_grid_sum,
                 "average_trade_price": trade_price_sum/len(time_steps),
+                "saved_costs": saved_costs_sum,
+                "additional_revenue": additional_rev_sum,
                 "opti_bes_res_buyer": opti_bes_res_buyer,
                 "opti_bes_res_seller": opti_bes_res_seller
         }
@@ -182,6 +202,21 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
         total_average_trade_price = average_trade_price_sum / count
 
+    total_demand = {}
+    total_supply = {}
+    supply_cover_factor = {}
+    demand_cover_factor = {}
+
+    for t in time_steps:
+        for buyer in block_bids["buy_blocks"]:
+            total_demand[t] = block_bids["buy_blocks"][buyer][t][1]
+        for seller in block_bids["sell_blocks"]:
+            total_supply[t] = block_bids["sell_blocks"][seller][t][1]
+
+        supply_cover_factor[t] = total_traded_volume[t] / total_supply[t]
+        demand_cover_factor[t] = total_traded_volume[t] / total_demand[t]
+
+
 
     # TODO: add unmatched buyers/sellers to the total_market_info
     # store the results of the total market (all matches)
@@ -191,8 +226,10 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
         "total_traded_volume": total_traded_volume,
         "total_power_to_grid": total_power_to_grid,
         "total_power_from_grid": total_power_from_grid,
-        "sup_total_matched": sup_total_matched, #here the supply of unmatched sellers is missing
-        "dem_total_matched": dem_total_matched #here the demand of unmatched buyers is missing
+        "total_sup_matched": total_sup_matched, #here the supply of unmatched sellers is missing
+        "total_dem_matched": total_dem_matched, #here the demand of unmatched buyers is missing
+        "power_from_grid_unmatched": 0,
+        "power_to_grid_unmatched": 0
     }
     return nego_transactions, total_market_info, last_time_step
 
