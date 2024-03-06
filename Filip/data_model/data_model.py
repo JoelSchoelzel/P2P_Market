@@ -1,5 +1,5 @@
 import filip.models.ngsi_v2.context
-from pydantic import BaseModel, Field, schema_json_of
+from pydantic import BaseModel, Field, TypeAdapter
 from filip.models.base import DataType
 from typing import Union, Optional, Annotated, List
 from aenum import Enum
@@ -95,6 +95,7 @@ class CoordinatorGateTime(BaseModel):
     Coordinator has time schedule for the whole trading. The pertinent activity can only be conducted in permitted time.
     """
     gate: datetime
+
 
 class PowerDirection(BaseModel):
     tradingObjectRole: MarketRole
@@ -222,10 +223,9 @@ class FIWAREPublishTransaction(PublishTransaction):
 
 
 # todo convert pydantic model to json schema
-# bid_schema = schema_json_of(Bid, indent=2)
-# print(bid_schema)
+bid_schema = json.dumps(PublishBid.model_json_schema(), indent=2)
 
-# with open('bid_schema.json', 'w') as f:
-#     f.write(bid_schema)
+with open('bid_schema.json', 'w') as f:
+    f.write(bid_schema)
 # bid_schema_dict = json.loads(bid_schema)
 # json.dump(bid_schema_dict, f, indent=2)

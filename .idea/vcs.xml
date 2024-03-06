@@ -5,6 +5,7 @@
     <mapping directory="$PROJECT_DIR$/Filip" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/Filip/JSP" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/Filip/jsonschemaparser" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/jsonschemaparser" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/src/jsonschemaparser" vcs="Git" />
   </component>
 </project>
