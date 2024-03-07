@@ -31,9 +31,9 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # Extract parameters
     dt = par_rh["duration"][n_opt]
-    #time_steps = par_rh["time_steps"][n_opt][0:block_length]
+    time_steps = par_rh["time_steps"][n_opt][0:block_length]
     # or time steps = complete prediction horizon
-    time_steps = par_rh["time_steps"][n_opt]
+    #time_steps = par_rh["time_steps"][n_opt]
 
 
     # Durations of time steps # for aggregated RH
@@ -190,23 +190,27 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     average_trade_price = {}
 
     # quantity and price of the buyer and seller is only set for block length
-    for t in time_steps[0:block_length]:
+    for t in time_steps:
+    #for t in time_steps[0:block_length]:
         price_bid_buyer[t] = matched_bids_info[0][t][0]
         quantity_bid_buyer[t] = matched_bids_info[0][t][1]
         price_bid_seller[t] = matched_bids_info[1][t][0]
         quantity_bid_seller[t] = matched_bids_info[1][t][1]
         average_trade_price[t] = (price_bid_buyer[t] + price_bid_seller[t])/2
 
-    # quantity of the buyer and seller after block length is set to 0
+    """# quantity of the buyer and seller after block length is set to 0
     # price of buyer and seller after block length is set to grid prices
     for t in time_steps[block_length:]:
-        price_bid_buyer[t] = params["eco"]["pr", "el"]
         quantity_bid_buyer[t] = 0
-        # if seller has chp, the chp grid price is set; if seller has no chp, the pv grid price is set
-        for dev in ["chp", "pv"]:
-            if node["devs"][dev]["cap"] > 0:
-                price_bid_seller[t] = params["eco"]["sell" + "_" + dev]
-                quantity_bid_seller[t] = 0
+        quantity_bid_seller[t] = 0
+        price_bid_buyer[t] = params["eco"]["pr", "el"]
+        price_bid_seller[t] = params["eco"]["sell_pv"]
+        #price_bid_seller[t] = params["eco"]["sell_chp"]
+        # if seller has chp, the chp grid sell price is set; if seller has no chp, the pv grid sell price is set
+        #for dev in ["chp", "pv"]:
+        #    if node["devs"][dev]["cap"] > 0:
+        #        price_bid_seller[t] = params["eco"]["sell" + "_" + dev]"""
+
 
 
     for t in time_steps:
@@ -531,7 +535,6 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         if is_buying:
             model.addConstr(demands["elec"][t] + p_ch["bat"][t] - p_dch["bat"][t] + p_ch["ev"][t] - p_dch["ev"][t]
                             + power["hp35"][t] + power["hp55"][t] + power["eh"][t] - p_use["chp"][t] - p_use["pv"][t]
-
                             == p_imp[t] + power_trade["buyer"][t],
                             name="Electricity_balance_" + str(t))
         else:
@@ -644,19 +647,12 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         res_p_sell[dev] = {(t): p_sell[dev][t].X for t in time_steps}
 
 
-    #res_power_trade = {}
-    #for peer in ["buyer", "seller"]:
-    #    res_power_trade[peer] = {(t): power_trade[peer][t].X for t in time_steps}
-
-
     if is_buying:
         res_price_trade = {(t): price_trade["buyer"][t].X for t in time_steps}
         res_power_trade = {(t): power_trade["buyer"][t].X for t in time_steps}
     else:
         res_price_trade = {(t): price_trade["seller"][t].X for t in time_steps}
         res_power_trade = {(t): power_trade["seller"][t].X for t in time_steps}
-    #     for peer in ["buyer", "seller"]:
-    #         res_price_trade[peer] = {(t): price_trade[peer][t].X for t in time_steps}
 
 
 
@@ -709,11 +705,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     }
 
     return opti_bes_res
-    # return (res_y, res_power, res_heat, res_soc,
-           # res_p_imp, res_p_ch, res_p_dch, res_p_use, res_p_sell,
-           # obj, res_c_dem, res_rev, res_soc_nom, node,
-           # objVal, runtime, soc_init_rh, res_gas_sum,
-           # res_power_trade, res_price_trade, price_buyer, price_seller)
+
 
 
 

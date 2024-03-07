@@ -196,11 +196,12 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 additional_revenue[t] = trade_power[t] * (trade_price[t] - params["eco"]["sell" + "_" + "chp"])
             elif opti_bes_res_seller["res_p_sell"]["pv"][t] > 1e-4:
                 additional_revenue[t] = trade_power[t] * (trade_price[t] - params["eco"]["sell" + "_" + "pv"])
-
             additional_rev_sum += additional_revenue[t]
             saved_costs_sum += saved_costs[t]
 
-
+            # calculate the total demand and supply of all matched buyers and sellers
+            total_dem_matched += matched_bids_info[match][0][t][1]
+            total_sup_matched += matched_bids_info[match][1][t][1]
 
         # store the results of the transaction for this match and all time steps within block bid
         nego_transactions[match] = {
@@ -240,19 +241,21 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
         demand_cover_factor[t] = total_traded_volume[t] / total_demand[t]"""
 
 
-    # TODO: add unmatched buyers/sellers to the total_market_info
     # store the results of the total market (all matches)
+    # TODO: add power to/from grid and SCF/DCF to the total_market_info
     total_market_info = {
         "supply_demand_ratio": supply_demand_ratio,
         "total_trade_cost_sum": total_trade_cost_sum,
         "total_average_trade_price": total_average_trade_price,
         "total_traded_volume": total_traded_volume,
-        "total_power_to_grid": total_power_to_grid,
-        "total_power_from_grid": total_power_from_grid,
-        "total_sup_matched": total_sup_matched, #here the supply of unmatched sellers is missing
-        "total_dem_matched": total_dem_matched, #here the demand of unmatched buyers is missing
-        "power_from_grid_unmatched": 0,
-        "power_to_grid_unmatched": 0
+        "total_power_to_grid_matches": total_power_to_grid,
+        "total_power_from_grid_matches": total_power_from_grid,
+        "total_sup_matches": total_sup_matched,
+        "total_dem_matches": total_dem_matched,
+        "total_power_from_grid_unmatched": 0,
+        "total_power_to_grid_unmatched": 0,
+        "supply_cover_factor": 0,
+        "demand_cover_factor": 0
     }
     return nego_transactions, total_market_info, last_time_step
 

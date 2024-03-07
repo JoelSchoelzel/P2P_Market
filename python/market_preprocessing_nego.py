@@ -101,7 +101,7 @@ def mean_all(block_bid, new_characs):
     mean_quantity = sum_energy / count if count > 0 else 0
     bes_id = bes_id_list[0]
 
-    # calculate mean energy forced and delayed (stored in new_characs)
+    """# calculate mean energy forced and delayed (stored in new_characs)
     total_energy_forced = 0
     total_energy_delayed = 0
     count_energy_forced = 0
@@ -116,9 +116,9 @@ def mean_all(block_bid, new_characs):
         count_energy_delayed += 1
 
     mean_energy_forced = total_energy_forced / count_energy_forced if count > 0 else 0
-    mean_energy_delayed = total_energy_delayed / count_energy_delayed if count > 0 else 0
+    mean_energy_delayed = total_energy_delayed / count_energy_delayed if count > 0 else 0"""
 
-    return bes_id, mean_price, sum_energy, total_price, mean_quantity, mean_energy_forced, mean_energy_delayed
+    return bes_id, mean_price, sum_energy, total_price, mean_quantity, # mean_energy_forced, mean_energy_delayed
 
 
 def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
@@ -134,13 +134,18 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
 
     # SEPARATE BLOCK BIDS INTO BUY AND SELL LISTS
     for n in range(len(block_bid)):  # iterate through buildings
-        bes_id, mean_price, sum_energy, total_price, mean_quantity, mean_energy_forced, mean_energy_delayed \
-            = mean_all(block_bid=block_bid["bes_" + str(n)], new_characs=new_characs)
+        bes_id, mean_price, sum_energy, total_price, mean_quantity \
+            = mean_all(block_bid=block_bid["bes_" + str(n)], new_characs=new_characs) #mean_energy_forced, mean_energy_delayed \
+
+        # add flexible energy for forced and delayed to block_bid (only for first timestep, since it is calculated for 36h)
+        first_t = par_rh["time_steps"][n_opt][0]
+        flex_energy_forced = new_characs[bes_id]["energy_forced"][first_t]
+        flex_energy_delayed = new_characs[bes_id]["energy_delayed"][first_t]
 
         block_bid_info = {"bes_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
-                          "total_price": total_price,
-                          "mean_quantity": mean_quantity, "mean_energy_forced": mean_energy_forced,
-                          "mean_energy_delayed": mean_energy_delayed}  # "bes_id": bes_id[0]
+                          "total_price": total_price, "mean_quantity": mean_quantity,
+                          "flex_energy_forced": flex_energy_forced, "flex_energy_delayed": flex_energy_delayed}
+                          #"mean_energy_forced": mean_energy_forced, "mean_energy_delayed": mean_energy_delayed}  # "bes_id": bes_id[0]
         block_bid["bes_" + str(n)].update(block_bid_info)
 
         # Add str whether buying or not to bool_list
@@ -187,7 +192,7 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
 
 
     # sort buy_list and sell_list by flexible mean energy if mean energy has been specified as criteria in options
-    elif options["crit_prio"] == "mean_energy":
+    elif options["crit_prio"] == "flex_energy":
         # highest energy flexibility of seller (lowest flexibility of buyer) first if descending has been set True in options
         if options["descending"]:
             # most flexible buyer is the one, that can buy more than given buy quantity (soc of tes is low -> energy_forced high)
