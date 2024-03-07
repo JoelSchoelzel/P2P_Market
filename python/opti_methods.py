@@ -131,7 +131,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     = mat_neg.negotiation(nodes=nodes, params=params, par_rh=par_rh,
                                           init_val=init_val[n_opt], n_opt=n_opt, options=options,
                                           matched_bids_info=mar_dict["matched_bids_info"][n_opt],
-                                          block_bids=mar_dict["block_bid"][n_opt], block_length=block_length)
+                                          sorted_bids=mar_dict["sorted_bids"][n_opt], block_length=block_length)
 
                 # create initial SoC values for next optimization step
                 init_val[n_opt + 1] \

@@ -31,7 +31,9 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # Extract parameters
     dt = par_rh["duration"][n_opt]
-    time_steps = par_rh["time_steps"][n_opt][0:block_length]
+    #time_steps = par_rh["time_steps"][n_opt][0:block_length]
+    # or time steps = complete prediction horizon
+    time_steps = par_rh["time_steps"][n_opt]
 
 
     # Durations of time steps # for aggregated RH
@@ -186,12 +188,25 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     price_bid_buyer = {}
     price_bid_seller = {}
     average_trade_price = {}
-    for t in time_steps:
+
+    # quantity and price of the buyer and seller is only set for block length
+    for t in time_steps[0:block_length]:
         price_bid_buyer[t] = matched_bids_info[0][t][0]
         quantity_bid_buyer[t] = matched_bids_info[0][t][1]
         price_bid_seller[t] = matched_bids_info[1][t][0]
         quantity_bid_seller[t] = matched_bids_info[1][t][1]
         average_trade_price[t] = (price_bid_buyer[t] + price_bid_seller[t])/2
+
+    # quantity of the buyer and seller after block length is set to 0
+    # price of buyer and seller after block length is set to grid prices
+    for t in time_steps[block_length:]:
+        price_bid_buyer[t] = params["eco"]["pr", "el"]
+        quantity_bid_buyer[t] = 0
+        # if seller has chp, the chp grid price is set; if seller has no chp, the pv grid price is set
+        for dev in ["chp", "pv"]:
+            if node["devs"][dev]["cap"] > 0:
+                price_bid_seller[t] = params["eco"]["sell" + "_" + dev]
+                quantity_bid_seller[t] = 0
 
 
     for t in time_steps:
