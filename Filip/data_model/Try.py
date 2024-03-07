@@ -1,37 +1,30 @@
-from enum import Enum
-from pydantic import BaseModel, Field
+import importlib
+import json
+import os
+import sys
+import tempfile
+from pathlib import Path
+from types import ModuleType
+from typing import Union, Any, Mapping, Dict, Literal, get_origin, get_args
+from urllib.error import HTTPError
+from urllib.parse import ParseResult
+import logging
+import unittest
+
+from pydantic import ValidationError
+import sys
+sys.path.append("D:\\jdu-zwu\\jsonschemaparser\\jsonschemaparser\\parser.py")
+from jsonschemaparser import JsonSchemaParser
+from jsonschemaparser import NormalizedModel
 
 
-class FooBar(BaseModel):
-    count: int
-    size: float = None
+parser = JsonSchemaParser()
+bid_id = parser.parse_schema(schema='D:\\jdu-zwu\\P2P_Market\\Filip\\data_model\\FIWAREPublishBid_schema.json',
+                             model_class=NormalizedModel,
+                             )
+print(bid_id)
 
+bid_instance = {'id': 'bid:001', "type": "Bid"}
 
-class Gender(str, Enum):
-    male = 'male'
-    female = 'female'
-    other = 'other'
-    not_given = 'not_given'
-
-
-class MainModel(BaseModel):
-    """
-    This is the description of the main model
-    """
-
-    foo_bar: FooBar = Field(...)
-    gender: Gender = Field(None, alias='Gender')
-    snap: int = Field(
-        42,
-        title='The Snap',
-        description='this is the value of snap',
-        gt=30,
-        lt=50,
-    )
-
-    class Config:
-        title = 'Main'
-
-
-# this is equivalent to json.dumps(MainModel.schema(), indent=2):
-print(MainModel.schema_json(indent=2))
+bid_model = parser.create_context_entity(identifier=bid_id, instance=bid_instance)
+print(bid_model)

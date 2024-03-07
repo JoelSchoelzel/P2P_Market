@@ -22,8 +22,10 @@ import config
 # import for data model
 import json
 # from jsonschemaparser import JsonSchemaParser
-from data_model.data_model import MarketParticipant, PublishBid, \
-    CreatedDateTime, Price, Quantity
+# from data_model.data_model import MarketParticipant, PublishBid, \
+#     CreatedDateTime, Price, Quantity
+from data_model.PublishBid import PublishBid, CreatedDateTime, Price, Quantity
+from data_model.MarketParticipant import MarketParticipant
 
 # Load environment variables from .env file
 load_dotenv()

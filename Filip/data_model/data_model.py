@@ -1,12 +1,8 @@
-import filip.models.ngsi_v2.context
-from pydantic import BaseModel, Field, TypeAdapter
-from filip.models.base import DataType
-from typing import Union, Optional, Annotated, List
+from pydantic import BaseModel, Field
+from typing import Union, List
 from aenum import Enum
 from datetime import datetime
-from uuid import UUID
 import json
-from decimal import Decimal
 
 
 # class EntityID(Field):
@@ -136,8 +132,11 @@ class MarketParticipant(BaseModel):
     refActiveBid: str = Field(description="Entity ID of relevant active bid")
     refTransaction: str = Field(description="Entity ID of relevant Transaction result")
 
-    class Config:
-        title = 'MarketParticipant'
+
+# convert pydantic data model to JSON schema
+MarketParticipant_schema = json.dumps(MarketParticipant.model_json_schema(), indent=2)
+with open('MarketParticipant_schema.json', 'w') as f:
+    f.write(MarketParticipant_schema)
 
 
 # print(MarketParticipant.schema_json(indent=2))
@@ -151,6 +150,19 @@ class PublishBid(BaseModel):
     refMarketParticipant: str = Field(description="...")
 
 
+class FIWAREPublishBid(BaseModel):
+    id: str = Field(description="...")
+    type: str = Field(description="...")
+
+
+# convert pydantic data model to JSON schema
+PublishBid_schema = json.dumps(PublishBid.model_json_schema(), indent=2)
+with open('PublishBid_schema.json', 'w') as f:
+    f.write(PublishBid_schema)
+
+FIWAREPublishBid_schema = json.dumps(FIWAREPublishBid.model_json_schema(), indent=2)
+with open('FIWAREPublishBid_schema.json', 'w') as f:
+    f.write(FIWAREPublishBid_schema)
 # class Bid(BaseModel):
 #     """
 #     Represents  bid to purchase or sell energy in electricity market
@@ -161,11 +173,13 @@ class PublishBid(BaseModel):
 #     transactionCreatedDateTime: CreatedDateTime = Field(description='Date and time that this Bid was created')
 #     price: Price
 #     quantity: Quantity
-#     marketRole: MarketRole = Field(description='An identification of a party acting in a electricity market business process')
+#     marketRole: MarketRole = Field(description='An identification of a party acting in a electricity market business
+#     process')
 #     refMarketparticipant: str = Field(description="...")
 #
 #     class Config:
 #         title = 'Bid'
+
 
 class Coordinator(BaseModel):
     id: str = Field(description="...")
@@ -175,9 +189,6 @@ class Coordinator(BaseModel):
     bidStopTime: CoordinatorGateTime = Field(description="")
     transactionStartTime: CoordinatorGateTime = Field(description="Start time and date for bid applies.")
     transactionStopTime: CoordinatorGateTime = Field(description="")
-
-
-# print(Bid.schema_json(indent=2))
 
 
 class PublishTransaction(BaseModel):
@@ -195,7 +206,15 @@ class FIWAREPublishTransaction(PublishTransaction):
     type:  str = Field(description="...")
     # publishTransaction: PublishTransaction = Field(description='...')
 
-# print(PublishTransaction.schema_json(indent=2))
+
+# convert pydantic data model to JSON schema
+PublishTransaction_schema = json.dumps(PublishTransaction.model_json_schema(), indent=2)
+with open('PublishTransaction_schema.json', 'w') as f:
+    f.write(PublishTransaction_schema)
+
+FIWAREPublishTransaction_schema = json.dumps(FIWAREPublishTransaction.model_json_schema(), indent=2)
+with open('FIWAREPublishTransaction_schema.json', 'w') as f:
+    f.write(FIWAREPublishTransaction_schema)
 #
 #
 # class Coordinator(BaseModel):
@@ -212,20 +231,3 @@ class FIWAREPublishTransaction(PublishTransaction):
 # print(Coordinator.schema_json(indent=2))
 
 
-# class MarketParticipant(BaseModel):
-#     name: BuildingName
-#     refBid: RefBid
-#     refTransaction: RefTransaction
-#
-#
-# class MarketParticipantFIWARE(MarketParticipant):
-#     id: BuildingID
-
-
-# todo convert pydantic model to json schema
-bid_schema = json.dumps(PublishBid.model_json_schema(), indent=2)
-
-with open('bid_schema.json', 'w') as f:
-    f.write(bid_schema)
-# bid_schema_dict = json.loads(bid_schema)
-# json.dump(bid_schema_dict, f, indent=2)
