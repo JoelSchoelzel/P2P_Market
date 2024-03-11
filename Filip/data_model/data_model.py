@@ -123,20 +123,26 @@ class TradeResults(BaseModel):
 #     round: int
 
 
-# todo main model
 class MarketParticipant(BaseModel):
-    id: str = Field(description="Entity ID of MarketParticipant")
-    type: str = Field(description="Entity type of MarketParticipant")
     buildingName: str = Field(description="Building's name")
     userID: str = Field(description='The user name for the Building')
     refActiveBid: str = Field(description="Entity ID of relevant active bid")
     refTransaction: str = Field(description="Entity ID of relevant Transaction result")
 
 
+class FIWAREMarketParticipant(MarketParticipant):
+    id: str = Field(description="Entity ID of MarketParticipant")
+    type: str = Field(description="Entity type of MarketParticipant")
+
+
 # convert pydantic data model to JSON schema
 MarketParticipant_schema = json.dumps(MarketParticipant.model_json_schema(), indent=2)
-with open('MarketParticipant_schema.json', 'w') as f:
+with open('D:\\jdu-zwu\\P2P_Market\\Filip\\data_model\\MarketParticipant\\MarketParticipant_schema.json', 'w') as f:
     f.write(MarketParticipant_schema)
+
+FIWAREMarketParticipant_schema = json.dumps(FIWAREMarketParticipant.model_json_schema(), indent=2)
+with open('D:\\jdu-zwu\\P2P_Market\\Filip\\data_model\\MarketParticipant\\FIWAREMarketParticipant_schema.json', 'w') as f:
+    f.write(FIWAREMarketParticipant_schema)
 
 
 # print(MarketParticipant.schema_json(indent=2))
@@ -150,18 +156,18 @@ class PublishBid(BaseModel):
     refMarketParticipant: str = Field(description="...")
 
 
-class FIWAREPublishBid(BaseModel):
+class FIWAREPublishBid(PublishBid):
     id: str = Field(description="...")
     type: str = Field(description="...")
 
 
 # convert pydantic data model to JSON schema
 PublishBid_schema = json.dumps(PublishBid.model_json_schema(), indent=2)
-with open('PublishBid_schema.json', 'w') as f:
+with open('D:\\jdu-zwu\\P2P_Market\\Filip\\data_model\\Bid\\PublishBid_schema.json', 'w') as f:
     f.write(PublishBid_schema)
 
 FIWAREPublishBid_schema = json.dumps(FIWAREPublishBid.model_json_schema(), indent=2)
-with open('FIWAREPublishBid_schema.json', 'w') as f:
+with open('D:\\jdu-zwu\\P2P_Market\\Filip\\data_model\\Bid\\FIWAREPublishBid_schema.json', 'w') as f:
     f.write(FIWAREPublishBid_schema)
 # class Bid(BaseModel):
 #     """
@@ -209,11 +215,11 @@ class FIWAREPublishTransaction(PublishTransaction):
 
 # convert pydantic data model to JSON schema
 PublishTransaction_schema = json.dumps(PublishTransaction.model_json_schema(), indent=2)
-with open('PublishTransaction_schema.json', 'w') as f:
+with open('D:\\jdu-zwu\\P2P_Market\\Filip\\data_model\\Transaction\\PublishTransaction_schema.json', 'w') as f:
     f.write(PublishTransaction_schema)
 
 FIWAREPublishTransaction_schema = json.dumps(FIWAREPublishTransaction.model_json_schema(), indent=2)
-with open('FIWAREPublishTransaction_schema.json', 'w') as f:
+with open('D:\\jdu-zwu\\P2P_Market\\Filip\\data_model\\Transaction\\FIWAREPublishTransaction_schema.json', 'w') as f:
     f.write(FIWAREPublishTransaction_schema)
 #
 #

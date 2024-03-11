@@ -9,6 +9,8 @@ from classes import Datahandler
 options_DG = {
     "scenario_name": "ma_zehao",  # name of csv input file
 }
+# "scenario_test" for 4 buildings
+# D:\jdu-zwu\P2P_Market\results\criteria_P2P_scenario_test
 
 # create district with load (elec, heat, ..) and generation (pv, bz ..)  profiles as input for MAScity
 # districtData = DistrictGenerator.run_districtgenerator(options_DG)

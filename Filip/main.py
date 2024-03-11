@@ -32,8 +32,7 @@ if __name__ == '__main__':
     building_number = scenario.size
 
     # call Class Building
-    buildings = [Building(id=f"urn:ngsi-ld:Building:{i}", type="Building",
-                          userID=str(i), buildingName=f"bes_{i}",
+    buildings = [Building(userID=str(i), buildingName=f"bes_{i}",
                           refTransaction="Test", refActiveBid="Test") for i in range(building_number)]
 
     # call Class Coordinator, the coordinator should have and its own information and buildings'

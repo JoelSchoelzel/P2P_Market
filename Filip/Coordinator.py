@@ -8,7 +8,9 @@ from filip.models.ngsi_v2.subscriptions import Subscription
 from filip.models.ngsi_v2.iot import ServiceGroup
 import os
 from dotenv import load_dotenv
-from data_model.data_model import PublishTransaction, CreatedDateTime, Price, Quantity, TradeInformation, PowerDirection
+from data_model.Transaction.PublishTransaction import PublishTransaction, CreatedDateTime, TradeInformation, \
+    Price, Quantity, PowerDirection
+from data_model.Transaction.FIWAREPublishTransaction import FiwarePublishTransaction
 import uuid
 import json
 import requests
@@ -27,7 +29,7 @@ fiware_headers = {
     'Content-Type': 'application/json'}
 
 
-class Coordinator():
+class Coordinator:
 
     def __init__(self, cbc: ContextBrokerClient, iotac: IoTAClient, qlc: QuantumLeapClient, buildings):
         self.transaction_entity: ContextEntity
@@ -48,7 +50,7 @@ class Coordinator():
     def platform_configuration(self, number_building):
         # Provision service group and add it to IOTAClient
         self.iotac.post_group(service_group=service_group, update=True)
-        self.transaction_entity = self.create_transaction_attributes(number_building)
+        self.transaction_entity_dict = self.create_transaction_attributes(number_building)
         self.post_transaction_entities()
         with open('historic_transaction_subscription.json') as f:
             historic_transaction_subscription_dict = json.load(f)
@@ -58,6 +60,32 @@ class Coordinator():
             historic_transaction_subscription_dict['subject']['condition']['attrs'] = 'transactionID'
             historic_transaction_subscription = Subscription(**historic_transaction_subscription_dict)
         self.cbc.post_subscription(subscription=historic_transaction_subscription)
+
+    def create_transaction_attributes(self, number_building):
+        transaction_entity = FiwarePublishTransaction(id=f"urn:ngsi-ld:Transaction:{number_building}",
+                                                      type=self.transaction_entity_type,
+                                                      transactionID='Test',
+                                                      transactionCreatedDateTime='Test',
+                                                      tradeResults='Test',
+                                                      refMarketParticipant='Test')
+        # transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{number_building}",
+        #                                    type=self.transaction_entity_type)
+        # transaction_id = NamedContextAttribute(name='transactionID',
+        #                                        type='Text')
+        # transaction_created_time = NamedContextAttribute(name='transactionCreatedDateTime',
+        #                                                  type='DateTime')
+        # transaction_results = NamedContextAttribute(name='tradeResults',
+        #                                             type='StructuredValue')
+        # transaction_building = NamedContextAttribute(name='refMarketParticipant',
+        #                                              type='Text')
+        # transaction_entity.add_attributes(
+        #     [transaction_id, transaction_created_time, transaction_results, transaction_building])
+        transaction_entity_dict = transaction_entity.model_dump()
+        return transaction_entity_dict
+
+    def post_transaction_entities(self):
+        self.transaction_entity = ContextEntity(**self.transaction_entity_dict)
+        self.cbc.post_entity(entity=self.transaction_entity)
 
     def get_bids(self):
         for i in range(len(self.buildings)):
@@ -319,24 +347,6 @@ class Coordinator():
             # go to next trading round
             n += 1
 
-    def create_transaction_attributes(self, number_building):
-        transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{number_building}",
-                                           type=self.transaction_entity_type)
-        transaction_id = NamedContextAttribute(name='transactionID',
-                                               type='Text')
-        transaction_created_time = NamedContextAttribute(name='transactionCreatedDateTime',
-                                                         type='DateTime')
-        transaction_results = NamedContextAttribute(name='tradeResults',
-                                                    type='StructuredValue')
-        transaction_building = NamedContextAttribute(name='refMarketParticipant',
-                                                     type='Text')
-        transaction_entity.add_attributes(
-            [transaction_id, transaction_created_time, transaction_results, transaction_building])
-        return transaction_entity
-
-    def post_transaction_entities(self):
-        self.cbc.post_entity(entity=self.transaction_entity)
-
     def reformat_publish_transaction(self, start_datetime):  # TODO Set the number of buildings, time of running hour
         # add the relevant information from transaction to the corresponding building entity
         # once the transaction entity is created, it will be published to context broker
@@ -434,7 +444,7 @@ class Coordinator():
                                                      realQuantity=Quantity(quantity=transaction_item['Quantity']),
                                                      powerDirection=PowerDirection(tradingObjectRole='buyer',
                                                                                    tradingObjectID=f"{transaction_item['Buyer']}"))
-                                                     # f"buyer: {transaction_item['Buyer']}")
+                                    # f"buyer: {transaction_item['Buyer']}")
                                     for transaction_item in transaction_list]
 
                     self.transaction_to_publish = PublishTransaction(transactionID=str(uuid.uuid4()),

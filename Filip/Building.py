@@ -15,17 +15,17 @@ from dotenv import load_dotenv
 import numpy as np
 from pydantic import ConfigDict
 import uuid
+from enum import Enum
 
 # import from P2P_Market
 import config
 
 # import for data model
 import json
-# from jsonschemaparser import JsonSchemaParser
-# from data_model.data_model import MarketParticipant, PublishBid, \
-#     CreatedDateTime, Price, Quantity
-from data_model.PublishBid import PublishBid, CreatedDateTime, Price, Quantity
-from data_model.MarketParticipant import MarketParticipant
+from data_model.Bid.PublishBid import PublishBid, CreatedDateTime, Price, Quantity, MarketRole
+from data_model.Bid.FIWAREPublishBid import FiwarePublishBid, CreatedDateTime, Price, Quantity, MarketRole
+from data_model.MarketParticipant.MarketParticipant import MarketParticipant
+from data_model.MarketParticipant.FIWAREMarketParticipant import FiwareMarketParticipant
 
 # Load environment variables from .env file
 load_dotenv()
@@ -63,38 +63,28 @@ class Building(MarketParticipant):
         self.iotac = iotac
 
     def initial_fiware_information(self):
-        # self.userID = data['id']
         # building entity id and type
-        # self.marketParticipantID = f"urn:ngsi-ld:Building:{self.id}"
-        # self.marketParticipantType = "Building"
-        # self.refActiveBid = f"urn:ngsi-ld:Bid:{self.id}"
-        # self.refTransaction = f"urn:ngsi-ld:Transaction:{self.id}"
+        self.id = f"urn:ngsi-ld:Building:{self.userID}"
+        self.type = "Building"
         # bid device id, entity id and type
         self.bid_device_id = f"bid_device:{self.userID}"
-        # self.bid_entity_title = Bid(id=f"urn:ngsi-ld:Bid:{self.userID}",
-        #                             type="Bid")
         self.bid_entity_id = f"urn:ngsi-ld:Bid:{self.userID}"
         self.bid_entity_type = "Bid"
         # transaction entity id and type
-        # self.transaction_entity_title = Transaction(id=f"urn:ngsi-ld:Transaction:{self.userID}",
-        #                                             type="Transaction")
         self.transaction_entity_id = f"urn:ngsi-ld:Transaction:{self.userID}"
         # self.transaction_entity_type = "Transaction"
         self.transaction_topic = f"/v2/transactions/urn:ngsi-ld:Transaction:{self.userID}/attrs"
         # building entity
-        self.building_entity = self.create_building_entity()
+        self.building_entity_dict = self.create_building_entity()
         # bid device and entity
         self.bid_device = self.create_bid_device()
-        self.bid_entity = self.create_bid_entity()
+        self.bid_entity_dict = self.create_bid_entity()
         self.platform_configuration()
         self.mqtt_initialization()
         self.bid = {}
         self.init_val = {}
 
     def publish_data(self, time_index):
-        # with open('bid_schema.json', 'r') as f:
-        #     bid_schema = json.load(f)
-
         bid_to_publish = PublishBid(bidID=str(uuid.uuid4()),
                                     bidCreatedDateTime=CreatedDateTime(time=str(time_index)),
                                     expectedPrice=Price(price=self.bid[f"bes_{self.userID}"][0]),
@@ -117,7 +107,7 @@ class Building(MarketParticipant):
         #                    "buyer": self.bid1[f"bes_{self.id}"][2],
         #                    "number": int(self.bid1[f"bes_{self.id}"][3])}
         # json_data = bid_schema(**data_to_publish)
-        bid_dict = bid_to_publish.dict()
+        bid_dict = bid_to_publish.model_dump()
         json_data = json.dumps(bid_dict)
         # publish the device and data
         self.mqttc.publish(topic=f"/json/{APIKEY_BID}/{self.bid_device_id}/attrs",
@@ -126,45 +116,127 @@ class Building(MarketParticipant):
         time.sleep(0.1)
 
     def create_building_entity(self):
-        building_entity = ContextEntity(id=self.id,
-                                        type=self.type)
-
-        building_name = NamedContextAttribute(name='buildingName',
-                                              type="String",
-                                              value=self.buildingName)
-        building_id = NamedContextAttribute(name='userID',
-                                            type='String',
-                                            value=self.userID)
-        building_bid = NamedContextAttribute(name='refActiveBid',
-                                             type='Relationship',
-                                             value=self.bid_entity_id)
-        building_transaction = NamedContextAttribute(name='refTransaction',
-                                                     type='Relationship',
-                                                     value=self.transaction_entity_id)
-        building_entity.add_attributes([building_name, building_id, building_bid, building_transaction])
-        return building_entity
+        building_entity = FiwareMarketParticipant(id=self.id,
+                                                  type=self.type,
+                                                  buildingName=self.buildingName,
+                                                  userID=self.userID,
+                                                  refActiveBid=self.bid_entity_id,
+                                                  refTransaction=self.transaction_entity_id
+                                                  )
+        # building_entity = ContextEntity(id=self.id,
+        #                                 type=self.type
+        #                                 )
+        # building_name = NamedContextAttribute(name='buildingName',
+        #                                       type="String",
+        #                                       value=self.buildingName)
+        # building_id = NamedContextAttribute(name='userID',
+        #                                     type='String',
+        #                                     value=self.userID)
+        # building_bid = NamedContextAttribute(name='refActiveBid',
+        #                                      type='Relationship',
+        #                                      value=self.bid_entity_id)
+        # building_transaction = NamedContextAttribute(name='refTransaction',
+        #                                              type='Relationship',
+        #                                              value=self.transaction_entity_id)
+        # building_entity.add_attributes([building_name, building_id, building_bid, building_transaction])
+        building_entity_pydantic_dict = building_entity.model_dump()
+        building_entity_dict = self.utils_schema2fiware(building_entity_pydantic_dict)
+        return building_entity_dict
 
     def create_bid_entity(self):
-        # TODO reasonable entity id and type
-        bid_entity = ContextEntity(id=self.bid_entity_id,
-                                   type=self.bid_entity_type)
+        bid_entity = FiwarePublishBid(id=self.bid_entity_id,
+                                      type=self.bid_entity_type,
+                                      bidID='Test',
+                                      bidCreatedDateTime=CreatedDateTime(time='Test'),
+                                      expectedPrice=Price(price=0),
+                                      expectedQuantity=Quantity(quantity=0),
+                                      marketRole=MarketRole.buyer,
+                                      refMarketParticipant=self.id)
+        #
 
-        bid_id = NamedContextAttribute(name='bidID',
-                                       type="String")
-        bid_created_time = NamedContextAttribute(name='bidCreatedDateTime',
-                                                 type="String")
-        bid_price = NamedContextAttribute(name='expectedPrice',
-                                          type='Float')
-        bid_quantity = NamedContextAttribute(name='expectedQuantity',
-                                             type='Float')
-        bid_role = NamedContextAttribute(name='marketRole',
-                                         type='String')
-        bid_building = NamedContextAttribute(name='refMarketParticipant',
-                                             type='Relationship',
-                                             value=self.id)
+        # bid_entity = ContextEntity(id=self.bid_entity_id,
+        #                            type=self.bid_entity_type)
+        #
+        # bid_id = NamedContextAttribute(name='bidID',
+        #                                type="String")
+        # bid_created_time = NamedContextAttribute(name='bidCreatedDateTime',
+        #                                          type="String")
+        # bid_price = NamedContextAttribute(name='expectedPrice',
+        #                                   type='Float')
+        # bid_quantity = NamedContextAttribute(name='expectedQuantity',
+        #                                      type='Float')
+        # bid_role = NamedContextAttribute(name='marketRole',
+        #                                  type='String')
+        # bid_building = NamedContextAttribute(name='refMarketParticipant',
+        #                                      type='Relationship',
+        #                                      value=self.id)
+        # bid_entity.add_attributes([bid_id, bid_created_time, bid_price, bid_quantity, bid_role, bid_building])
+        bid_entity_pydantic_dict = bid_entity.model_dump()
+        bid_entity_dict = self.utils_schema2fiware(bid_entity_pydantic_dict)
+        return bid_entity_dict
 
-        bid_entity.add_attributes([bid_id, bid_created_time, bid_price, bid_quantity, bid_role, bid_building])
-        return bid_entity
+    def utils_schema2fiware(self, json_dict):
+        # TODO turn plain value to structured value
+        """
+        input
+        ------
+        {
+        'id': 'urn:ngsi-ld:Building:0',
+        'type': 'Building'
+        'buildingName': 'bes_0',
+         ...
+         ...
+        }
+        ----
+
+        output
+        {
+        'id': 'urn:ngsi-ld:Building:0',
+        'type': 'Building'
+        'buildingName': {
+                "type": "Text",
+                "value": "bes_0"
+        },
+         ...
+         ...
+        }
+
+        :param json_dict:
+        :return:
+        """
+        entity_dict = {'id': json_dict['id'], 'type': json_dict['type']}  # Initialize entity_dict with id and type
+        for key, attr in json_dict.items():
+            if key not in ["type", "id"]:
+                if isinstance(attr, str):  # Check if the attribute is a string
+                    entity_dict[key] = {
+                        "type": "Text",
+                        "value": attr
+                    }
+                elif isinstance(attr, float):
+                    entity_dict[key] = {
+                        "type": "Float",
+                        "value": attr
+                    }
+                elif key == "marketRole":
+                    entity_dict[key] = {
+                        "type": "Text",
+                        "value": attr.value  # Get the string representation of the enum member
+                    }
+                elif isinstance(attr, dict):  # Check if the attribute is a dictionary
+                    attr_list = list(attr.values())
+                    attr_value = attr_list[0]
+                    if isinstance(attr_value, str):  # Check if the inner attribute is a string
+                        entity_dict[key] = {
+                            "type": "Text",
+                            "value": attr_value
+                        }
+                    elif isinstance(attr_value, float):
+                        entity_dict[key] = {
+                            "type": "Float",
+                            "value": attr_value
+                        }
+
+        return entity_dict
 
     def create_bid_device(self):
         bid = Device(device_id=self.bid_device_id,
@@ -194,13 +266,16 @@ class Building(MarketParticipant):
         self.cbc.post_subscription(subscription=subscription)
         # create building and bid entities in context broker so that the device can send the payloads to match the
         # entities
+        self.building_entity = ContextEntity(**self.building_entity_dict)
         self.cbc.post_entity(entity=self.building_entity)
+        self.bid_entity = ContextEntity(**self.bid_entity_dict)
         self.cbc.post_entity(entity=self.bid_entity)
         # Provision service group and add it to IOTAClient
         self.iotac.post_group(service_group=bid_service_group, update=True)
         # Provision the devices at the Iota-agent
         self.iotac.post_device(device=self.bid_device, update=True)
         # check in the context broker if the entities corresponding to the buildings
+        print(self.cbc.get_entity(self.id))
         print(self.cbc.get_entity(self.bid_entity_id))
 
     def mqtt_initialization(self):

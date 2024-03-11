@@ -1,0 +1,20 @@
+{
+  "properties": {
+    "id": {
+      "description": "...",
+      "title": "Id",
+      "type": "string"
+    },
+    "type": {
+      "description": "...",
+      "title": "Type",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "type"
+  ],
+  "title": "FIWAREPublishBid",
+  "type": "object"
+}

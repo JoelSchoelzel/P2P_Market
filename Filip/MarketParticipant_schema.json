@@ -1,0 +1,44 @@
+{
+  "properties": {
+    "id": {
+      "description": "Entity ID of MarketParticipant",
+      "title": "Id",
+      "type": "string"
+    },
+    "type": {
+      "description": "Entity type of MarketParticipant",
+      "title": "Type",
+      "type": "string"
+    },
+    "buildingName": {
+      "description": "Building's name",
+      "title": "Buildingname",
+      "type": "string"
+    },
+    "userID": {
+      "description": "The user name for the Building",
+      "title": "Userid",
+      "type": "string"
+    },
+    "refActiveBid": {
+      "description": "Entity ID of relevant active bid",
+      "title": "Refactivebid",
+      "type": "string"
+    },
+    "refTransaction": {
+      "description": "Entity ID of relevant Transaction result",
+      "title": "Reftransaction",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "type",
+    "buildingName",
+    "userID",
+    "refActiveBid",
+    "refTransaction"
+  ],
+  "title": "MarketParticipant",
+  "type": "object"
+}
