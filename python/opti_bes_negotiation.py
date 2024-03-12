@@ -725,8 +725,8 @@ def compute_initial_values_block(nb_buildings, opti_res, nego_transactions, last
     init_val_block = {}
     # create dict to store initial values of all BES
     for n in range(nb_buildings):
-        init_val_block["building_"+ str(n)] = {}
-        init_val_block["building_"+ str(n)]["soc"] = {}
+        init_val_block["building_" + str(n)] = {}
+        init_val_block["building_" + str(n)]["soc"] = {}
         # fill this dict with initial SoC values of first optimisation
         for dev in ["tes", "bat", "ev"]:
             init_val_block["building_" + str(n)]["soc"][dev] = opti_res[n][3][dev][last_time_step]

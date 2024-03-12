@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 
 def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes,
                        strategies, block_length):
@@ -80,7 +81,7 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
 
 
 # CALCULATE CRITERIA FOR SORTING BLOCK BIDS (mean price, mean quantity, or characteristic)
-def mean_all(block_bid, new_characs):
+def mean_all(block_bid): #, new_characs
     """Calculates the mean value of the matching criteria of a block bid.
      Returns: mean_price, mean_quantity, mean_energy_forced, mean_energy_delayed, bes_id"""
 
@@ -123,7 +124,6 @@ def mean_all(block_bid, new_characs):
 
 def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
     """All block bids are sorted by the criteria specified in options["crit_prio"].
-
     Returns:
         block_bids (nested dict): {buy/sell: position i: time steps t0-t2: [p, q, n]} """
 
@@ -134,10 +134,63 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
 
     # SEPARATE BLOCK BIDS INTO BUY AND SELL LISTS
     for n in range(len(block_bid)):  # iterate through buildings
+        # Add str whether buying or not to bool_list
+        bool_list = []
+        for t in block_bid["bes_" + str(n)]:
+            if isinstance(block_bid["bes_" + str(n)][t], list):
+                bool_list.append(block_bid["bes_" + str(n)][t][2])
+
+        # Check if str is True or None and not False and append block_bid to buy_list
+        if ("True" in bool_list or "None" in bool_list) and "False" not in bool_list:
+            buy_list.append(block_bid["bes_" + str(n)])
+            i = len(buy_list) - 1
+            # append block_bid_info to buy_list
+            bes_id, mean_price, sum_energy, total_price, mean_quantity \
+                = mean_all(block_bid=block_bid["bes_" + str(n)])
+            # add flexible energy forced & delayed to buy_list (only first timestep, since it is calculated for 36h)
+            first_t = par_rh["time_steps"][n_opt][0]
+            flex_energy_forced = new_characs[bes_id]["energy_forced"][first_t]
+            flex_energy_delayed = new_characs[bes_id]["energy_delayed"][first_t]
+            buy_block_bid_info = {"bes_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
+                              "total_price": total_price, "mean_quantity": mean_quantity,
+                              "flex_energy_forced": flex_energy_forced, "flex_energy_delayed": flex_energy_delayed}
+            buy_list[i].update(buy_block_bid_info)
+
+        # Check if at least one value is False and others are either True, False, or None and append block_bid to sell_list
+        elif "False" in bool_list:
+            # Make a deepcopy to avoid modifying the original sublist in block_bid
+            sublist_copy = copy.deepcopy(block_bid["bes_" + str(n)])
+            sell_list.append(sublist_copy)
+            i = len(sell_list) - 1
+            ignored_demand = {}
+            # Set values to 0 at time steps where the string is True
+            for t in sublist_copy:
+                if isinstance(sublist_copy[t], list) and sublist_copy[t][2] == "True":
+                    sell_list[i][t][1] = 0
+                    #ignored_demand[t] = block_bid["bes_"+str(i)][t][1] for t in sell_list[i] if sell_list[i][t][2] == "True"
+            # append block_bid_info to sell_list
+            bes_id, mean_price, sum_energy, total_price, mean_quantity \
+                = mean_all(block_bid=sell_list[i])
+            # add flexible energy forced & delayed to sell_list (only first timestep, since it is calculated for 36h)
+            first_t = par_rh["time_steps"][n_opt][0]
+            flex_energy_forced = new_characs[bes_id]["energy_forced"][first_t]
+            flex_energy_delayed = new_characs[bes_id]["energy_delayed"][first_t]
+
+            sell_block_bid_info = {"bes_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
+                                   "total_price": total_price, "mean_quantity": mean_quantity,
+                                   "flex_energy_forced": flex_energy_forced, "flex_energy_delayed": flex_energy_delayed
+                                  }# "ignored_demand":ignored_demand
+            sell_list[i].update(sell_block_bid_info)
+
+
+
+
+
+        """
         bes_id, mean_price, sum_energy, total_price, mean_quantity \
             = mean_all(block_bid=block_bid["bes_" + str(n)], new_characs=new_characs) #mean_energy_forced, mean_energy_delayed \
 
-        # add flexible energy for forced and delayed to block_bid (only for first timestep, since it is calculated for 36h)
+        # add flexible energy for forced and delayed to block_bid (only first timestep, since it is calculated for 36h)
         first_t = par_rh["time_steps"][n_opt][0]
         flex_energy_forced = new_characs[bes_id]["energy_forced"][first_t]
         flex_energy_delayed = new_characs[bes_id]["energy_delayed"][first_t]
@@ -148,6 +201,26 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
                           #"mean_energy_forced": mean_energy_forced, "mean_energy_delayed": mean_energy_delayed}  # "bes_id": bes_id[0]
         block_bid["bes_" + str(n)].update(block_bid_info)
 
+
+
+
+
+
+        bes_id, mean_price, sum_energy, total_price, mean_quantity \
+            = mean_all(block_bid=block_bid["bes_" + str(n)], new_characs=new_characs) #mean_energy_forced, mean_energy_delayed \
+
+        # add flexible energy for forced and delayed to block_bid (only first timestep, since it is calculated for 36h)
+        first_t = par_rh["time_steps"][n_opt][0]
+        flex_energy_forced = new_characs[bes_id]["energy_forced"][first_t]
+        flex_energy_delayed = new_characs[bes_id]["energy_delayed"][first_t]
+
+        block_bid_info = {"bes_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
+                          "total_price": total_price, "mean_quantity": mean_quantity,
+                          "flex_energy_forced": flex_energy_forced, "flex_energy_delayed": flex_energy_delayed}
+                          #"mean_energy_forced": mean_energy_forced, "mean_energy_delayed": mean_energy_delayed}  # "bes_id": bes_id[0]
+        block_bid["bes_" + str(n)].update(block_bid_info)
+
+        
         # Add str whether buying or not to bool_list
         # Add the value at position 2 (str for buying (either True, False or None)) in the lists inside block_bid to bool_list
         bool_list = []
@@ -163,7 +236,9 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
             sell_list.append(block_bid["bes_" + str(n)])
         # if all entries in bool_list are "None", continue
         else:
-            continue
+            continue"""
+
+
 
     # SORT BLOCK BIDS BY CRITERIA DEFINED IN OPTIONS
 

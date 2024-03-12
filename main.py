@@ -7,12 +7,9 @@ import python.opti_methods as opti_methods
 import python.parse_inputs as parse_inputs
 import python.load_scenarios as scenarios
 import python.load_net as net
-import python.plotting_p2p as plotting
 import python.plots as plots
 import python.calc_output as output
 import pickle
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import datetime
@@ -51,6 +48,7 @@ def get_inputs(par_rh, options, districtData): # gets inputs for optimization
     return nodes, building_params, params, devs, net_data, par_rh
 
 
+
 if __name__ == '__main__':
     # Start time (time measurement)
     time = {}
@@ -59,7 +57,7 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name": "scenario3",  # name of csv input file
+        "scenario_name": "Quartier_2",  # name of csv input file, scenario3
     }
 
     '''
@@ -107,7 +105,7 @@ if __name__ == '__main__':
     # Set options for MAScity
     options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
                "bid_strategy": "devices",  # zero for zero-intelligence, learning, devices
-               "crit_prio": "flex_energy",  # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
+               "crit_prio": "mean_quantity",  # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
                "descending": True,  # True: highest value of chosen has highest priority, False: lowest
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
                "trading_rounds": 0,  # Number of trading rounds for multi round trading, 0 for unlimited
@@ -157,9 +155,13 @@ if __name__ == '__main__':
         "resolution": [1, 1],  # h,    time resolution of each resolution block, insert list
         # [0.25, 1] resembles: control horizon with 15min, overlap horizon with 1h discretization
         "overlap_block_duration": [0, 0],  # h, duration of overlap time blocks, insert 0 for default: half of overlap horizon
-        }
+        "block_bid_length": block_length
+    }
     # Get following inputs:
     nodes, building_params, params, devs_pre_opti, net_data, par_rh = get_inputs(par_rh, options, districtData)
+    # pickledump
+    with open(options["path_results"] + "/nodes_input_"+options_DG["scenario_name"]+".p", 'wb') as file_nodes:
+        pickle.dump(nodes, file_nodes)
 
     # Run (rolling horizon) optimization for whole year or month
     if options["optimization"] == "P2P":
@@ -167,9 +169,10 @@ if __name__ == '__main__':
         #opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
                                                                                                #building_params, params)
 
-        mar_dict, characteristics, init_val = opti_methods.rolling_horizon_opti(options=options, nodes=nodes, par_rh=par_rh,
-                                                                      building_params=building_params, params=params,
-                                                                      block_length=block_length)
+        mar_dict, characteristics, init_val = opti_methods.rolling_horizon_opti(options=options, nodes=nodes,
+                                                                                par_rh=par_rh,
+                                                                                building_params=building_params,
+                                                                                params=params, block_length=block_length)
 
         with open(options["path_results"] + "/mar_dict_P2P_" + options_DG["scenario_name"] + ".p", 'wb') as file_mar:
             pickle.dump(mar_dict, file_mar)
@@ -179,7 +182,6 @@ if __name__ == '__main__':
 
         with open(options["path_results"] + "/init_val_P2P_" + options_DG["scenario_name"] + ".p", 'wb') as file_init:
             pickle.dump(par_rh, file_init)
-
 
 
         # Compute plots

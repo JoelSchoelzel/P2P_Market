@@ -292,8 +292,6 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
     #    model.addConstr(soc_init[dev] <= soc_nom[dev], name="SOC_nom_inits_"+dev)
 
     # Minimal and maximal charging, discharging and soc
-
-    ## TODO: HIER IST BESTIMMT FEHLER!!!!
     dev = "tes"
     eta_tes = node["devs"][dev]["eta_tes"]
     eta_ch = node["devs"][dev]["eta_ch"]
