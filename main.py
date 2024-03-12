@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name": "scenario3",  # name of csv input file
+        "scenario_name": "scenario2",  # name of csv input file
     }
 
     '''
@@ -100,20 +100,20 @@ if __name__ == '__main__':
     # DistrictGenerator
     data = Datahandler()
     data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=True) #(calcUserProfiles=False, saveUserProfiles=True)
-    data.designDevices(saveGenerationProfiles=True)
+    data.designDevicesComplete(saveGenerationProfiles=True)
     data.clusterProfiles()
 
     districtData = data
 
     # Set options for MAScity
     options = {"optimization": "P2P",   # P2P, P2P_typeWeeks, central, central_typeWeeks, decentral or decentral_typeWeeks
-               "bid_strategy": "zero" , # zero for zero-intelligence
+               "bid_strategy": "zero",  # zero for zero-intelligence
                "crit_prio": "alpha_el_flex_delayed", # criteria to assign priority for trading: price, alpha_el_flex_delayed
                "descending": True, # True: highest value of chosen has highest priority, False: lowest
 
                "number_typeWeeks": 0, # set 0 in case no type weeks are investigated
                #"full_path_scenario": "C:\\Users\\miche\\districtgenerator_python\\data\\scenarios\\scenario4.csv", # scenario csv
-               "full_path_scenario": ("D:\\EBC\\districtgenerator_python\\data\\scenarios\\" + options_DG["scenario_name"] + ".csv"), # scenario csv, name set for DG is used
+               "full_path_scenario": ("C:/Users/cemca/PycharmProjects/MA/districtgenerator/data/scenarios/" + options_DG["scenario_name"] + ".csv"), # scenario csv, name set for DG is used
                # "times": 2688, #8760 * 4,  # whole year 15min resolution
                # "tweeks": 4,  # number of typical weeks
                "Dorfnetz": False,  # grid type # todo: aktuell klappt nur Vorstadtnetz, da bei Dorfnetz noch 1 Gebäude fehlt
@@ -124,11 +124,12 @@ if __name__ == '__main__':
                "grid": False,  # True -> consider grid constraints, False -> dont
                # "dt": 0.25,  # dt in h for rolling horizon
                "discretization_input_data": districtData.time['timeResolution']/3600,  # in h - for: elec, dhw and heat
-               "path_file": "D:/EBC/MAScity", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/MAScity",
-               "path_results":"D:/EBC/MAScity/results", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/results",
+               "path_file": "C:/Users/cemca/PycharmProjects/MA/P2P_Market", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/MAScity",
+               "path_results":"C:/Users/cemca/PycharmProjects/MA/P2P_Market/results", #"C:/Users/Arbeit/Documents/WiHi_EBC/MAScity/results",
                "time_zone": districtData.site['timeZone'],  # ---,      time zone
                "location": districtData.site['location'], # degree,   latitude, longitude of location
                "altitude": districtData.site['altitude'], # m,        height of location above sea level
+               "stackelberg": True,  # True: Stackelberg game, False: k-pricing
               }
 
     # load heating devs per building
@@ -154,6 +155,9 @@ if __name__ == '__main__':
     # Get following inputs:
     nodes, building_params, params, devs_pre_opti, net_data, par_rh = get_inputs(par_rh, options, districtData)
 
+
+    '''
+    ### Master version:
     # Run (rolling horizon) optimization
     if options["optimization"] == "central_typeWeeks":
         central_opti_results, typeweeks_indices = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
@@ -219,6 +223,55 @@ if __name__ == '__main__':
     # Safe results
     #with open(options["path_results"] + "/central_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
     #    pickle.dump(central_opti_results, fp)
+
+    '''
+
+    #Newly added from dev_Michel
+    # Run (rolling horizon) optimization for whole year or month
+    if options["optimization"] == "P2P":
+        # run optimization incl. trading
+        mar_dict, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
+
+        # opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
+
+        # print('Opti results:', opti_results)
+        # print('Mar dict:', mar_dict)
+        # print('Trade res:', trade_res)
+        # print('Characteristics:', characteristics)
+
+        # Compute plots
+        criteria = output.compute_out_P2P(options, options_DG, par_rh, opti_results, params, building_params, trade_res,
+                                          mar_dict)
+
+        try:
+            # Save results
+            with open(options["path_results"] + "/P2P_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
+                pickle.dump(opti_results, fp)
+            with open(options["path_results"] + "/P2P_characteristics/" + options_DG["scenario_name"] + ".p",
+                      'wb') as fp:
+                pickle.dump(characteristics, fp)
+            with open(options["path_results"] + "/P2P_mar_dict/" + options_DG["scenario_name"] + "_" +
+                      options["crit_prio"] + ".p", 'wb') as fp:
+                pickle.dump(mar_dict, fp)
+
+        except Exception as e:
+            print("Error while trying to save:", str(e))
+
+    # Run (rolling horizon) optimization for type weeks
+    elif options["optimization"] == "P2P_typeWeeks":
+        opti_results, typeweeks_indices, mar_dict, trade_res = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
+                                                                                                 building_params,
+                                                                                                 params)
+
+        # Compute plots
+        criteria_typeweeks, criteria_year = output.compute_out_P2P_typeWeeks(options, options_DG, par_rh, opti_results,
+                                                                             districtData.weights, params,
+                                                                             building_params, trade_res, mar_dict)
+
+        # Save results
+        with open(options["path_results"] + "/P2P_typeWeeks_opti_output/" + options_DG["scenario_name"] + ".p",
+                  'wb') as fp:
+            pickle.dump(opti_results, fp)
 
     # End time (Time measurement)
     time["end"] = datetime.datetime.now()

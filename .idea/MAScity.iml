@@ -3,8 +3,9 @@
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$" />
     <content url="file://$USER_HOME$/districtgenerator_python" />
-    <orderEntry type="jdk" jdkName="Python 3.9" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.10" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="districtgenerator_python" />
+    <orderEntry type="module" module-name="districtgenerator" />
+    <orderEntry type="module" module-name="districtgenerator" />
   </component>
 </module>

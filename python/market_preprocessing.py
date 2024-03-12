@@ -7,7 +7,8 @@ def dict_for_market_data(pars_rh):
     mar_dict = {
         "transactions": {},
         "bid": {},
-        "sorted_bids": {}
+        "sorted_bids": {},
+        "stackelberg_res": {},
         }
 
     #mar_dict["markets"] = {}
@@ -81,20 +82,29 @@ def compute_bids(opti_res, pars_rh, mar_agent_prosumer, n_opt, options):
 
 
 
-        # compute bids
+        # compute bids and inflexible demand
+
+        # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
         if p_imp > 0.0:
             bid["bes_" + str(n)] = mar_agent_prosumer[n].compute_hp_bids(p_imp, n, bid_strategy)
             #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = bid["bes_" + str(n)][1]
 
+        # when electricity needs to be sold, compute_chp_bids() of the mar_agent is called
         elif chp_sell > 0:
             bid["bes_" + str(n)] = mar_agent_prosumer[n].compute_chp_bids(chp_sell, n, bid_strategy)
             #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = 0
+
+        # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
+        #elif pv_sell > 0:
+        #    bid["bes_" + str(n)] = mar_agent_prosumer[n].compute_pv_bids(dem_elec, soc_bat, power_pv, p_ch_bat, p_dch_bat, pv_sell, pv_peak, t, n, bid_strategy, strategies, weights)
+            #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = bid["bes_" + str(n)][1]
 
         else:
             bid["bes_" + str(n)] = mar_agent_prosumer[n].compute_empty_bids(n)
             #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = 0
 
     return bid
+
 
 
 def sort_bids(bid, options, characs, n_opt):
@@ -162,6 +172,36 @@ def sort_bids(bid, options, characs, n_opt):
     return bids
 
 
+# New for Stackelberg: Sort the participants as buyers and sellers
+def sort_participants(bid):
+    buy_list = {}
+    sell_list = {}
+
+    # sort by buy or sell
+    for n in range(len(bid)):
+
+        # don't consider bids with zero quantity
+        if float(bid["bes_" + str(n)][1]) != 0.0:
+
+            # add buying bids to buy_list
+            if bid["bes_" + str(n)][2] == "True":
+                b = len(buy_list)
+                buy_list[b] = {
+                    "price": bid["bes_" + str(n)][0],
+                    "quantity": bid["bes_" + str(n)][1],
+                    "building": bid["bes_" + str(n)][3]
+                }
+
+            # add selling bids to sell_list
+            if bid["bes_" + str(n)][2] == "False":
+                s = len(sell_list)
+                sell_list[s] = {
+                    "price": bid["bes_" + str(n)][0],
+                    "quantity": bid["bes_" + str(n)][1],
+                    "building": bid["bes_" + str(n)][3]
+                }
+    return buy_list, sell_list
+
 def cost_and_rev(trans, res):
 
     for i in range(len(trans)):
@@ -190,3 +230,12 @@ def clear_book(res, bids, params):
         bids["sell"][i]["quantity"] = 0
 
     return res, bids
+
+
+
+
+
+
+
+
+

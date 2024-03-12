@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/MAScity.iml" filepath="$PROJECT_DIR$/.idea/MAScity.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../districtgenerator/.idea/districtgenerator.iml" filepath="$PROJECT_DIR$/../districtgenerator/.idea/districtgenerator.iml" />
       <module fileurl="file://$PROJECT_DIR$/../../districtgenerator_python/.idea/districtgenerator_python.iml" filepath="$PROJECT_DIR$/../../districtgenerator_python/.idea/districtgenerator_python.iml" />
     </modules>
   </component>

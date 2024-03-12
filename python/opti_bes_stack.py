@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Subproblem optimization model for hierarchical district control 
+Subproblem optimization model for hierarchical district control
 @author: Joel Schölzel based on Sarah Henn and Thomas Schütz
 """
 
@@ -11,12 +11,12 @@ import gurobipy as gp
 import numpy as np
 import datetime
 
-def compute(node, params, par_rh, building_param, init_val, n_opt, options):
 
+def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, options, is_buying, buy_list, sell_list, price_signal):
     # Define subsets
     heater = ("boiler", "chp", "eh", "hp35", "hp55")
     storage = ("bat", "tes", "ev")
-    solar = ("pv", )    #, "stc"
+    solar = ("pv",)  # , "stc"
     device = ("boiler", "chp", "eh", "hp35", "hp55", "bat", "tes", "pv")
 
     # Extract parameters
@@ -24,7 +24,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     # Create list of time steps per optimization horizon (dt --> hourly resolution)
     time_steps = par_rh["time_steps"][n_opt]
     # Durations of time steps # for aggregated RH
-    #duration = par_rh["duration"][n_opt]
+    # duration = par_rh["duration"][n_opt]
 
     # get relevant input data (elec, dhw, heat) for prediction horizon
     discretization_input_data = options["discretization_input_data"]
@@ -42,38 +42,45 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
 
     for i in range(len(time_steps)):
         param00 = time_steps[i]
-        param01 = int(dt[param00]/discretization_input_data)
-        param02 = int(par_rh["org_time_steps"][n_opt][i]/discretization_input_data)
+        param01 = int(dt[param00] / discretization_input_data)
+        param02 = int(par_rh["org_time_steps"][n_opt][i] / discretization_input_data)
         if param01 < 1:
             raise ValueError("Interpolation of input data necessary")
         elif options["number_typeWeeks"] == 0:
             elec[param00] = np.mean([node["elec"][param02], node["elec"][param02 + param01 - 1]])
             heat[param00] = np.mean([node["heat"][param02], node["heat"][param02 + param01 - 1]])
             dhw[param00] = np.mean([node["dhw"][param02], node["dhw"][param02 + param01 - 1]])
-            COP35[param00] = np.mean([node["devs"]["COP_sh35"][param02], node["devs"]["COP_sh35"][param02 + param01 - 1]])
-            COP55[param00] = np.mean([node["devs"]["COP_sh55"][param02], node["devs"]["COP_sh55"][param02 + param01 - 1]])
+            COP35[param00] = np.mean(
+                [node["devs"]["COP_sh35"][param02], node["devs"]["COP_sh35"][param02 + param01 - 1]])
+            COP55[param00] = np.mean(
+                [node["devs"]["COP_sh55"][param02], node["devs"]["COP_sh55"][param02 + param01 - 1]])
             PV_GEN[param00] = np.mean([node["pv_power"][param02], node["pv_power"][param02 + param01 - 1]])
             EV_AVAIL[param00] = np.mean([node["ev_avail"][param02], node["ev_avail"][param02 + param01 - 1]])
-            EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave"][param02], node["ev_dem_leave"][param02 + param01 - 1]])
+            EV_DEM_LEAVE[param00] = np.mean(
+                [node["ev_dem_leave"][param02], node["ev_dem_leave"][param02 + param01 - 1]])
         else:
             elec[param00] = np.mean([node["elec_appended"][param02], node["elec_appended"][param02 + param01 - 1]])
             heat[param00] = np.mean([node["heat_appended"][param02], node["heat_appended"][param02 + param01 - 1]])
             dhw[param00] = np.mean([node["dhw_appended"][param02], node["dhw_appended"][param02 + param01 - 1]])
-            COP35[param00] = np.mean([node["devs"]["COP_sh35_appended"][param02], node["devs"]["COP_sh35_appended"][param02 + param01 - 1]])
-            COP55[param00] = np.mean([node["devs"]["COP_sh55_appended"][param02], node["devs"]["COP_sh55_appended"][param02 + param01 - 1]])
-            #PV_GEN[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
-            EV_AVAIL[param00] = np.mean([node["ev_avail_appended"][param02], node["ev_avail_appended"][param02 + param01 - 1]])
-            EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave_appended"][param02], node["ev_dem_leave_appended"][param02 + param01 - 1]])
+            COP35[param00] = np.mean(
+                [node["devs"]["COP_sh35_appended"][param02], node["devs"]["COP_sh35_appended"][param02 + param01 - 1]])
+            COP55[param00] = np.mean(
+                [node["devs"]["COP_sh55_appended"][param02], node["devs"]["COP_sh55_appended"][param02 + param01 - 1]])
+            # PV_GEN[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
+            EV_AVAIL[param00] = np.mean(
+                [node["ev_avail_appended"][param02], node["ev_avail_appended"][param02 + param01 - 1]])
+            EV_DEM_LEAVE[param00] = np.mean(
+                [node["ev_dem_leave_appended"][param02], node["ev_dem_leave_appended"][param02 + param01 - 1]])
 
         demands = {
-        "elec": elec,
-        "heat": heat,
-        "dhw": dhw,
-        "COP35": COP35,
-        "COP55": COP55,
-        #"PV_GEN": PV_GEN,
-        "EV_AVAIL": EV_AVAIL,
-        "EV_DEM_LEAVE": EV_DEM_LEAVE,
+            "elec": elec,
+            "heat": heat,
+            "dhw": dhw,
+            "COP35": COP35,
+            "COP55": COP55,
+            # "PV_GEN": PV_GEN,
+            "EV_AVAIL": EV_AVAIL,
+            "EV_DEM_LEAVE": EV_DEM_LEAVE,
         }
 
     model = gp.Model("Operation computation")
@@ -166,28 +173,54 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             gas[dev][t] = model.addVar(vtype="C", name="gas" + dev + "_" + str(t))
 
     # mapping PV areas
-    #area = {}
-    #for dev in solar:
+    # area = {}
+    # for dev in solar:
     #    area[dev] = building_param["modules"] * node["devs"]["pv"]["area_real"]
 
     # Activation decision variables
-    # binary variable for each house to avoid simuultaneous feed-in and purchase of electric energy
+    # binary variable for each house to avoid simultaneous feed-in and purchase of electric energy
     y = {}
     for dev in ["bat", "ev", "house_load"]:
         y[dev] = {}
         for t in time_steps:
             y[dev][t] = model.addVar(vtype="B", lb=0.0, ub=1.0, name="y_" + dev + "_" + str(t))
 
+    # NEW: variables for trading with participants
+    c_transaction = model.addVar(vtype="C", name="c_transaction")
+    revenue_transaction = model.addVar(vtype="C", name="revenue_transaction")
+
+    p_transaction_buyer_seller = {}  # Possible transaction amount of a buyer with a seller
+    demand_from_seller = {}  # Total transaction amount of seller with all buyers
+    # price_signal = {}  # Price signal of seller
+
+    for t in time_steps:
+        demand_from_seller[t] = model.addVar(vtype="C", name="Total_demand_from_seller_" + str(t))
+        # price_signal[t] = model.addVar(vtype="C", name="Transaction_price_" + str(t))
+
+
+    # Define decision variable p_transaction_buyer_seller to model the trading amount between each buyer with each seller
+    for t in time_steps:
+        for buyer in buy_list[t].items():
+            for seller in sell_list[t].items():
+                # Get the building numbers of buyer and seller
+                buyer_building = buyer["building"]
+                seller_building = seller["building"]
+
+                p_transaction_buyer_seller[t][buyer_building][seller_building] = model.addVar(vtype="C", name="P_transaction_" + str(buyer_building) + "_"+ str(seller_building) + str(t))
 
 
     # Update
     model.update()
 
     # Objective
-    # TODO:
+    # TODO: if else for different optimizations of buyers / sellers
+    if is_buying:
+        model.setObjective(c_dem["grid"] - revenue["pv"] - revenue["chp"] + c_dem["boiler"]
+                           + c_dem["chp"] + c_transaction, gp.GRB.MINIMIZE)
+    else:
+        model.setObjective(c_dem["grid"] - revenue["pv"] - revenue["chp"] + c_dem["boiler"]
+                           + c_dem["chp"] - revenue_transaction, gp.GRB.MINIMIZE)
 
-    model.setObjective(c_dem["grid"] - revenue["pv"] - revenue["chp"] + c_dem["boiler"]
-                       + c_dem["chp"], gp.GRB.MINIMIZE)
 
     ####### Define constraints
 
@@ -195,20 +228,40 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
 
     # Demand related costs (gas)
     for dev in ("boiler", "chp"):
-        #model.addConstr(c_dem[dev] == params["eco"]["gas", dev] * sum(gas[dev][t] for t in time_steps),
+        # model.addConstr(c_dem[dev] == params["eco"]["gas", dev] * sum(gas[dev][t] for t in time_steps),
         #                name="Demand_costs_" + dev)
         model.addConstr(c_dem[dev] == params["eco"]["gas"] * sum(gas[dev][t] for t in time_steps),
                         name="Demand_costs_" + dev)
 
     # Demand related costs (electricity)    # eco["b"]["el"] * eco["crf"]
     dev = "grid"
-    model.addConstr(c_dem[dev] == sum(p_imp[t] * params["eco"]["pr", "el"] for t in time_steps),
+    model.addConstr(c_dem[dev] == sum((p_imp[t] - p_transaction_buyer_seller[t]) * params["eco"]["pr", "el"] for t in time_steps),
                     name="Demand_costs_" + dev)
 
     # Revenues for selling electricity to the grid / neighborhood
     for dev in ("chp", "pv"):
-        model.addConstr(revenue[dev] == sum(p_sell[dev][t] * params["eco"]["sell" + "_" + dev] for t in time_steps),
+        model.addConstr(revenue[dev] == sum((p_sell[dev][t] - demand_from_seller[t]) * params["eco"]["sell" + "_" + dev] for t in time_steps),
                         name="Feed_in_rev_" + dev)
+
+    ### Constraints for trading with participants
+    # Cost of buying electricity from participants
+    model.addConstr(c_transaction == sum(p_transaction_buyer_seller[t] * price_signal for t in time_steps), name="Transaction_cost")
+
+    # Revenue from selling electricity to participants
+    model.addConstr(revenue_transaction == sum(demand_from_seller[t] * price_signal for t in time_steps), name="Transaction_revenue")
+
+    # Constraint for trading amount
+    for t in time_steps:
+        model.addConstr(demand_from_seller[t] <= p_sell[t], name="max_transaction_amount_seller_" + str(t))
+        model.addConstr(demand_from_seller[t] >= 0, name="min_transaction_amount_seller_" + str(t))
+
+        model.addConstr(p_transaction_buyer_seller[t] <= p_imp[t], name="max_transaction_amount_buyer")
+        model.addConstr(p_transaction_buyer_seller[t] >= 0, name="min_transaction_amount_buyer")
+
+
+    # Constraint for trading price (between FiT and buying from grid)
+
+
 
     ###### Technical constraints
 
@@ -256,13 +309,12 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
                         name="Power_equation_" + dev + "_" + str(t))
 
     # Solar components
-    #for dev in solar:
+    # for dev in solar:
     #    for t in time_steps:
     #        model.addConstr(power[dev][t] == node["pv_power"][t],
     #                        name="Solar_electrical_" + dev + "_" + str(t))
 
-
-    #set solar to 0
+    # set solar to 0
     for t in time_steps:
         model.addConstr(power["pv"][t] == 0, name="Solar_electrical_pv_" + str(t))
     # %% BUILDING STORAGES # %% DOMESTIC FLEXIBILITIES
@@ -273,7 +325,6 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     #    model.addConstr(soc_init[dev] <= soc_nom[dev], name="SOC_nom_inits_"+dev)
 
     # Minimal and maximal charging, discharging and soc
-
 
     dev = "tes"
     eta_tes = node["devs"][dev]["eta_tes"]
@@ -289,8 +340,9 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             soc_prev = soc[dev][t - 1]
 
         # Maximal charging
-        model.addConstr(p_ch[dev][t] == eta_ch * (heat["chp"][t] + heat["hp35"][t] + heat["hp55"][t] + heat["boiler"][t]),
-                        name="Heat_charging_" + str(t))
+        model.addConstr(
+            p_ch[dev][t] == eta_ch * (heat["chp"][t] + heat["hp35"][t] + heat["hp55"][t] + heat["boiler"][t]),
+            name="Heat_charging_" + str(t))
         # Maximal discharging
         model.addConstr(p_dch[dev][t] == (1 / eta_dch) * (demands["heat"][t] + 0.5 * demands["dhw"][t]),
                         name="Heat_discharging_" + str(t))
@@ -303,9 +355,6 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         model.addConstr(soc[dev][t] == soc_prev * eta_tes + dt[t] * (p_ch[dev][t] - p_dch[dev][t]),
                         name="Storage_bal_" + dev + "_" + str(t))
 
-
-
-
         # TODO: soc at the end is the same like at the beginning
         # if t == last_time_step:
         #    model.addConstr(soc[device][t] == soc_init[device],
@@ -314,8 +363,6 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     # eletric heater covers 50% of the dhw
     for t in time_steps:
         model.addConstr(dhw["eh"][t] == 0.5 * demands["dhw"][t], name="El_heater_act_" + str(t))
-
-
 
     dev = "bat"
     k_loss = node["devs"][dev]["k_loss"]
@@ -332,8 +379,9 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         model.addConstr(p_ch["bat"][t] <= y["bat"][t] * node["devs"]["bat"]["cap"] * node["devs"]["bat"]["max_ch"],
                         name="max_ch_bat_" + str(t))
         # Maximal discharging
-        model.addConstr(p_dch["bat"][t] <= (1 - y["bat"][t]) * node["devs"]["bat"]["cap"] * node["devs"]["bat"]["max_dch"],
-                        name="max_dch_bat_" + str(t))
+        model.addConstr(
+            p_dch["bat"][t] <= (1 - y["bat"][t]) * node["devs"]["bat"]["cap"] * node["devs"]["bat"]["max_dch"],
+            name="max_dch_bat_" + str(t))
 
         # Minimal and maximal soc
         model.addConstr(soc["bat"][t] <= node["devs"]["bat"]["max_soc"] * node["devs"]["bat"]["cap"],
@@ -344,7 +392,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         # SOC coupled over all times steps (Energy amount balance, kWh)
         model.addConstr(soc[dev][t] == (1 - k_loss) * soc_prev +
                         dt[t] * (node["devs"][dev]["eta_bat"] * p_ch[dev][t] - 1 / node["devs"][dev]["eta_bat"] *
-                              p_dch[dev][t]),
+                                 p_dch[dev][t]),
                         name="Storage_balance_" + dev + "_" + str(t))
 
     # %% EV CONSTRAINTS CONSTRAINTS
@@ -387,7 +435,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
                         name="Electricity_balance_" + str(t))
 
     # Guarantee that just feed-in OR load is possible
-    #for t in time_steps:
+    # for t in time_steps:
     #    # TODO: net params
     #    model.addConstr(y["house_load"][t] * 43.5 >= p_imp[t])  # Big M Methode --> Methodik
     #    model.addConstr(p_imp[t] >= 0)
@@ -464,7 +512,6 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     res_gas_sum = {}
     res_gas_sum = {(t): sum(gas[dev][t].X for dev in ["boiler", "chp"]) for t in time_steps}
 
-
     res_c_dem = {}
     for dev in ["boiler", "chp"]:
         res_c_dem[dev] = {(t): params["eco"]["gas"] * gas[dev][t].X for t in time_steps}
@@ -481,6 +528,12 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     for dev in ("chp", "pv"):
         res_p_use[dev] = {(t): p_use[dev][t].X for t in time_steps}
         res_p_sell[dev] = {(t): p_sell[dev][t].X for t in time_steps}
+
+    res_p_transaction_buyer_seller = {}
+    if is_buying:
+        res_p_transaction_buyer_seller = {(t): p_transaction_buyer_seller[t].X for t in time_steps}
+
+
 
     obj = model.ObjVal
     print("Obj: " + str(model.ObjVal))
@@ -505,12 +558,10 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     return (res_y, res_power, res_heat, res_soc,
             res_p_imp, res_p_ch, res_p_dch, res_p_use, res_p_sell,
             obj, res_c_dem, res_rev, res_soc_nom, node,
-            objVal, runtime, soc_init_rh, res_gas_sum)
-
+            objVal, runtime, soc_init_rh, res_gas_sum, res_p_transaction_buyer_seller)
 
 
 def compute_initial_values(opti_bes, par_rh, n_opt):
-
     init_val = {}
     init_val["soc"] = {}
     # initial SOCs
