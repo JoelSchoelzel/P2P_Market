@@ -23,7 +23,8 @@ import config
 # import for data model
 import json
 from data_model.Bid.PublishBid import PublishBid, CreatedDateTime, Price, Quantity, MarketRole
-from data_model.Bid.FIWAREPublishBid import FiwarePublishBid, CreatedDateTime, Price, Quantity, MarketRole
+from data_model.Bid.FIWAREPublishBid import FiwarePublishBid, \
+    CreatedDateTime as CDT, Price as Pr, Quantity as Qu, MarketRole as MR
 from data_model.MarketParticipant.MarketParticipant import MarketParticipant
 from data_model.MarketParticipant.FIWAREMarketParticipant import FiwareMarketParticipant
 
@@ -147,10 +148,10 @@ class Building(MarketParticipant):
         bid_entity = FiwarePublishBid(id=self.bid_entity_id,
                                       type=self.bid_entity_type,
                                       bidID='Test',
-                                      bidCreatedDateTime=CreatedDateTime(time='Test'),
-                                      expectedPrice=Price(price=0),
-                                      expectedQuantity=Quantity(quantity=0),
-                                      marketRole=MarketRole.buyer,
+                                      bidCreatedDateTime=CDT(time='Test'),
+                                      expectedPrice=Pr(price=0),
+                                      expectedQuantity=Qu(quantity=0),
+                                      marketRole=MR.buyer,
                                       refMarketParticipant=self.id)
         #
 
@@ -207,7 +208,12 @@ class Building(MarketParticipant):
         entity_dict = {'id': json_dict['id'], 'type': json_dict['type']}  # Initialize entity_dict with id and type
         for key, attr in json_dict.items():
             if key not in ["type", "id"]:
-                if isinstance(attr, str):  # Check if the attribute is a string
+                if isinstance(attr, Enum):
+                    entity_dict[key] = {
+                        "type": "Text",
+                        "value": attr.value  # Get the string representation of the enum member
+                    }
+                elif isinstance(attr, str):  # Check if the attribute is a string
                     entity_dict[key] = {
                         "type": "Text",
                         "value": attr
@@ -216,11 +222,6 @@ class Building(MarketParticipant):
                     entity_dict[key] = {
                         "type": "Float",
                         "value": attr
-                    }
-                elif key == "marketRole":
-                    entity_dict[key] = {
-                        "type": "Text",
-                        "value": attr.value  # Get the string representation of the enum member
                     }
                 elif isinstance(attr, dict):  # Check if the attribute is a dictionary
                     attr_list = list(attr.values())

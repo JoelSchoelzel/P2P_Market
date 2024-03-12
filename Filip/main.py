@@ -76,7 +76,8 @@ if __name__ == '__main__':
         coordinator.sort_bids()
         # f_sorted_bids.append(coordinator.sorted_bids.copy()) # todo validation
         # calculate transaction
-        coordinator.calculate_transactions()
+        # coordinator.calculate_transactions_multiple()
+        coordinator.calculate_transactions_single()
         # f_transactions.append(coordinator.transactions.copy()) # todo validation
         # print(f'n_opt = {n_opt}')
         # print(f'transaction: {coordinator.transactions}') # todo validation

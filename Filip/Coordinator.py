@@ -10,7 +10,9 @@ import os
 from dotenv import load_dotenv
 from data_model.Transaction.PublishTransaction import PublishTransaction, CreatedDateTime, TradeInformation, \
     Price, Quantity, PowerDirection
-from data_model.Transaction.FIWAREPublishTransaction import FiwarePublishTransaction
+from data_model.Transaction.FIWAREPublishTransaction import FiwarePublishTransaction, CreatedDateTime as CDT, \
+    TradeInformation as TI, \
+    Price as Pr, Quantity as Qu, PowerDirection as Po
 import uuid
 import json
 import requests
@@ -65,8 +67,8 @@ class Coordinator:
         transaction_entity = FiwarePublishTransaction(id=f"urn:ngsi-ld:Transaction:{number_building}",
                                                       type=self.transaction_entity_type,
                                                       transactionID='Test',
-                                                      transactionCreatedDateTime='Test',
-                                                      tradeResults='Test',
+                                                      transactionCreatedDateTime=CDT(time='Test'),
+                                                      tradeResults=[],
                                                       refMarketParticipant='Test')
         # transaction_entity = ContextEntity(id=f"urn:ngsi-ld:Transaction:{number_building}",
         #                                    type=self.transaction_entity_type)
@@ -80,8 +82,44 @@ class Coordinator:
         #                                              type='Text')
         # transaction_entity.add_attributes(
         #     [transaction_id, transaction_created_time, transaction_results, transaction_building])
-        transaction_entity_dict = transaction_entity.model_dump()
+        transaction_entity_pydantic_dict = transaction_entity.model_dump()
+        transaction_entity_dict = self.utils_schema2fiware(transaction_entity_pydantic_dict)
         return transaction_entity_dict
+
+    def utils_schema2fiware(self, json_dict):
+        entity_dict = {'id': json_dict['id'], 'type': json_dict['type']}  # Initialize entity_dict with id and type
+        for key, attr in json_dict.items():
+            if key not in ["type", "id"]:
+                if isinstance(attr, list):
+                    entity_dict[key] = {
+                        "type": "StructuredValue",
+                        "value": attr  # Get the list of the trading results
+                    }
+                elif isinstance(attr, str):  # Check if the attribute is a string
+                    entity_dict[key] = {
+                        "type": "Text",
+                        "value": attr
+                    }
+                elif isinstance(attr, float):  # Check if the attribute is a float
+                    entity_dict[key] = {
+                        "type": "Float",
+                        "value": attr
+                    }
+                elif isinstance(attr, dict):  # Check if the attribute is a dictionary
+                    attr_list = list(attr.values())
+                    attr_value = attr_list[0]
+                    if isinstance(attr_value, str):  # Check if the inner attribute is a string
+                        entity_dict[key] = {
+                            "type": "Text",
+                            "value": attr_value
+                        }
+                    elif isinstance(attr_value, float):
+                        entity_dict[key] = {
+                            "type": "Float",
+                            "value": attr_value
+                        }
+
+        return entity_dict
 
     def post_transaction_entities(self):
         self.transaction_entity = ContextEntity(**self.transaction_entity_dict)
@@ -247,7 +285,7 @@ class Coordinator:
             # go to next trading round
             n += 1
 
-    def calculate_transactions(self):
+    def calculate_transactions_multiple(self):
         count_trans = 0  # count of transaction
 
         # k for k-pricing method
@@ -347,7 +385,45 @@ class Coordinator:
             # go to next trading round
             n += 1
 
-    def reformat_publish_transaction(self, start_datetime):  # TODO Set the number of buildings, time of running hour
+    def calculate_transactions_single(self):
+
+        # as shown in chapter 2 in: Chen, 2019
+
+        # k for k-pricing method
+        k = 0.5
+
+        if len(self.sorted_bids["sell"]) != 0 and len(self.sorted_bids["buy"]) != 0:
+            # create indices
+            i = 0  # position of seller
+            j = 0  # position of buyer
+            m = 0  # count of transaction
+
+            # continue matching until no price matches can be found
+            while self.sorted_bids["sell"][i]["price"] <= self.sorted_bids["buy"][j]["price"]:
+
+                # determine transaction price using k-pricing method
+                transaction_price = self.sorted_bids["buy"][j]["price"] + k * (self.sorted_bids["sell"][i]["price"] - self.sorted_bids["buy"][j]["price"])
+
+                # quantity is minimum of both
+                transaction_quantity = min(self.sorted_bids["sell"][i]["quantity"], self.sorted_bids["buy"][j]["quantity"])
+
+                # add transaction
+                self.transactions[m] = {}
+                self.transactions[m]["buyer"] = self.sorted_bids["buy"][j]["building"]
+                self.transactions[m]["seller"] = self.sorted_bids["sell"][i]["building"]
+                self.transactions[m]["price"] = transaction_price
+                self.transactions[m]["quantity"] = transaction_quantity
+                m += 1
+                self.sorted_bids["sell"][i]["quantity"] = self.sorted_bids["sell"][i]["quantity"] - transaction_quantity
+                if self.sorted_bids["sell"][i]["quantity"] == 0:
+                    i += 1
+                self.sorted_bids["buy"][j]["quantity"] = self.sorted_bids["buy"][j]["quantity"] - transaction_quantity
+                if self.sorted_bids["buy"][j]["quantity"] == 0:
+                    j += 1
+                if i == len(self.sorted_bids["sell"]) or j == len(self.sorted_bids["buy"]):
+                    break
+
+    def reformat_publish_transaction(self, start_datetime):
         # add the relevant information from transaction to the corresponding building entity
         # once the transaction entity is created, it will be published to context broker
         for cleints in range(len(self.buildings)):
