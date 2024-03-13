@@ -57,7 +57,7 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name": "Quartier_2",  # name of csv input file, scenario3, Quartier_2
+        "scenario_name": "Quartier_3",  # name of csv input file, scenario3, Quartier_2
     }
 
     '''
@@ -137,7 +137,7 @@ if __name__ == '__main__':
     #scn = 0                                     # selected scenario
 
     if options["bid_type"] == "block":
-        block_length = 3
+        block_length = 5
     else: block_length = 1
 
     # Set rolling horizon options

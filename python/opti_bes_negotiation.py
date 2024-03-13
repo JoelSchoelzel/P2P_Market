@@ -285,42 +285,32 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
                         name="Power_trade_costs")
     else:
         model.addConstr(revenue_trade == sum(power_trade["seller"][t] * price_trade["seller"][t] for t in time_steps),
-                    name="Power_trade_revenue")
+                        name="Power_trade_revenue")
 
 
     # Constraints for trading price
     for t in time_steps:
-        #model.addConstr(price_trade[t] == 0.15 )#min (price_bid_buyer[t], price_bid_seller[t]),
-                        #name="Price_trade_min")
-        #model.addConstr(price_trade[t] <= max(price_bid_buyer[t], price_bid_seller[t]),
-                       # name="Price_trade_max")
-
-        # if buying bid price is higher than selling bid price,price_trade is set to average of both
+        # if buying bid price is higher than selling bid price, price_trade is set to average of both
         if price_bid_buyer[t] >= price_bid_seller[t]:
            if is_buying:
                model.addConstr(price_trade["buyer"][t] == 0.5 * (price_bid_buyer[t] + price_bid_seller[t]),
-                           name="Price_trade_buyer" + str(t))
+                               name="Price_trade_buyer" + str(t))
            else:
                model.addConstr(price_trade["seller"][t] == 0.5 * (price_bid_buyer[t] + price_bid_seller[t]),
-                           name="Price_trade_seller" + str(t))
+                               name="Price_trade_seller" + str(t))
 
         # if selling bid price is higher than buying bid price, price_trade is iteratively adjusted towards average
         else:
             if is_buying:
                 model.addConstr(price_trade["buyer"][t] == price_bid_buyer[t] + delta_price,
                                 name="Price_trade_buyer" + str(t))
-                #model.addConstr(price_trade[t] <= 0.5 * (price_bid_buyer[t] + price_bid_seller[t]),
-                              #  name="Price_trade_max")
             else:
                 if price_bid_seller[t] >= delta_price:
                     model.addConstr(price_trade["seller"][t] == price_bid_seller[t] - delta_price,
-                                name="Price_trade_seller" + str(t))
+                                    name="Price_trade_seller" + str(t))
                 else:  # if price bid seller is zero, delta is not subtracted!!!
                     model.addConstr(price_trade["seller"][t] == price_bid_seller[t],
-                                name="Price_trade_seller" + str(t))
-
-                #model.addConstr(price_trade[t] >= 0.5 * (price_bid_buyer[t] + price_bid_seller[t]),
-                               # name="Price_trade_max")
+                                    name="Price_trade_seller" + str(t))
 
 
 
@@ -329,28 +319,22 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     # Constraints for trading power
     for t in time_steps:
         if is_buying:
-           model.addConstr(power_trade["buyer"][t] <= quantity_bid_seller[t],
+            # power the buyer can trade is limited by the quantity the seller is willing to sell
+            model.addConstr(power_trade["buyer"][t] <= quantity_bid_seller[t],
                            name="max_Power_trade_buyer")
-           model.addConstr(power_trade["buyer"][t] >= 0,
-                           name = "min_Power_trade_buyer")
-           #model.addConstr(power_trade["buyer"][t] <= quantity_bid_buyer[t],
-                           #name="max_Power_trade_buyer")
-           #model.addConstr(power_trade["buyer"][t] >= min(quantity_bid_seller[t], quantity_bid_buyer[t]),
-                           #
-        else:
-            if quantity_bid_seller[t]==0:
-                model.addConstr(power_trade["seller"][t]==0,
-                                name="Power_trade_seller")
-            else:
-                model.addConstr(power_trade["seller"][t] <= quantity_bid_buyer[t],
-                           name="max_Power_trade_seller")
-                model.addConstr(power_trade["seller"][t] >= 0,
-                           name="min_Power_trade_seller")
-           #model.addConstr(power_trade["seller"][t] <= quantity_bid_seller[t],
-            #               name="max_Power_trade_seller")
-           #model.addConstr(power_trade["seller"][t] >= min(quantity_bid_seller[t], quantity_bid_buyer[t]),
-                     #      name="min_Power_trade_seller")
+            model.addConstr(power_trade["buyer"][t] >= 0,
+                           name="min_Power_trade_buyer")
 
+        else:
+            # power the seller can trade is limited by the quantity the buyer is willing to buy
+            if quantity_bid_seller[t]!=0:
+                model.addConstr(power_trade["seller"][t] <= quantity_bid_buyer[t],
+                                name="max_Power_trade_seller")
+                model.addConstr(power_trade["seller"][t] >= 0,
+                                name="min_Power_trade_seller")
+            else:
+                model.addConstr(power_trade["seller"][t] == 0,
+                                name="Power_trade_seller")
 
 
     # Determine nominal heat at every timestep
