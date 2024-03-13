@@ -1,0 +1,29 @@
+{
+  "description": "QuantumLeap Subscription",
+  "subject": {
+    "entities": [
+      {
+        "id": "ID",
+        "type": "TYPE"
+      }
+    ],
+    "condition": {
+      "attrs": [
+        "..."
+      ]
+    }
+  },
+  "notification": {
+    "onlyChangedAttrs": false,
+    "http": {
+      "url": "http://quantumleap:8668/v2/notify"
+    },
+    "metadata": [
+      "dateCreated",
+      "dateModified",
+      "TimeInstant",
+      "timestamp"
+    ]
+  },
+  "throttling": 0
+}

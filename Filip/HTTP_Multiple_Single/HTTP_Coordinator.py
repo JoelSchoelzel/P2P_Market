@@ -18,7 +18,6 @@ import requests
 
 # Load environment variables from .env file
 load_dotenv()
-APIKEY = os.getenv('APIKEY_Coordinator')
 
 # fiware_header = FiwareHeader(service=os.getenv('Service'),
 #                              service_path=os.getenv('Service_path'))

@@ -1,11 +1,8 @@
 # import from filip
 from filip.clients.ngsi_v2 import ContextBrokerClient
 from filip.models.ngsi_v2.context import ContextEntity
-from filip.models.base import FiwareHeader
 
 # import form packages
-import paho.mqtt.client as mqtt
-import time
 import os
 from dotenv import load_dotenv
 import numpy as np
@@ -19,7 +16,7 @@ import json
 import Filip.config as config
 
 # import for data model
-from Filip.data_model.Bid.PublishBid import PublishBid, CreatedDateTime, Price, Quantity, MarketRole
+from Filip.data_model.Bid.PublishBid import PublishBid, CreatedDateTime, Price, Quantity
 from Filip.data_model.Bid.FIWAREPublishBid import FiwarePublishBid, \
     CreatedDateTime as CDT, Price as Pr, Quantity as Qu, MarketRole as MR
 from Filip.data_model.MarketParticipant.MarketParticipant import MarketParticipant
@@ -27,20 +24,15 @@ from Filip.data_model.MarketParticipant.FIWAREMarketParticipant import FiwareMar
 
 # Load environment variables from .env file
 load_dotenv()
-APIKEY_BUILDING = os.getenv('APIKEY_BUILDING')
-APIKEY_BID = os.getenv('APIKEY_BID')
 
-
-# Context Broker, IoT Agent and mqtt URL
-CB_URL = os.getenv('CB_URL')
-
-# Create the fiware header
-# fiware_header = FiwareHeader(service=os.getenv('Service'),
-#                              service_path=os.getenv('Service_path'))
-fiware_headers = {
+fiware_headers_bid = {
     'fiware-service': os.getenv('Service'),
     'fiware-servicepath': os.getenv('Service_path'),
     'Content-Type': 'application/json'}
+
+fiware_headers_transaction = {
+    'fiware-service': os.getenv('Service'),
+    'fiware-servicepath': os.getenv('Service_path')}
 
 # class Building:
 class Building(MarketParticipant):
@@ -100,15 +92,8 @@ class Building(MarketParticipant):
         # json_data = bid_schema(**data_to_publish)
         bid_dict = bid_to_publish.model_dump()
         json_bid = json.dumps(bid_dict)
-        # publish the device and data
-        # self.mqttc.publish(topic=f"/json/{APIKEY_BID}/{self.bid_device_id}/attrs",
-        #                    payload=json_data)
         url = f"http://134.130.166.184:1026/v2/entities/urn:ngsi-ld:Bid:{self.userID}/attrs?options=keyValues"
-        # res = ....post(url=url,  # todo .../entities/id/attrs
-        #                 headers=fiware_header,
-        #                 json=transaction_dict,
-        #                 params=params)
-        response = requests.request("PATCH", url, headers=fiware_headers, data=json_bid)
+        response = requests.request("PATCH", url, headers=fiware_headers_bid, data=json_bid)
         print(response.text)
 
     def create_building_entity(self):
@@ -246,13 +231,11 @@ class Building(MarketParticipant):
         print(self.cbc.get_entity(self.bid_entity_id))
 
     def receive_transaction(self):
-        url = f"http://134.130.166.184:1026/v2/entities/urn:ngsi-ld:Transaction:{self.userID}/attrs?options=keyValues"
-        # res = ....post(url=url,  # todo .../entities/id/attrs
-        #                 headers=fiware_header,
-        #                 json=transaction_dict,
-        #                 params=params)
-        transaction = requests.get(url)
-        print(transaction.text)
+        # url = f"http://134.130.166.184:1026/v2/entities/urn:ngsi-ld:Transaction:{self.userID}/attrs?options=keyValues"
+        # transaction = requests.get(url, headers=fiware_headers_transaction)
+        # print(transaction.text)
+        transaction = self.cbc.get_entity_attributes(entity_id=self.transaction_entity_id)
+        print(transaction)
 
     def formulate_bid(self, n_time):
         # Get following inputs from config

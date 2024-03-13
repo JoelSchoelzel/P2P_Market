@@ -82,6 +82,7 @@ if __name__ == '__main__':
         #  coordinator send transaction to context broker subscription
         # coordinator sends the transaction to context broker so that buildings can get transaction
         coordinator.reformat_publish_transaction(start_datetime)
+        # building sends request to fiware to get transaction
         for building in buildings:
             building.receive_transaction()
         # clear sorted_bids and transactions so that these are empty for next hour
