@@ -163,11 +163,16 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
             sell_list.append(sublist_copy)
             i = len(sell_list) - 1
             ignored_demand = {}
-            # Set values to 0 at time steps where the string is True
+            # Set values to 0 at time steps where the string is True (seller wants to buy)
             for t in sublist_copy:
                 if isinstance(sublist_copy[t], list) and sublist_copy[t][2] == "True":
-                    sell_list[i][t][1] = 0
-                    #ignored_demand[t] = block_bid["bes_"+str(i)][t][1] for t in sell_list[i] if sell_list[i][t][2] == "True"
+                    sell_list[i][t][0] = 0  # set price to 0
+                    sell_list[i][t][1] = 0  # set quantity to 0
+                    sell_list[i][t][2] = str("False")  # set str to False
+                # ignored demand at each time step t is difference between quantity in block bid and in sell list
+                # and will be traded with grid at end of negotiation rounds
+                ignored_demand[t] = block_bid["bes_"+str(n)][t][1] - sell_list[i][t][1]
+
             # append block_bid_info to sell_list
             bes_id, mean_price, sum_energy, total_price, mean_quantity \
                 = mean_all(block_bid=sell_list[i])
@@ -175,69 +180,11 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
             first_t = par_rh["time_steps"][n_opt][0]
             flex_energy_forced = new_characs[bes_id]["energy_forced"][first_t]
             flex_energy_delayed = new_characs[bes_id]["energy_delayed"][first_t]
-
             sell_block_bid_info = {"bes_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
                                    "total_price": total_price, "mean_quantity": mean_quantity,
-                                   "flex_energy_forced": flex_energy_forced, "flex_energy_delayed": flex_energy_delayed
-                                  }# "ignored_demand":ignored_demand
+                                   "flex_energy_forced": flex_energy_forced, "flex_energy_delayed": flex_energy_delayed,
+                                   "ignored_demand": ignored_demand}
             sell_list[i].update(sell_block_bid_info)
-
-
-
-
-
-        """
-        bes_id, mean_price, sum_energy, total_price, mean_quantity \
-            = mean_all(block_bid=block_bid["bes_" + str(n)], new_characs=new_characs) #mean_energy_forced, mean_energy_delayed \
-
-        # add flexible energy for forced and delayed to block_bid (only first timestep, since it is calculated for 36h)
-        first_t = par_rh["time_steps"][n_opt][0]
-        flex_energy_forced = new_characs[bes_id]["energy_forced"][first_t]
-        flex_energy_delayed = new_characs[bes_id]["energy_delayed"][first_t]
-
-        block_bid_info = {"bes_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
-                          "total_price": total_price, "mean_quantity": mean_quantity,
-                          "flex_energy_forced": flex_energy_forced, "flex_energy_delayed": flex_energy_delayed}
-                          #"mean_energy_forced": mean_energy_forced, "mean_energy_delayed": mean_energy_delayed}  # "bes_id": bes_id[0]
-        block_bid["bes_" + str(n)].update(block_bid_info)
-
-
-
-
-
-
-        bes_id, mean_price, sum_energy, total_price, mean_quantity \
-            = mean_all(block_bid=block_bid["bes_" + str(n)], new_characs=new_characs) #mean_energy_forced, mean_energy_delayed \
-
-        # add flexible energy for forced and delayed to block_bid (only first timestep, since it is calculated for 36h)
-        first_t = par_rh["time_steps"][n_opt][0]
-        flex_energy_forced = new_characs[bes_id]["energy_forced"][first_t]
-        flex_energy_delayed = new_characs[bes_id]["energy_delayed"][first_t]
-
-        block_bid_info = {"bes_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
-                          "total_price": total_price, "mean_quantity": mean_quantity,
-                          "flex_energy_forced": flex_energy_forced, "flex_energy_delayed": flex_energy_delayed}
-                          #"mean_energy_forced": mean_energy_forced, "mean_energy_delayed": mean_energy_delayed}  # "bes_id": bes_id[0]
-        block_bid["bes_" + str(n)].update(block_bid_info)
-
-        
-        # Add str whether buying or not to bool_list
-        # Add the value at position 2 (str for buying (either True, False or None)) in the lists inside block_bid to bool_list
-        bool_list = []
-        for t in block_bid["bes_" + str(n)]:
-            if isinstance(block_bid["bes_" + str(n)][t], list):
-                bool_list.append(block_bid["bes_" + str(n)][t][2])
-
-        # if entry in bool_list is "True", add block_bid to buy_list and set mean_energy to mean_energy_delayed
-        if "True" in bool_list:
-            buy_list.append(block_bid["bes_" + str(n)])
-        # if any entry in bool_list is "False", add block_bid to sell_list and set mean_energy to mean_energy_forced
-        elif "False" in bool_list:
-            sell_list.append(block_bid["bes_" + str(n)])
-        # if all entries in bool_list are "None", continue
-        else:
-            continue"""
-
 
 
     # SORT BLOCK BIDS BY CRITERIA DEFINED IN OPTIONS
@@ -280,7 +227,7 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
             sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_delayed"])
 
     # STORE SORTED BUY AND SELL LISTS IN ONE DICTIONARY TO RETURN
-    block_bids = {"buy_blocks": sorted_buy_list,
-                  "sell_blocks": sorted_sell_list}
+    sorted_block_bids = {"buy_blocks": sorted_buy_list,
+                         "sell_blocks": sorted_sell_list}
 
-    return block_bids
+    return sorted_block_bids
