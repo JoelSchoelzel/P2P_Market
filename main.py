@@ -230,32 +230,33 @@ if __name__ == '__main__':
     # Run (rolling horizon) optimization for whole year or month
     if options["optimization"] == "P2P":
         # run optimization incl. trading
-        mar_dict, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
+        mar_dict, characteristics, opti_results = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
+                                                                                    building_params, params)
 
         # opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
 
-        # print('Opti results:', opti_results)
-        # print('Mar dict:', mar_dict)
+        print('Opti results:', opti_results)
+        print('Mar dict:', mar_dict)
         # print('Trade res:', trade_res)
         # print('Characteristics:', characteristics)
 
         # Compute plots
-        criteria = output.compute_out_P2P(options, options_DG, par_rh, opti_results, params, building_params, trade_res,
-                                          mar_dict)
-
-        try:
-            # Save results
-            with open(options["path_results"] + "/P2P_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-                pickle.dump(opti_results, fp)
-            with open(options["path_results"] + "/P2P_characteristics/" + options_DG["scenario_name"] + ".p",
-                      'wb') as fp:
-                pickle.dump(characteristics, fp)
-            with open(options["path_results"] + "/P2P_mar_dict/" + options_DG["scenario_name"] + "_" +
-                      options["crit_prio"] + ".p", 'wb') as fp:
-                pickle.dump(mar_dict, fp)
-
-        except Exception as e:
-            print("Error while trying to save:", str(e))
+        # criteria = output.compute_out_P2P(options, options_DG, par_rh, opti_results, params, building_params, trade_res,
+        #                                   mar_dict)
+        #
+        # try:
+        #     # Save results
+        #     with open(options["path_results"] + "/P2P_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
+        #         pickle.dump(opti_results, fp)
+        #     with open(options["path_results"] + "/P2P_characteristics/" + options_DG["scenario_name"] + ".p",
+        #               'wb') as fp:
+        #         pickle.dump(characteristics, fp)
+        #     with open(options["path_results"] + "/P2P_mar_dict/" + options_DG["scenario_name"] + "_" +
+        #               options["crit_prio"] + ".p", 'wb') as fp:
+        #         pickle.dump(mar_dict, fp)
+        #
+        # except Exception as e:
+        #     print("Error while trying to save:", str(e))
 
     # Run (rolling horizon) optimization for type weeks
     elif options["optimization"] == "P2P_typeWeeks":

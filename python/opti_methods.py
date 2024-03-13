@@ -173,26 +173,27 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
 
             if n_opt == 0:
                 for n in range(options["nb_bes"]):
-                    print("Starting optimization: n_opt: " + str(n_opt) + ", building:" +str(n) + ".")
+                    print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(n) + ".")
                     init_val[n_opt]["building_" + str(n)] = {}
-                    opti_res[n_opt][n] = decentral_operation(nodes[n],params, par_rh,
-                                                              building_params,
-                                                              init_val[n_opt]["building_" + str(n)], n_opt, options)
+                    opti_res[n_opt][n] = decentral_operation(nodes[n], params, par_rh, building_params,
+                                                             init_val[n_opt]["building_" + str(n)], n_opt, options)
                     init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
-                                                                                         par_rh, n_opt)
+                                                                                             par_rh, n_opt)
             else:
                 for n in range(options["nb_bes"]):
                     print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(n) + ".")
                     opti_res[n_opt][n] = decentral_operation(nodes[n], params, par_rh, building_params,
                                                              init_val[n_opt]["building_" + str(n)], n_opt, options)
                     if n_opt < par_rh["n_opt"] - 1:
-                        init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n], par_rh, n_opt)
+                        init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
+                                                                                                 par_rh, n_opt)
                     else:
                         init_val[n_opt + 1] = 0
-            print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) + "% of optimizations processed.")
+            print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) +
+                  "% of optimizations processed.")
 
             ### Stackelberg game
-            if options["stackelberg"] == "True":
+            if options["stackelberg"] == True:
 
                 # compute bids for the Stackelberg game
                 mar_dict["bid"][n_opt] = mar_pre.compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, options)
@@ -209,7 +210,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                                                                             n_opt=n_opt, options=options)
 
             ### Auction
-            elif options["stackelberg"] == "False":
+            elif options["stackelberg"] == False:
                 # compute bids
                 mar_dict["bid"][n_opt] = mar_pre.compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, options)
                 # separate bids in buying and selling, sort by price
@@ -234,18 +235,18 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                 # clear book by buying and selling from and to grid
                 trade_res[n_opt], mar_dict["sorted_bids"][n_opt] = mar_pre.clear_book(trade_res[n_opt], mar_dict["sorted_bids"][n_opt][len(mar_dict["sorted_bids"][n_opt])-1], params)
 
-            # change structure of results to be sorted by res instead of building
-            # opti_res_new = {}
-            # for n_opt in range(par_rh["n_opt"]):
-            #     opti_res_new[n_opt] = {}
-            #     for i in range(18):
-            #         opti_res_new[n_opt][i] = {}
-            #         for n in range(options["nb_bes"]):
-            #             opti_res_new[n_opt][i][n] = {}
-            #             opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]
+                # change structure of results to be sorted by res instead of building
+                opti_res_new = {}
+                for n_opt in range(par_rh["n_opt"]):
+                    opti_res_new[n_opt] = {}
+                    for i in range(18):
+                        opti_res_new[n_opt][i] = {}
+                        for n in range(options["nb_bes"]):
+                            opti_res_new[n_opt][i][n] = {}
+                            opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]
 
-        return mar_dict, characteristics
-        # return opti_res_new, mar_dict, trade_res, characteristics
+        return mar_dict, characteristics, opti_res  # for stackelberg
+        # return opti_res_new, mar_dict, trade_res, characteristics  #for auction
 
     elif options["optimization"] == "P2P_typeWeeks":
 

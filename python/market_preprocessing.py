@@ -78,6 +78,7 @@ def compute_bids(opti_res, pars_rh, mar_agent_prosumer, n_opt, options):
         t = pars_rh["time_steps"][n_opt][0]
         p_imp = opti_res[n][4][t]
         chp_sell = opti_res[n][8]["chp"][t]
+        pv_sell = opti_res[n][8]["pv"][t]
         bid_strategy = options["bid_strategy"]
 
 
@@ -95,8 +96,8 @@ def compute_bids(opti_res, pars_rh, mar_agent_prosumer, n_opt, options):
             #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = 0
 
         # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
-        #elif pv_sell > 0:
-        #    bid["bes_" + str(n)] = mar_agent_prosumer[n].compute_pv_bids(dem_elec, soc_bat, power_pv, p_ch_bat, p_dch_bat, pv_sell, pv_peak, t, n, bid_strategy, strategies, weights)
+        # elif pv_sell > 0:
+        #     bid["bes_" + str(n)] = mar_agent_prosumer[n].compute_pv_bids(dem_elec, soc_bat, power_pv, p_ch_bat, p_dch_bat, pv_sell, pv_peak, t, n, bid_strategy, strategies, weights)
             #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = bid["bes_" + str(n)][1]
 
         else:
