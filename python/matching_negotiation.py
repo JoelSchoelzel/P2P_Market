@@ -229,7 +229,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
 
         # create dicts for next trading round
-        trading_round[r + 1] = {"buy": {}, "sell": {}}
+        #trading_round[r + 1] = {"buy": {}, "sell": {}}
 
 
     """    supply_cover_factor = {}
@@ -243,7 +243,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
     # store the results of the total market (all matches)
     # TODO: add power to/from grid and SCF/DCF to the total_market_info
     total_market_info = {
-        "supply_demand_ratio": supply_demand_ratio,
+        "supply_cover_factor": supply_cover_factor,
+        "demand_cover_factor": demand_cover_factor,
         "total_trade_cost_sum": total_trade_cost_sum,
         "total_average_trade_price": total_average_trade_price,
         "total_traded_volume": total_traded_volume,
@@ -253,8 +254,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
         "total_dem_matches": total_dem_matched,
         "total_power_from_grid_unmatched": 0,
         "total_power_to_grid_unmatched": 0,
-        "supply_cover_factor": 0,
-        "demand_cover_factor": 0
     }
     return nego_transactions, total_market_info, last_time_step
 
