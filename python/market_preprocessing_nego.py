@@ -140,7 +140,7 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
             if isinstance(block_bid["bes_" + str(n)][t], list):
                 bool_list.append(block_bid["bes_" + str(n)][t][2])
 
-        # Check if str is True or None and not False and append block_bid to buy_list
+        # Check if str is True or None and not False and append block bid to buy_list
         if ("True" in bool_list or "None" in bool_list) and "False" not in bool_list:
             buy_list.append(block_bid["bes_" + str(n)])
             i = len(buy_list) - 1
@@ -156,21 +156,22 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
                               "flex_energy_forced": flex_energy_forced, "flex_energy_delayed": flex_energy_delayed}
             buy_list[i].update(buy_block_bid_info)
 
-        # Check if at least one value is False and others are either True, False, or None and append block_bid to sell_list
+        # Check if at least one value is False & append block bid to sell_list
         elif "False" in bool_list:
             # Make a deepcopy to avoid modifying the original sublist in block_bid
             sublist_copy = copy.deepcopy(block_bid["bes_" + str(n)])
             sell_list.append(sublist_copy)
             i = len(sell_list) - 1
             ignored_demand = {}
-            # Set values to 0 at time steps where the string is True (seller wants to buy)
+            # Set quantity and price to 0 at time steps where the string is True (seller wants to buy)
+            # sell list only contains the quantities & prices to be sold
             for t in sublist_copy:
                 if isinstance(sublist_copy[t], list) and sublist_copy[t][2] == "True":
                     sell_list[i][t][0] = 0  # set price to 0
                     sell_list[i][t][1] = 0  # set quantity to 0
                     sell_list[i][t][2] = str("False")  # set str to False
-                # ignored demand at each time step t is difference between quantity in block bid and in sell list
-                # and will be traded with grid at end of negotiation rounds
+                # ignored demand at each time step t is difference between quantity in sellers block bid and in
+                # sell list and will be traded with grid at end of negotiation rounds
                 ignored_demand[t] = block_bid["bes_"+str(n)][t][1] - sell_list[i][t][1]
 
             # append block_bid_info to sell_list

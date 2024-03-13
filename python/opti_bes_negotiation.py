@@ -13,7 +13,7 @@ import datetime
 import python.matching_negotiation as mat_neg
 
 def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_info,
-                 is_buying, delta_price, block_length): # computes the optimal operation of the BES for the given prediction horizon
+                 is_buying, delta_price, block_length):
 
     """Optimization model for the buyers and sellers participating in the negotiation. It is the same as the initial
     optimization model run in opti_bes, but with the difference that there are additional constraints and variables
@@ -21,7 +21,6 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     Returns: opti_bes_res (dict): Dictionary containing the results of the optimization model.
       """
-
 
     # Define subsets
     heater = ("boiler", "chp", "eh", "hp35", "hp55")

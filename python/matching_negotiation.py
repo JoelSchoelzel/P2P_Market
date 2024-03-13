@@ -5,7 +5,7 @@ import python.market_preprocessing as mar_pre
 from python import opti_bes_negotiation
 
 
-def matching (block_bids, n_opt):
+def matching(block_bids, n_opt):
     """Match the sorted block bids of the buyers to the ones of the sellers.
     Returns:
         matched_bids_info (list): List of all matched block_bids in tuples.
@@ -20,20 +20,9 @@ def matching (block_bids, n_opt):
     if len(block_bids["buy_blocks"]) != 0 and len(block_bids["sell_blocks"]) != 0:
        matched_bids_info = list(zip(block_bids["buy_blocks"], block_bids["sell_blocks"]))
 
-       # Calculate the number of matched bids
-      # num_matched_bids = len(matched_bids_info)
-
-       # Create lists of unmatched buy and sell blocks
-       #unmatched_buy_blocks = block_bids["buy_blocks"][num_matched_bids:] if len(
-       #    block_bids["buy_blocks"]) > num_matched_bids else []
-       #unmatched_sell_blocks = block_bids["sell_blocks"][num_matched_bids:] if len(
-       #    block_bids["sell_blocks"]) > num_matched_bids else []
-       #unmatched_blocks = unmatched_buy_blocks + unmatched_sell_blocks
-
     else:
        matched_bids_info = []
        print("No matched bids for this optimization period.")
-
 
     return matched_bids_info #, unmatched_blocks
 
@@ -90,7 +79,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
     # calculate supply and demand cover factor for each time step before trading
     total_demand = {}
     total_supply = {}
-    supply_demand_ratio = {}
+    supply_cover_factor = {}
+    demand_cover_factor = {}
 
     for t in time_steps:
         total_demand[t] = 0  # Initialize total_demand for time step t
@@ -106,11 +96,16 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             if t in seller_block:  # Check if time step t exists in the seller_block
                 total_supply[t] += seller_block[t][1]  # Add the quantity for time step t
 
-        # Calculate the ratio of total supply to total demand before trading for time step t
+        # Calculate SCF and DCF before trading for time step t
         if total_demand[t] > 0:  # Ensure there's no division by zero
-            supply_demand_ratio[t] = total_supply[t] / total_demand[t]
+            supply_cover_factor[t] = min(total_supply[t], total_demand[t]) / total_supply[t]
         else:
-            supply_demand_ratio[t] = 0
+            supply_cover_factor[t] = 0
+        if total_supply[t] > 0:
+            demand_cover_factor[t] = min(total_supply[t], total_demand[t]) / total_demand[t]
+        else:
+            demand_cover_factor[t] = 0
+
 
 
     # calculate the total demand and supply of all matched buyers and sellers
@@ -158,7 +153,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 average_bids_price[t] = opti_bes_res_buyer["average_bids_price"][t]
                 buyer_trade_price[t] = opti_bes_res_buyer["res_price_trade"][t]
                 seller_trade_price[t] = opti_bes_res_seller["res_price_trade"][t]
-                buyer_diff_to_average[t] = abs(buyer_trade_price[t] - average_bids_price[t]) # opti_bes_res_buyer["res_price_trade"][t]
+                buyer_diff_to_average[t] = abs(buyer_trade_price[t] - average_bids_price[t])
                 seller_diff_to_average[t] = abs(seller_trade_price[t] - average_bids_price[t])
 
                 # update delta price
@@ -231,6 +226,10 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             total_power_from_grid += nego_transactions[matches]["power_from_grid"]
 
         total_average_trade_price = average_trade_price_sum / count
+
+
+        # create dicts for next trading round
+        trading_round[r + 1] = {"buy": {}, "sell": {}}
 
 
     """    supply_cover_factor = {}
