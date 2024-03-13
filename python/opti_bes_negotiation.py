@@ -329,7 +329,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     # Constraints for trading power
     for t in time_steps:
         if is_buying:
-           model.addConstr(power_trade["buyer"][t] <= quantity_bid_buyer[t],
+           model.addConstr(power_trade["buyer"][t] <= quantity_bid_seller[t],
                            name="max_Power_trade_buyer")
            model.addConstr(power_trade["buyer"][t] >= 0,
                            name = "min_Power_trade_buyer")
@@ -338,9 +338,13 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
            #model.addConstr(power_trade["buyer"][t] >= min(quantity_bid_seller[t], quantity_bid_buyer[t]),
                            #
         else:
-           model.addConstr(power_trade["seller"][t] <= quantity_bid_seller[t],
+            if quantity_bid_seller[t]==0:
+                model.addConstr(power_trade["seller"][t]==0,
+                                name="Power_trade_seller")
+            else:
+                model.addConstr(power_trade["seller"][t] <= quantity_bid_buyer[t],
                            name="max_Power_trade_seller")
-           model.addConstr(power_trade["seller"][t] >= 0,
+                model.addConstr(power_trade["seller"][t] >= 0,
                            name="min_Power_trade_seller")
            #model.addConstr(power_trade["seller"][t] <= quantity_bid_seller[t],
             #               name="max_Power_trade_seller")
@@ -542,7 +546,6 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
                             == p_imp[t] + power_trade["buyer"][t],
                             name="Electricity_balance_" + str(t))
         else:
-            model.addConstr(p_imp[t] == 0)
             model.addConstr(demands["elec"][t] + p_ch["bat"][t] - p_dch["bat"][t] + p_ch["ev"][t] - p_dch["ev"][t]
                             + power["hp35"][t] + power["hp55"][t] + power["eh"][t] - p_use["chp"][t] - p_use["pv"][t]
                             + power_trade["seller"][t]

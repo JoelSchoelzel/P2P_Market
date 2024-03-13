@@ -57,7 +57,7 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name": "Quartier_2",  # name of csv input file, scenario3
+        "scenario_name": "Quartier_2",  # name of csv input file, scenario3, Quartier_2
     }
 
     '''
