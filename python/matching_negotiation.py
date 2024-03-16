@@ -3,6 +3,7 @@ import python.bidding_strategies as bd
 import python.market_preprocessing as mar_pre
 
 from python import opti_bes_negotiation
+import copy
 
 
 def matching(sorted_block_bids, n_opt):
@@ -129,6 +130,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
     sorted_bids_nego = {r: sorted_bids}
     matched_bids_info = {r: matched_bids_info}
     nego_transactions = {r: {}}
+    # Initialize a set to keep track of buildings that participated in negotiations
+    participated_buildings = set()
 
 
     # start new round of trading while potential buyers and sellers exist and maximum number of rounds isn't reached
@@ -152,6 +155,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 seller_diff_to_average[t] = float('inf')
                 buyer_id = matched_bids_info[r][match][0]["bes_id"]
                 seller_id = matched_bids_info[r][match][1]["bes_id"]
+                participated_buildings.add(buyer_id)
+                participated_buildings.add(seller_id)
                 saved_costs[t] = 0
                 additional_revenue[t] = 0
                 saved_costs_sum = 0
@@ -200,12 +205,14 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
                 # add unsatisfied buyers and sellers to next trading round
                 if remaining_demand[t] > 0:
-                    sorted_bids_nego[r + 1]["buy_blocks"].append(matched_bids_info[r][match][0].copy.deepcopy())
-                    sorted_bids_nego[r + 1]["buy_blocks"][t][1] = remaining_demand[t]
+                    copy_of_buy_bid = copy.deepcopy(matched_bids_info[r][match][0])
+                    sorted_bids_nego[r + 1]["buy_blocks"].append(copy_of_buy_bid)
+                    sorted_bids_nego[r + 1]["buy_blocks"][match][t][1] = remaining_demand[t]
 
                 if remaining_supply[t] > 0:
-                    sorted_bids_nego[r + 1]["sell_blocks"].append(matched_bids_info[r][match][1].copy.deepcopy())
-                    sorted_bids_nego[r + 1]["sell_blocks"][t][1] = remaining_supply[t]
+                    copy_of_sell_bid = copy.deepcopy(matched_bids_info[r][match][1])
+                    sorted_bids_nego[r + 1]["sell_blocks"].append(copy_of_sell_bid)
+                    sorted_bids_nego[r + 1]["sell_blocks"][match][t][1] = remaining_supply[t]
 
 
                 # calculate the saved costs for this match compared to trading with grid
@@ -235,7 +242,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             }
 
 
-        # Add all buyers/sellers that weren't matched to the new sorted_bids_nego lists
+        # Add all buyers/sellers that weren't matched (but were in sorted bids list) to the new sorted_bids_nego lists
         if len(sorted_bids_nego[r]["buy_blocks"]) > len(sorted_bids_nego[r]["sell_blocks"]):
             # Retrieve the remaining buy blocks
             remaining_buy_blocks = sorted_bids_nego[r]["buy_blocks"][len(sorted_bids_nego[r]["sell_blocks"]):]
@@ -276,6 +283,21 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
     total_traded_volume = {}
     total_power_to_grid = {}
     total_power_from_grid = {}
+    costs_power_from_grid = {}
+    nb_negotiation_rounds = r
+
+    for buyer in sorted_bids_nego[0]["buy_blocks"]:
+        buyer_id = buyer["bes_id"]
+        if buyer_id not in participated_buildings:
+            for t in time_steps:
+                power_from_grid[buyer_id][t] = buyer[t][1]
+                costs_power_from_grid[buyer_id][t] = buyer[t][1] * params["eco"]["pr", "el"]
+        else:
+            for t in time_steps:
+                power_from_grid[buyer_id][t] = nego_transactions[r][match]["remaining_demand"][t]
+                costs_power_from_grid[buyer_id][t] = 0
+    # Trade the initial bid quantity with the grid
+
     for building in nodes:
         power_to_grid = {building: {}}
         power_from_grid = {building: {}}
