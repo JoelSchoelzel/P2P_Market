@@ -167,7 +167,6 @@ class mar_agent_bes(object):
         return [p, q, buying, n], 0
 
 
-    # NEW! copied from https://github.com/JoelSchoelzel/local_market/blob/main/python/bidding_strategies.py
     def compute_pv_bids(self, dem_elec, soc_bat, power_pv, p_ch_bat, p_dch_bat, pv_sell, pv_peak, t, n, bid_strategy,
                         strategies, weights, options):
         """Compute the bid when electricity from the PV needs to be sold."""

@@ -124,7 +124,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
 
                 # match the block bids to each other according to crit
                 mar_dict["matched_bids_info"][n_opt] \
-                    = mat_neg.matching(block_bids=mar_dict["sorted_bids"][n_opt], n_opt=n_opt) #, mar_dict["unmatched_bids"][n_opt]
+                    = mat_neg.matching(sorted_block_bids=mar_dict["sorted_bids"][n_opt], n_opt=n_opt) #, mar_dict["unmatched_bids"][n_opt]
 
                 # run negotiation optimization (with constraints adapted to matched peer) and save results
                 mar_dict["negotiation_results"][n_opt], mar_dict["total_market_info"][n_opt], last_time_step[n_opt]\
