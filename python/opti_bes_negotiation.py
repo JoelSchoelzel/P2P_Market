@@ -721,6 +721,8 @@ def compute_initial_values_block(nb_buildings, opti_res, nego_transactions, last
         for dev in ["tes", "bat", "ev"]:
             init_val_block["building_" + str(n)]["soc"][dev] = opti_res[n][3][dev][last_time_step]
 
+
+    #TODO: correctly update SoC values of buyer and seller
     # for all buildings in nego_transaction, their SoC values are updated with the SoC values of the last time step
     # of the negotiation optimisation
     for match in nego_transactions:

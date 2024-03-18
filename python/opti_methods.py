@@ -107,7 +107,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                           block_length=block_length, opti_res=opti_res,
                                                           start_step=n_opt)
 
-            # P2P TRADING NEGOTIATION WITH BLOCK BIDS
+            # ----------------- P2P TRADING NEGOTIATION WITH BLOCK BIDS -----------------
             if options["negotiation"] == True:
 
                 # compute the block bids for each building
@@ -135,13 +135,12 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                           sorted_bids=mar_dict["sorted_bids"][n_opt], block_length=block_length)
 
                 # trade the remaining power with the grid
-                mar_dict["trade_with_grid"][n_opt] = \
-                    mat_neg.trade_with_grid(nego_transactions=mar_dict["negotiation_results"][n_opt],
-                                            sorted_bids=mar_dict["sorted_bids"][n_opt],
+                mar_dict["transactions_with_grid"][n_opt] = \
+                    mat_neg.trade_with_grid(sorted_bids=mar_dict["sorted_bids"][n_opt],
                                             sorted_bids_nego=mar_dict["sorted_bids_nego"][n_opt],
                                             participating_buildings=mar_dict["participating_bes"][n_opt],
-                                            params=params, par_rh=par_rh, n_opt=n_opt, block_length=block_length)#mar_dict["total_market_info"][n_opt]
-
+                                            params=params, par_rh=par_rh, n_opt=n_opt, block_length=block_length,
+                                            opti_res=opti_res[n_opt])
 
                 # create initial SoC values for next optimization step
                 init_val[n_opt + 1] \
@@ -154,7 +153,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
 
 
 
-            # P2P TRADING WITH AUCTION AND SINGLE BIDS
+            # ----------------- P2P TRADING WITH AUCTION AND SINGLE BIDS -----------------
             elif options["negotiation"] == False:
                 mar_dict["bid"][n_opt], bes = mar_pre.compute_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,
                                                                options, nodes, init_val, mar_dict["propensities"][n_opt], strategies)
@@ -222,6 +221,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
 
         # return opti_res_new, mar_dict, trade_res, characteristics  #opti_res,
         return mar_dict, characteristics, init_val
+
 
     elif options["optimization"] == "P2P_typeWeeks":
         # runs optimization for type weeks instead of whole month/year

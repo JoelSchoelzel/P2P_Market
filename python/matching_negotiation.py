@@ -200,19 +200,17 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                     add_sell_bid = True
 
             # add unsatisfied buyers and sellers to next trading round with remaining demand/supply
-            # if remaining_demand[t] > 0:
             if add_buy_bid:
                 copy_of_buy_bid = copy.deepcopy(matched_bids_info[r][match][0])
                 sorted_bids_nego[r + 1]["buy_blocks"].append(copy_of_buy_bid)
-                position_b = len(sorted_bids_nego[r + 1]["buy_blocks"]) - 1  # position of the new buy block in the list
+                position_b = len(sorted_bids_nego[r + 1]["buy_blocks"]) - 1  # position of new buy block in list
                 for t in time_steps:
                     sorted_bids_nego[r + 1]["buy_blocks"][position_b][t][1] = remaining_demand[t]
 
-            #if remaining_supply[t] > 0:
             if add_sell_bid:
                 copy_of_sell_bid = copy.deepcopy(matched_bids_info[r][match][1])
                 sorted_bids_nego[r + 1]["sell_blocks"].append(copy_of_sell_bid)
-                position_s = len(sorted_bids_nego[r + 1]["sell_blocks"]) - 1  # position of the new sell block in the list
+                position_s = len(sorted_bids_nego[r + 1]["sell_blocks"]) - 1  # position of new sell block in list
                 for t in time_steps:
                     sorted_bids_nego[r + 1]["sell_blocks"][position_s][t][1] = remaining_supply[t]
 
@@ -255,30 +253,32 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
         # go to next negotiation trading round
         r += 1
 
-    return nego_transactions, participating_buildings, sorted_bids_nego, last_time_step #total_market_info
+    print("Finished all negotiations for time steps " + str(time_steps[0]) + " to " + str(time_steps[-1]) + ".")
+
+    return nego_transactions, participating_buildings, sorted_bids_nego, last_time_step
 
 
-def trade_with_grid(nego_transactions, sorted_bids, sorted_bids_nego, participating_buildings, params, par_rh, n_opt, block_length):
+def trade_with_grid(sorted_bids, sorted_bids_nego, participating_buildings, params, par_rh, n_opt, block_length,
+                    opti_res):
 
     # Get the time steps of the block bid
     time_steps = par_rh["time_steps"][n_opt][0:block_length]
     nb_bes = len(sorted_bids["buy_blocks"]+sorted_bids["sell_blocks"])
 
-    # if no negotiation can occur (seller or buyer list empty), all buyers/sellers trade with grid
-    total_traded_volume = {}
-    total_power_to_grid = {}
-    total_power_from_grid = {}
+    # initialize all necessary variables
     power_from_grid = {}
     power_to_grid = {}
     costs_power_from_grid = {}
-    costs_power_to_grid = {}
+    revenue_power_to_grid = {}
     for bes_id in range(nb_bes):
         power_from_grid[bes_id] = {}
         power_to_grid[bes_id] = {}
         costs_power_from_grid[bes_id] = {}
-        costs_power_to_grid[bes_id] = {}
+        revenue_power_to_grid[bes_id] = {}
 
 
+
+    # --------------------- BUYERS IMPORT FROM GRID ---------------------
     for buyer in sorted_bids["buy_blocks"]:
         buyer_id = buyer["bes_id"]
 
@@ -288,10 +288,8 @@ def trade_with_grid(nego_transactions, sorted_bids, sorted_bids_nego, participat
                 power_from_grid[buyer_id][t] = buyer[t][1]
                 costs_power_from_grid[buyer_id][t] = buyer[t][1] * params["eco"]["pr", "el"]
 
-        # if buyer participated in negotiation, his remaining demand (after last negotiation round and match) is
-        # traded with grid
+        # if buyer participated in negotiation, his remaining demand (after last negotiation round) is traded with grid
         else:
-            last_round = max(sorted_bids_nego.keys())
             remaining_demand = {}
             # Iterate backwards to find the last occurrence of the bes_id
             for round_num in sorted(sorted_bids_nego.keys(), reverse=True):
@@ -309,74 +307,69 @@ def trade_with_grid(nego_transactions, sorted_bids, sorted_bids_nego, participat
             for t in time_steps:
                 power_from_grid[buyer_id][t] = remaining_demand[t]
                 costs_power_from_grid[buyer_id][t] = remaining_demand[t] * params["eco"]["pr", "el"]
-        """else:
-            last_remaining_demand = None
-            # Iterate through each trading round
-            for negotiation_round, round_value in nego_transactions.items():
-                # Iterate through each match within the trading round
-                for match_key, match_value in round_value.items():
-                    # Check if the current match contains the buyer
-                    if match_value.get("buyer") == buyer_id:
-                        # Update the last remaining demand found for the buyer
-                        last_remaining_demand = match_value['remaining_demand']
-
-            # If the last remaining demand is not None, trade the remaining demand with the grid
-            if last_remaining_demand is not None:
-                for t in time_steps:
-                    power_from_grid[t] = last_remaining_demand[t]
-                    costs_power_from_grid[t] = power_from_grid[buyer_id][t] * params["eco"]["pr", "el"]
-            # If remaining demand is None, trade the remaining demand in last round of sorted_bids_nego[r]["buy_blocks"]
-            # with the grid"""
 
 
-    # if seller didn't participate in negotiation, his initial bid quantity is traded with the grid
-    # if a seller participated in negotiation, his remaining supply is traded with the grid
+
+
+    # --------------------- SELLERS INJECT INTO GRID ---------------------
     for seller in sorted_bids["sell_blocks"]:
         seller_id = seller["bes_id"]
+
+        # if seller didn't participate in negotiation, his initial bid quantity is traded with the grid
         if seller_id not in participating_buildings:
             for t in time_steps:
-                power_from_grid[seller_id][t] = seller[t][1]
-                costs_power_to_grid[seller_id][t] = seller[t][1] * params["eco"]["pr", "el"]
-        # TODO: trade the remaining supply after last negotiation round in which seller occurs with the grid
+                power_to_grid[seller_id][t] = seller[t][1]
+                revenue_power_to_grid[seller_id][t] = seller[t][1] * params["eco"]["pr", "el"]
+
+        # if seller participated in negotiation, his remaining supply (after last negotiation round) is traded with grid
         else:
+            remaining_supply = {}
+            # Iterate backwards to find the last occurrence of the bes_id
+            for round_num in sorted(sorted_bids_nego.keys(), reverse=True):
+                seller_found = False
+                for sell_bid in sorted_bids_nego[round_num]["sell_blocks"]:
+                    if sell_bid.get("bes_id") == seller_id:
+                        for t in sell_bid:
+                            if isinstance(t, int):  # Ensure it's a time step key
+                                remaining_supply[t] = sell_bid[t][1]
+                        seller_found = True
+                        break
+                if seller_found:
+                    break  # Stop searching through rounds once the bes_id is found
+
             for t in time_steps:
-                power_from_grid[seller_id][t] = nego_transactions[r][match]["remaining_demand"][t]
-                costs_power_from_grid[seller_id][t] = 0
-    # Trade the initial bid quantity with the grid
+                power_to_grid[seller_id][t] = remaining_supply[t]
+                if opti_res[seller_id][8]["pv"][t] > 1e-4:
+                    revenue_power_to_grid[seller_id][t] = remaining_supply[t] * params["eco"]["sell" + "_" + "pv"]
+                elif opti_res[seller_id][8]["chp"][t] > 1e-4:
+                    revenue_power_to_grid[seller_id][t] = remaining_supply[t] * params["eco"]["sell" + "_" + "chp"]
+
+
+        # trade ignored demand of sellers with grid
+        for seller in sorted_bids["sell_blocks"]:
+            for t in time_steps:
+                power_from_grid[seller_id][t] = sorted_bids["sell_blocks"][seller]["ignored_demand"][t]
+                costs_power_from_grid[seller_id][t] = (sorted_bids["sell_blocks"][seller]["ignored_demand"][t] *
+                                                       params["eco"]["pr", "el"])
 
 
 
+    # --------------------- STORE THE RESULTS OF TRANSACTIONS WITH THE GRID ---------------------
+
+    grid_transactions = {
+        "power_from_grid": power_from_grid,
+        "power_to_grid": power_to_grid,
+        "costs_power_from_grid": costs_power_from_grid,
+        "revenue_power_to_grid": revenue_power_to_grid
+    }
+
+    return grid_transactions
 
 
 
+def calculate_kpi(nego_transactions, grid_transactions, sorted_bids, sorted_bids_nego, participating_buildings,
+                   params, par_rh, n_opt, block_length):
 
-
-    """for building in nodes:
-        power_to_grid = {building: {}}
-        power_from_grid = {building: {}}
-
-
-    # only buyers remaining
-    if len(sorted_bids["sell_blocks"]) == 0:
-        for buyer in sorted_bids_nego[r]["buy_blocks"]:
-            for bes_id in buyer["bes_id"]:
-                for t in time_steps:
-                    power_to_grid[bes_id][t] = buyer[t][1]
-                    total_power_to_grid[bes_id][t] = total_demand
-                    total_power_from_grid[t] = 0
-                    total_traded_volume[t] = 0
-
-    # only sellers remaining
-    if len(sorted_bids["buy_blocks"]) == 0:
-        for t in time_steps:
-            power_from_grid[t] = total_demand
-            total_power_to_grid[t] = 0
-            total_traded_volume[t] = 0"""
-
-    #TODO: trade ignored demand of sellers with grid
-
-
-    ### STORE THE RESULTS OF THE TOTAL MARKET
 
     total_market_info = {
         "supply_cover_factor": supply_cover_factor,
@@ -394,7 +387,6 @@ def trade_with_grid(nego_transactions, sorted_bids, sorted_bids_nego, participat
         "soc_last_time_step": 0
     }
 
-    print("Finished all negotiations for time steps " + str(time_steps[0]) + " to " + str(time_steps[-1]) + ".")
 
     return total_market_info
 
