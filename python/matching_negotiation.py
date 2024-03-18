@@ -101,12 +101,14 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # Multiple rounds of trading
     r = 0
-    max_rounds = 1000
+    max_rounds = 10
     sorted_bids_nego = {r: sorted_bids}
     matched_bids_info = {r: matched_bids_info}
     nego_transactions = {r: {}}
     # Initialize a set to keep track of buildings that participated in negotiations
     participating_buildings = set()
+    participating_buyers = set()
+    participating_sellers = set()
 
 
     # start new round of trading while potential buyers and sellers exist and maximum number of rounds isn't reached
@@ -134,6 +136,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 seller_diff_to_average[t] = float('inf')
                 buyer_id = matched_bids_info[r][match][0]["bes_id"]
                 seller_id = matched_bids_info[r][match][1]["bes_id"]
+                participating_buyers.add(buyer_id)
+                participating_sellers.add(seller_id)
                 participating_buildings.add(buyer_id)
                 participating_buildings.add(seller_id)
                 saved_costs[t] = 0
@@ -255,11 +259,11 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     print("Finished all negotiations for time steps " + str(time_steps[0]) + " to " + str(time_steps[-1]) + ".")
 
-    return nego_transactions, participating_buildings, sorted_bids_nego, last_time_step
+    return nego_transactions, participating_buyers, participating_sellers, sorted_bids_nego, last_time_step
 
 
-def trade_with_grid(sorted_bids, sorted_bids_nego, participating_buildings, params, par_rh, n_opt, block_length,
-                    opti_res):
+def trade_with_grid(sorted_bids, sorted_bids_nego, participating_buyers, participating_sellers, params,
+                    par_rh, n_opt, block_length, opti_res):
 
     # Get the time steps of the block bid
     time_steps = par_rh["time_steps"][n_opt][0:block_length]
@@ -283,7 +287,7 @@ def trade_with_grid(sorted_bids, sorted_bids_nego, participating_buildings, para
         buyer_id = buyer["bes_id"]
 
         # if buyer didn't participate in negotiation, his initial bid quantity is traded with the grid
-        if buyer_id not in participating_buildings:
+        if buyer_id not in participating_buyers:
             for t in time_steps:
                 power_from_grid[buyer_id][t] = buyer[t][1]
                 costs_power_from_grid[buyer_id][t] = buyer[t][1] * params["eco"]["pr", "el"]
@@ -316,7 +320,7 @@ def trade_with_grid(sorted_bids, sorted_bids_nego, participating_buildings, para
         seller_id = seller["bes_id"]
 
         # if seller didn't participate in negotiation, his initial bid quantity is traded with the grid
-        if seller_id not in participating_buildings:
+        if seller_id not in participating_sellers:
             for t in time_steps:
                 power_to_grid[seller_id][t] = seller[t][1]
                 revenue_power_to_grid[seller_id][t] = seller[t][1] * params["eco"]["pr", "el"]
@@ -344,13 +348,12 @@ def trade_with_grid(sorted_bids, sorted_bids_nego, participating_buildings, para
                 elif opti_res[seller_id][8]["chp"][t] > 1e-4:
                     revenue_power_to_grid[seller_id][t] = remaining_supply[t] * params["eco"]["sell" + "_" + "chp"]
 
-
+        ignored_demand = {}
         # trade ignored demand of sellers with grid
-        for seller in sorted_bids["sell_blocks"]:
-            for t in time_steps:
-                power_from_grid[seller_id][t] = sorted_bids["sell_blocks"][seller]["ignored_demand"][t]
-                costs_power_from_grid[seller_id][t] = (sorted_bids["sell_blocks"][seller]["ignored_demand"][t] *
-                                                       params["eco"]["pr", "el"])
+        for t in time_steps:
+            ignored_demand = seller.get("ignored_demand")
+            power_from_grid[seller_id][t] = ignored_demand[t]
+            costs_power_from_grid[seller_id][t] = (power_from_grid[seller_id][t] * params["eco"]["pr", "el"])
 
 
 
@@ -367,28 +370,7 @@ def trade_with_grid(sorted_bids, sorted_bids_nego, participating_buildings, para
 
 
 
-def calculate_kpi(nego_transactions, grid_transactions, sorted_bids, sorted_bids_nego, participating_buildings,
-                   params, par_rh, n_opt, block_length):
 
-
-    total_market_info = {
-        "supply_cover_factor": supply_cover_factor,
-        "demand_cover_factor": demand_cover_factor,
-        "market_based_scf": 0,
-        "market_based_dcf": 0,
-        "total_traded_volume": total_traded_volume,
-        "total_average_trade_price": total_average_trade_price,
-        "total_saved_costs": 0,
-        "total_additional_revenue": 0,
-        "total_economic_gain": 0,
-        "total_power_to_grid": total_power_to_grid,
-        "total_power_from_grid": total_power_from_grid,
-        "total_trade_cost_sum": total_trade_cost_sum,
-        "soc_last_time_step": 0
-    }
-
-
-    return total_market_info
 
 
 

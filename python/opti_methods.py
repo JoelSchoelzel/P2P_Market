@@ -127,7 +127,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     = mat_neg.matching(sorted_block_bids=mar_dict["sorted_bids"][n_opt], n_opt=n_opt) #, mar_dict["unmatched_bids"][n_opt]
 
                 # run negotiation optimization (with constraints adapted to matched peer) and save results
-                (mar_dict["negotiation_results"][n_opt], mar_dict["participating_bes"][n_opt],
+                (mar_dict["negotiation_results"][n_opt], participating_buyers, participating_sellers,
                  mar_dict["sorted_bids_nego"][n_opt], last_time_step[n_opt]) \
                     = mat_neg.negotiation(nodes=nodes, params=params, par_rh=par_rh,
                                           init_val=init_val[n_opt], n_opt=n_opt, options=options,
@@ -138,7 +138,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 mar_dict["transactions_with_grid"][n_opt] = \
                     mat_neg.trade_with_grid(sorted_bids=mar_dict["sorted_bids"][n_opt],
                                             sorted_bids_nego=mar_dict["sorted_bids_nego"][n_opt],
-                                            participating_buildings=mar_dict["participating_bes"][n_opt],
+                                            participating_buyers=participating_buyers,
+                                            participating_sellers=participating_sellers,
                                             params=params, par_rh=par_rh, n_opt=n_opt, block_length=block_length,
                                             opti_res=opti_res[n_opt])
 
@@ -147,7 +148,9 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     = opti_bes_nego.compute_initial_values_block(nb_buildings=options["nb_bes"],
                                                                  opti_res=opti_res[n_opt],
                                                                  nego_transactions=mar_dict["negotiation_results"][n_opt],
-                                                                 last_time_step=last_time_step[n_opt])
+                                                                 last_time_step=last_time_step[n_opt],
+                                                                 participating_buyers=participating_buyers,
+                                                                 participating_sellers=participating_sellers)
 
 
 

@@ -697,9 +697,8 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     return opti_bes_res
 
 
-
-
-def compute_initial_values_block(nb_buildings, opti_res, nego_transactions, last_time_step):
+def compute_initial_values_block(nb_buildings, opti_res, nego_transactions, last_time_step, participating_buyers,
+                                 participating_sellers):
     """
     Computes the SoC values for each BES at the last time step of the block bid
     for the current optimization step.
@@ -721,15 +720,42 @@ def compute_initial_values_block(nb_buildings, opti_res, nego_transactions, last
         for dev in ["tes", "bat", "ev"]:
             init_val_block["building_" + str(n)]["soc"][dev] = opti_res[n][3][dev][last_time_step]
 
-
-    #TODO: correctly update SoC values of buyer and seller
     # for all buildings in nego_transaction, their SoC values are updated with the SoC values of the last time step
-    # of the negotiation optimisation
-    for match in nego_transactions:
+    # of the last negotiation in which the building was involved
+    last_opti_res_buyer = {}
+    last_opti_res_seller = {}
+
+
+    for buyer_id in participating_buyers:
+        #buyer_id = buyer["bes_id"]
+        # Iterate through each trading round
+        for round_key, round_value in nego_transactions.items():
+            # Iterate through each match within the trading round
+            for match_key, match_value in round_value.items():
+                # Check if the current match contains the participant as a buyer
+                if match_value.get("buyer") == buyer_id:
+                    last_opti_res_buyer = match_value.get("opti_bes_res_buyer")
+                    break # because there is only one match per round
+        for dev in ["tes", "bat", "ev"]:
+            init_val_block["building_" + str(buyer_id)]["soc"][dev] = last_opti_res_buyer["res_soc"][dev][last_time_step]
+
+    for seller_id in participating_sellers:
+        # Iterate through each trading round
+        for round_key, round_value in nego_transactions.items():
+            # Iterate through each match within the trading round
+            for match_key, match_value in round_value.items():
+                # Check if the current match contains the participant as a seller
+                if match_value.get("seller") == seller_id:
+                    last_opti_res_seller = match_value.get("opti_bes_res_seller")
+                    break
+        for dev in ["tes", "bat", "ev"]:
+            init_val_block["building_" + str(seller_id)]["soc"][dev] = last_opti_res_seller["res_soc"][dev][last_time_step]
+
+    """for match in nego_transactions:
         b = nego_transactions[match]["buyer"]
         s = nego_transactions[match]["seller"]
         for dev in ["tes", "bat", "ev"]:
             init_val_block["building_" + str(b)]["soc"][dev] = nego_transactions[match]["opti_bes_res_buyer"]["res_soc"][dev][last_time_step]
-            init_val_block["building_" + str(s)]["soc"][dev] = nego_transactions[match]["opti_bes_res_seller"]["res_soc"][dev][last_time_step]
+            init_val_block["building_" + str(s)]["soc"][dev] = nego_transactions[match]["opti_bes_res_seller"]["res_soc"][dev][last_time_step]"""
 
     return init_val_block

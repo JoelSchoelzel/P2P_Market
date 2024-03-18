@@ -13,7 +13,7 @@ def dict_for_market_data(par_rh):
         "matched_bids_info": {},
         "negotiation_results": {},
         "participating_bes": {},
-        "trade_with_grid": {},
+        "transactions_with_grid": {},
         "total_market_info": {},
         "propensities": {n_opt: {} for n_opt in range(par_rh["n_opt"])}
         }

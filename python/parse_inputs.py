@@ -46,9 +46,9 @@ def read_economics():
                      (params["eco"]["q"] ** params["eco"]["t_calc"] - 1))
     
     params["eco"]["prChange"] = {}  # Price change factors per year
-    params["eco"]["prChange"]["el"]   = 1.057    # for electricity
-    params["eco"]["prChange"]["gas"]  = 1.041    # for natural gas
-    params["eco"]["prChange"]["eex"]  = 1.0252   # for EEX compensation
+    params["eco"]["prChange"]["el"] = 1.057    # for electricity
+    params["eco"]["prChange"]["gas"] = 1.041    # for natural gas
+    params["eco"]["prChange"]["eex"] = 1.0252   # for EEX compensation
     params["eco"]["prChange"]["infl"] = 1.017    # for inflation
 
     pC = params["eco"]["prChange"]
@@ -57,7 +57,7 @@ def read_economics():
                 for key in pC.keys()}
     
     # Always EUR per kWh (meter per anno)
-    params["eco"]["sell_pv"]    = 0.081 # €/kWh valid for pv systems with < 10 kWp 0.082
+    params["eco"]["sell_pv"] = 0.081 # €/kWh valid for pv systems with < 10 kWp 0.082
     params["eco"]["sell_chp"] = 0.191 # €/kWh (average Q4 2021 - Q2 2022 + avoided costs for grid usage)
     params["eco"]["co2_gas"] = 0.411 # kg/kWh (Germany, 2019; https://de.statista.com/statistik/daten/studie/38897/umfrage/co2-emissionsfaktor-fuer-den-strommix-in-deutschland-seit-1990/)
     params["eco"]["co2_el"] = 0.241 # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
