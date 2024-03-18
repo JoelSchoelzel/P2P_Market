@@ -127,11 +127,21 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     = mat_neg.matching(sorted_block_bids=mar_dict["sorted_bids"][n_opt], n_opt=n_opt) #, mar_dict["unmatched_bids"][n_opt]
 
                 # run negotiation optimization (with constraints adapted to matched peer) and save results
-                mar_dict["negotiation_results"][n_opt], mar_dict["total_market_info"][n_opt], last_time_step[n_opt]\
+                (mar_dict["negotiation_results"][n_opt], mar_dict["participating_bes"][n_opt],
+                 mar_dict["sorted_bids_nego"][n_opt], last_time_step[n_opt]) \
                     = mat_neg.negotiation(nodes=nodes, params=params, par_rh=par_rh,
                                           init_val=init_val[n_opt], n_opt=n_opt, options=options,
                                           matched_bids_info=mar_dict["matched_bids_info"][n_opt],
                                           sorted_bids=mar_dict["sorted_bids"][n_opt], block_length=block_length)
+
+                # trade the remaining power with the grid
+                mar_dict["trade_with_grid"][n_opt] = \
+                    mat_neg.trade_with_grid(nego_transactions=mar_dict["negotiation_results"][n_opt],
+                                            sorted_bids=mar_dict["sorted_bids"][n_opt],
+                                            sorted_bids_nego=mar_dict["sorted_bids_nego"][n_opt],
+                                            participating_buildings=mar_dict["participating_bes"][n_opt],
+                                            params=params, par_rh=par_rh, n_opt=n_opt, block_length=block_length)#mar_dict["total_market_info"][n_opt]
+
 
                 # create initial SoC values for next optimization step
                 init_val[n_opt + 1] \
