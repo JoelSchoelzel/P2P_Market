@@ -10,9 +10,7 @@ import os
 from dotenv import load_dotenv
 from Filip.data_model.Transaction.PublishTransaction import PublishTransaction, CreatedDateTime, TradeInformation, \
     Price, Quantity, PowerDirection
-from Filip.data_model.Transaction.FIWAREPublishTransaction import FiwarePublishTransaction, CreatedDateTime as CDT, \
-    TradeInformation as TI, \
-    Price as Pr, Quantity as Qu, PowerDirection as Po
+from Filip.data_model.Transaction.FIWAREPublishTransaction import FiwarePublishTransaction, CreatedDateTime as CDT
 import uuid
 import json
 import requests
