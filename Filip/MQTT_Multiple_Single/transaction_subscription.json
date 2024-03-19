@@ -1,0 +1,17 @@
+{
+  "description": "Subscription to receive MQTT-Notification about urn:ngsi-ld:Transaction:id",
+  "subject": {
+    "entities": [
+      {
+        "id": "urn:ngsi-ld:Transaction:id",
+        "type": "Transaction"
+      }
+    ]
+  },
+  "notification": {
+    "mqtt": {
+      "url": "MQTT_Broker_URL",
+      "topic": "/v2/transactions/urn:ngsi-ld:Transaction:id/attrs"
+    }
+  }
+}
