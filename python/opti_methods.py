@@ -18,7 +18,8 @@ import python.auction as auction
 import python.characteristics as characs
 import python.parse_inputs as parse_inputs
 import python.matching_negotiation as mat_neg
-from python import matching_negotiation
+import python.calc_results as calc_results
+
 
 
 def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_length):
@@ -111,14 +112,14 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             if options["negotiation"] == True:
 
                 # compute the block bids for each building
-                mar_dict["block_bid"][n_opt], bes = \
+                mar_dict["block_bids"][n_opt], bes = \
                     mar_pre_nego.compute_block_bids(bes=bes, opti_res=opti_res[n_opt], par_rh=par_rh,
                                                     mar_agent_prosumer=mar_agent_bes, n_opt=n_opt, options=options,
                                                     nodes=nodes, strategies=strategies, block_length=block_length)
 
                 # separate bids in buying & selling, sort by crit (mean price/quantity or flexibility characteristic)
-                mar_dict["sorted_bids"][n_opt] = \
-                    mar_pre_nego.sort_block_bids(block_bid=mar_dict["block_bid"][n_opt], options=options,
+                mar_dict["sorted_bids"][n_opt], mar_dict["sell_list"][n_opt], mar_dict["buy_list"][n_opt] = \
+                    mar_pre_nego.sort_block_bids(block_bid=mar_dict["block_bids"][n_opt], options=options,
                                                  new_characs=characteristics[n_opt],
                                                  n_opt=n_opt, par_rh=par_rh, opti_res=opti_res[n_opt])
 
@@ -127,8 +128,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     = mat_neg.matching(sorted_block_bids=mar_dict["sorted_bids"][n_opt], n_opt=n_opt) #, mar_dict["unmatched_bids"][n_opt]
 
                 # run negotiation optimization (with constraints adapted to matched peer) and save results
-                (mar_dict["negotiation_results"][n_opt], participating_buyers, participating_sellers,
-                 mar_dict["sorted_bids_nego"][n_opt], last_time_step[n_opt]) \
+                mar_dict["negotiation_results"][n_opt], participating_buyers, participating_sellers, mar_dict["sorted_bids_nego"][n_opt], last_time_step[n_opt] \
                     = mat_neg.negotiation(nodes=nodes, params=params, par_rh=par_rh,
                                           init_val=init_val[n_opt], n_opt=n_opt, options=options,
                                           matched_bids_info=mar_dict["matched_bids_info"][n_opt],
@@ -222,8 +222,14 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                             opti_res_new[n_opt][i][n] = {}
                             opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]
 
+        # ------------------ CALCULATE RESULTS ------------------
+        res_time, res_val = calc_results.calc_results_p2p(par_rh=par_rh, block_bids=mar_dict["block_bids"],
+                                                                     options=options, block_length=block_length,
+                                                                     nego_results=mar_dict["negotiation_results"],
+                                                                     transactions_grid=mar_dict["transactions_with_grid"])
+
         # return opti_res_new, mar_dict, trade_res, characteristics  #opti_res,
-        return mar_dict, characteristics, init_val
+        return mar_dict, characteristics, init_val, res_time, res_val
 
 
     elif options["optimization"] == "P2P_typeWeeks":

@@ -5,7 +5,7 @@ import pickle
 
 
 ## Transform the data saved in mar_dict into a DataFrame, in order to plot them with matplotlib
-def plotting(mar_dict, par_rh):
+"""def plotting(mar_dict, par_rh):
     # initialize necessary lists
     time_steps = []
     traded_power_within_distr = []
@@ -43,7 +43,7 @@ def plotting(mar_dict, par_rh):
 
     df = pd.DataFrame(data)
 
-    return df
+    return df"""
 
 
 """def plot_pv_gen(nodes,par_rh):
@@ -65,16 +65,62 @@ def plotting(mar_dict, par_rh):
 
     return df_pv_gen"""
 
-
-
 # open the pickle files containing the data
-with open("/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/P2P_Market/results"+"/mar_dict_P2P_" +"scenario3"+ ".p", 'rb') as file_mar:
-    mar_dict = pickle.load(file_mar)
+#with open("/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/P2P_Market/results"+"/mar_dict_P2P_" +"scenario3"+ ".p", 'rb') as file_mar:
+    #mar_dict = pickle.load(file_mar)
 
-with open("/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/P2P_Market/results" + "/par_rh_P2P_" + "scenario3" + ".p",'rb') as file_par:
-    par_rh = pickle.load(file_par)
+#with open("/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/P2P_Market/results" + "/par_rh_P2P_" + "scenario3" + ".p",'rb') as file_par:
+    #par_rh = pickle.load(file_par)
 
-#with open("/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/P2P_Market/results" + "/nodes_P2P_" + "scenario3" + ".p",'rb') as file_nodes:
+with open("/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/P2P_Market/results" + "/res_time_P2P_" + "Quartier_3" + ".p",'rb') as file_res_time:
+    results_time = pickle.load(file_res_time)
+
+with open("/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/P2P_Market/results" + "/res_val_P2P_" + "Quartier_3" + ".p",'rb') as file_res_val:
+    results_val = pickle.load(file_res_val)
+
+# create the DataFrame to plot
+df = pd.DataFrame(results_time)
+print(df)
+
+# Assuming traded_power is a dictionary with time steps as keys
+#traded_power_dict = df["traded_power"].iloc[0]  # Assuming the dict is stored in the first row of the df column
+
+# Extracting all values from the traded_power dictionary and converting them to a list
+#traded_power_values = list(traded_power_dict.values())
+#time_steps = list(traded_power_dict.keys())
+# choose criteria to plot
+plot_kpi = "total_demand"
+
+# customizing the plot
+plt.figure(figsize=(10, 5))
+plt.xlabel("Timesteps [h]")  # X-axis label
+plt.grid()
+time_steps = len(df["total_demand"])
+
+if plot_kpi == "total_demand":
+    df_week = df.head(168)
+    plt.ylabel("Power [kW]")  # Y-axis label
+    plt.plot(df_week["total_demand"], color="red", label="Total demand")
+    plt.plot(df_week["total_supply"], color="green", label="Total supply")
+    plt.plot(df_week["traded_power"], color="blue", label="Traded power")
+    #plt.plot(df_week["power_to_grid"], color="orange", label="Power to grid")
+    #plt.plot(df_week["power_from_grid"], color="purple", label="Power from grid")
+    plt.title("Total demand and supply within district")  # Title of the plot
+    plt.legend()
+
+if plot_kpi == "traded_power":
+    plt.ylabel("Power [kW]")  # Y-axis label
+    plt.plot(df["total_demand"], color="red", label="Total demand")
+    plt.plot(df["total_supply"], color="green", label="Total supply")
+    plt.title("Total demand and supply within district")  # Title of the plot
+    plt.legend()
+
+
+plt.savefig("/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/P2P_Market/results/plots/Quartier_3_"+plot_kpi+".svg")
+plt.show()
+
+
+"""#with open("/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/P2P_Market/results" + "/nodes_P2P_" + "scenario3" + ".p",'rb') as file_nodes:
    # nodes = pickle.load(file_nodes)
 
 # Choose which data to plot
@@ -120,22 +166,7 @@ elif plotting_criteria == "total_avg_trade_price":
 
 # save the plot as svg file with file name "plot_"+plotting_criteria+".svg"
 plt.savefig("/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/P2P_Market/results/Plots/scenario3/"+plotting_criteria+".svg")
-plt.show()
-
-
-
-
-
-#TODO: add Latex font to the plot
-"""plt.rcParams.update({
-    "text.usetex": True,
-    "font.family": "serif",
-    "font.serif": "Palatino"
-})"""
-
-
-
-
+plt.show()"""
 
 
 

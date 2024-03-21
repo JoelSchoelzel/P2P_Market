@@ -7,7 +7,9 @@ def dict_for_market_data(par_rh):
     mar_dict = {
         "transactions": {},
         "bid": {},
-        "block_bid": {},
+        "block_bids": {},
+        "sell_list": {},
+        "buy_list": {},
         "sorted_bids": {},
         "sorted_bids_nego": {},
         "matched_bids_info": {},

@@ -52,8 +52,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
     seller_trade_price = {}
     buyer_diff_to_average = {}
     seller_diff_to_average = {}
-    power_from_grid = {}
-    power_to_grid = {}
     remaining_demand = {}
     remaining_supply = {}
     saved_costs = {}
@@ -62,9 +60,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
     opti_bes_res_seller = {}
     delta_price = 0
     trade_price_sum = 0
-    total_average_trade_price = 0
-    total_trade_cost_sum = 0
-
 
     ### CALCULATE SUPPLY & DEMAND COVER FACTOR FOR EACH TIME STEP BEFORE TRADING
     total_demand = {}
@@ -96,12 +91,11 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
         else:
             demand_cover_factor[t] = 0
 
-
     # --------------------- START NEGOTIATION ---------------------
 
     # Multiple rounds of trading
     r = 0
-    max_rounds = 10
+    max_rounds = 4
     sorted_bids_nego = {r: sorted_bids}
     matched_bids_info = {r: matched_bids_info}
     nego_transactions = {r: {}}
@@ -109,7 +103,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
     participating_buildings = set()
     participating_buyers = set()
     participating_sellers = set()
-
 
     # start new round of trading while potential buyers and sellers exist and maximum number of rounds isn't reached
     while len(sorted_bids_nego[r]["sell_blocks"]) > 0 and len(sorted_bids_nego[r]["buy_blocks"]) > 0 and r < max_rounds:
@@ -144,7 +137,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 additional_revenue[t] = 0
                 saved_costs_sum = 0
                 additional_rev_sum = 0
-
 
                 # run the optimization model for buyer and seller
                 while buyer_diff_to_average[t] > 0.005 and seller_diff_to_average[t] > 0.005:
@@ -203,6 +195,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 if remaining_supply[t] > 0 and not add_sell_bid:
                     add_sell_bid = True
 
+            # TODO: recalculate mean matching criteria
             # add unsatisfied buyers and sellers to next trading round with remaining demand/supply
             if add_buy_bid:
                 copy_of_buy_bid = copy.deepcopy(matched_bids_info[r][match][0])
@@ -217,6 +210,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 position_s = len(sorted_bids_nego[r + 1]["sell_blocks"]) - 1  # position of new sell block in list
                 for t in time_steps:
                     sorted_bids_nego[r + 1]["sell_blocks"][position_s][t][1] = remaining_supply[t]
+
 
 
             # store the results of the negotiation for this match and this round
@@ -234,7 +228,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 "average_trade_price": trade_price_sum / len(time_steps)
             }
 
-
         # Add all buyers/sellers that weren't matched (but were in sorted bids list) to the new sorted_bids_nego lists
         if len(sorted_bids_nego[r]["buy_blocks"]) > len(sorted_bids_nego[r]["sell_blocks"]):
             # Retrieve the remaining buy blocks
@@ -248,8 +241,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             for sell_block in remaining_sell_blocks:
                 sorted_bids_nego[r + 1]["sell_blocks"].append(sell_block)
 
-        # TODO:     1. recalculate mean matching criteria
-        #           2. resort the new sorted_bids_nego lists according to criteria before matching
+        # TODO: resort the new sorted_bids_nego lists according to criteria before matching
 
         # match all buyers and sellers for the next trading round
         matched_bids_info[r + 1] = matching(sorted_bids_nego[r + 1], n_opt)
@@ -280,8 +272,6 @@ def trade_with_grid(sorted_bids, sorted_bids_nego, participating_buyers, partici
         costs_power_from_grid[bes_id] = {}
         revenue_power_to_grid[bes_id] = {}
 
-
-
     # --------------------- BUYERS IMPORT FROM GRID ---------------------
     for buyer in sorted_bids["buy_blocks"]:
         buyer_id = buyer["bes_id"]
@@ -311,9 +301,6 @@ def trade_with_grid(sorted_bids, sorted_bids_nego, participating_buyers, partici
             for t in time_steps:
                 power_from_grid[buyer_id][t] = remaining_demand[t]
                 costs_power_from_grid[buyer_id][t] = remaining_demand[t] * params["eco"]["pr", "el"]
-
-
-
 
     # --------------------- SELLERS INJECT INTO GRID ---------------------
     for seller in sorted_bids["sell_blocks"]:
@@ -354,8 +341,6 @@ def trade_with_grid(sorted_bids, sorted_bids_nego, participating_buyers, partici
             ignored_demand = seller.get("ignored_demand")
             power_from_grid[seller_id][t] = ignored_demand[t]
             costs_power_from_grid[seller_id][t] = (power_from_grid[seller_id][t] * params["eco"]["pr", "el"])
-
-
 
     # --------------------- STORE THE RESULTS OF TRANSACTIONS WITH THE GRID ---------------------
 

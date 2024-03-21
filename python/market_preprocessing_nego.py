@@ -132,7 +132,7 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
     sorted_buy_list = []  # list for all sorted buying bids
     sorted_sell_list = []  # list for all sorted selling bids
 
-    # SEPARATE BLOCK BIDS INTO BUY AND SELL LISTS
+    # ------------------- SEPARATE BLOCK BIDS INTO BUY AND SELL LISTS -------------------
     for n in range(len(block_bid)):  # iterate through buildings
         # Add str whether buying or not to bool_list
         bool_list = []
@@ -187,8 +187,7 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
                                    "ignored_demand": ignored_demand}
             sell_list[i].update(sell_block_bid_info)
 
-
-    # SORT BLOCK BIDS BY CRITERIA DEFINED IN OPTIONS
+    # ------------------- SORT BLOCK BIDS BY CRITERIA DEFINED IN OPTIONS -------------------
 
     # sort buy_list and sell_list by mean price of block_bids if mean price has been specified as criteria in options
     if options["crit_prio"] == "mean_price":
@@ -200,7 +199,6 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
         else:
             sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_price"])
             sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_price"])
-
 
     # sort buy_list and sell_list by mean quantity if mean quantity has been specified as criteria in options
     elif options["crit_prio"] == "mean_quantity":
@@ -231,4 +229,4 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
     sorted_block_bids = {"buy_blocks": sorted_buy_list,
                          "sell_blocks": sorted_sell_list}
 
-    return sorted_block_bids
+    return sorted_block_bids, sell_list, buy_list

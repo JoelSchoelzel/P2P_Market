@@ -105,7 +105,7 @@ if __name__ == '__main__':
     # Set options for MAScity
     options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
                "bid_strategy": "devices",  # zero for zero-intelligence, learning, devices
-               "crit_prio": "mean_quantity",  # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
+               "crit_prio": "mean_price",  # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
                "descending": True,  # True: highest value of chosen has highest priority, False: lowest
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
                "trading_rounds": 0,  # Number of trading rounds for multi round trading, 0 for unlimited
@@ -128,7 +128,7 @@ if __name__ == '__main__':
                "time_zone": districtData.site['timeZone'],  # ---,      time zone
                "location": districtData.site['location'],  # degree,   latitude, longitude of location
                "altitude": districtData.site['altitude'],  # m,        height of location above sea level
-               "bid_type": "block",  # block, single
+               "bid_type": "single",  # block, single
                "negotiation": True,  # True: negotiation, False: auction
               }
 
@@ -138,7 +138,8 @@ if __name__ == '__main__':
 
     if options["bid_type"] == "block":
         block_length = 5
-    else: block_length = 1
+    else:
+        block_length = 1
 
     # Set rolling horizon options
     par_rh = {
@@ -146,7 +147,7 @@ if __name__ == '__main__':
         "n_hours": 36,  # ----,      number of hours of prediction horizon for rolling horizon
         "n_hours_ov": 36 - block_length,  # ----,      number of hours of overlap horizon for rolling horizon
         "n_opt_max": 8760,  # 8760  # -----,       maximum number of optimizations (one year)
-        "month": 5,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
+        "month": 7,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data
 
         # Parameters for rolling horizon with aggregated foresight
@@ -169,7 +170,7 @@ if __name__ == '__main__':
         #opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
                                                                                                #building_params, params)
 
-        mar_dict, characteristics, init_val = opti_methods.rolling_horizon_opti(options=options, nodes=nodes,
+        mar_dict, characteristics, init_val, res_time, res_val = opti_methods.rolling_horizon_opti(options=options, nodes=nodes,
                                                                                 par_rh=par_rh,
                                                                                 building_params=building_params,
                                                                                 params=params, block_length=block_length)
@@ -182,6 +183,12 @@ if __name__ == '__main__':
 
         with open(options["path_results"] + "/init_val_P2P_" + options_DG["scenario_name"] + ".p", 'wb') as file_init:
             pickle.dump(par_rh, file_init)
+
+        with open(options["path_results"] + "/res_time_P2P_" + options_DG["scenario_name"] + ".p", 'wb') as file_res_list:
+            pickle.dump(res_time, file_res_list)
+
+        with open(options["path_results"] + "/res_val_P2P_" + options_DG["scenario_name"] + ".p", 'wb') as file_res_val:
+            pickle.dump(res_val, file_res_val)
 
 
         # Compute plots
