@@ -95,7 +95,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # Multiple rounds of trading
     r = 0
-    max_rounds = 4
+    max_rounds = 10
     sorted_bids_nego = {r: sorted_bids}
     matched_bids_info = {r: matched_bids_info}
     nego_transactions = {r: {}}
@@ -245,6 +245,12 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
         # match all buyers and sellers for the next trading round
         matched_bids_info[r + 1] = matching(sorted_bids_nego[r + 1], n_opt)
+
+        # if exactly the same buyers and sellers are matched for the next round, stop the negotiation
+        # and remove the last matched_bids_info from r+1 round
+        if matched_bids_info[r] == matched_bids_info[r + 1]:
+            matched_bids_info.pop(r + 1)
+            break
 
         # go to next negotiation trading round
         r += 1
