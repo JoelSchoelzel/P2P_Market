@@ -725,9 +725,7 @@ def compute_initial_values_block(nb_buildings, opti_res, nego_transactions, last
     last_opti_res_buyer = {}
     last_opti_res_seller = {}
 
-
     for buyer_id in participating_buyers:
-        #buyer_id = buyer["bes_id"]
         # Iterate through each trading round
         for round_key, round_value in nego_transactions.items():
             # Iterate through each match within the trading round
@@ -749,13 +747,6 @@ def compute_initial_values_block(nb_buildings, opti_res, nego_transactions, last
                     last_opti_res_seller = match_value.get("opti_bes_res_seller")
                     break
         for dev in ["tes", "bat", "ev"]:
-            init_val_block["building_" + str(seller_id)]["soc"][dev] = last_opti_res_seller["res_soc"][dev][last_time_step]
-
-    """for match in nego_transactions:
-        b = nego_transactions[match]["buyer"]
-        s = nego_transactions[match]["seller"]
-        for dev in ["tes", "bat", "ev"]:
-            init_val_block["building_" + str(b)]["soc"][dev] = nego_transactions[match]["opti_bes_res_buyer"]["res_soc"][dev][last_time_step]
-            init_val_block["building_" + str(s)]["soc"][dev] = nego_transactions[match]["opti_bes_res_seller"]["res_soc"][dev][last_time_step]"""
+            init_val_block["building_" + str(seller_id)]["soc"][dev]=last_opti_res_seller["res_soc"][dev][last_time_step]
 
     return init_val_block

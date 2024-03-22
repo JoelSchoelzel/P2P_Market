@@ -13,6 +13,7 @@ def dict_for_market_data(par_rh):
         "sorted_bids": {},
         "sorted_bids_nego": {},
         "matched_bids_info": {},
+        "matched_bids_info_nego": {},
         "negotiation_results": {},
         "participating_bes": {},
         "transactions_with_grid": {},

@@ -79,9 +79,9 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
                 valid_time_steps = {k: v for k, v in nego_results[opt][round_nb][match]["quantity"].items() if isinstance(k, int)}
                 for t in valid_time_steps:
                     traded_power[t] += nego_results[opt][round_nb][match]["quantity"][t]/1000 # convert from Wh to kWh
-                    price[t] = nego_results[opt][round_nb][match]["price"][t]
-                    additional_revenue[t] += nego_results[opt][round_nb][match]["additional_revenue"][t]
-                    saved_costs[t] += nego_results[opt][round_nb][match]["saved_costs"][t]
+                    price[t] = nego_results[opt][round_nb][match]["price"][t] #€/kWh
+                    additional_revenue[t] += nego_results[opt][round_nb][match]["additional_revenue"][t]/1000 #€/kWh
+                    saved_costs[t] += nego_results[opt][round_nb][match]["saved_costs"][t]/1000 #€/kWh
 
                     # calculate average trade price at time step t for all buildings
 

@@ -6,7 +6,7 @@ from python import opti_bes_negotiation
 import copy
 
 
-def matching(sorted_block_bids, n_opt):
+def matching(sorted_block_bids):
     """Match the sorted block bids of the buyers to the ones of the sellers.
     Returns:
         matched_bids_info (list): List of all matched block_bids in tuples.
@@ -14,16 +14,13 @@ def matching(sorted_block_bids, n_opt):
         Buyer and seller each have a dict (time steps t as key) which contains a
         list [price, quantity, buying:True/False/None, building_id]"""
 
-   # Create a list of tuples where each tuple contains matched buy and sell bids (1st buy bid matches with 1st sell bid,
-   # 2nd buy bid matches with 2nd sell bid, etc.)
-
+    # Create a list of tuples where each tuple contains matched buy and sell bids (1st buy bid matches with 1st
+    # sell bid, 2nd buy bid matches with 2nd sell bid, etc.)
     if len(sorted_block_bids["buy_blocks"]) != 0 and len(sorted_block_bids["sell_blocks"]) != 0:
        matched_bids_info = list(zip(sorted_block_bids["buy_blocks"], sorted_block_bids["sell_blocks"]))
 
     else:
        matched_bids_info = []
-
-
        print("No matched bids for this optimization period.")
 
     return matched_bids_info
@@ -97,7 +94,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
     r = 0
     max_rounds = 10
     sorted_bids_nego = {r: sorted_bids}
-    matched_bids_info = {r: matched_bids_info}
+    matched_bids_info_nego = {r: matched_bids_info}
     nego_transactions = {r: {}}
     # Initialize a set to keep track of buildings that participated in negotiations
     participating_buildings = set()
@@ -109,12 +106,12 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
         # create dicts for next trading round
         sorted_bids_nego[r + 1] = {"buy_blocks": [], "sell_blocks": []}
-        matched_bids_info[r + 1] = []
+        matched_bids_info_nego[r + 1] = []
         nego_transactions[r + 1] = {}
 
         # buyer and seller of each match run their optimization model until their price_trade difference to
         # average price is less than 0.005
-        for match in range(len(matched_bids_info[r])):
+        for match in range(len(matched_bids_info_nego[r])):
             nego_transactions[r][match] = {}
             add_buy_bid = False
             add_sell_bid = False
@@ -127,8 +124,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 seller_trade_price[t] = {}
                 buyer_diff_to_average[t] = float('inf')
                 seller_diff_to_average[t] = float('inf')
-                buyer_id = matched_bids_info[r][match][0]["bes_id"]
-                seller_id = matched_bids_info[r][match][1]["bes_id"]
+                buyer_id = matched_bids_info_nego[r][match][0]["bes_id"]
+                seller_id = matched_bids_info_nego[r][match][1]["bes_id"]
                 participating_buyers.add(buyer_id)
                 participating_sellers.add(seller_id)
                 participating_buildings.add(buyer_id)
@@ -145,14 +142,14 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                             = opti_bes_negotiation.compute_opti(node=nodes[buyer_id], params=params, par_rh=par_rh,
                                                                 init_val=init_val["building_" + str(buyer_id)],
                                                                 n_opt=n_opt, options=options,
-                                                                matched_bids_info=matched_bids_info[r][match],
+                                                                matched_bids_info=matched_bids_info_nego[r][match],
                                                                 is_buying=True,
                                                                 delta_price=delta_price, block_length=block_length)
                     opti_bes_res_seller \
                             = opti_bes_negotiation.compute_opti(node=nodes[seller_id], params=params, par_rh=par_rh,
                                                                 init_val=init_val["building_" + str(seller_id)],
                                                                 n_opt=n_opt, options=options,
-                                                                matched_bids_info=matched_bids_info[r][match],
+                                                                matched_bids_info=matched_bids_info_nego[r][match],
                                                                 is_buying=False,
                                                                 delta_price=delta_price, block_length=block_length)
 
@@ -186,8 +183,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 additional_rev_sum += additional_revenue[t]
 
                 # calculate demand & supply that haven't been fulfilled
-                remaining_demand[t] = abs(matched_bids_info[r][match][0][t][1] - trade_power[t])
-                remaining_supply[t] = abs(matched_bids_info[r][match][1][t][1] - trade_power[t])
+                remaining_demand[t] = abs(matched_bids_info_nego[r][match][0][t][1] - trade_power[t])
+                remaining_supply[t] = abs(matched_bids_info_nego[r][match][1][t][1] - trade_power[t])
 
                 if remaining_demand[t] > 0 and not add_buy_bid:
                     add_buy_bid = True
@@ -198,35 +195,33 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             # TODO: recalculate mean matching criteria
             # add unsatisfied buyers and sellers to next trading round with remaining demand/supply
             if add_buy_bid:
-                copy_of_buy_bid = copy.deepcopy(matched_bids_info[r][match][0])
+                copy_of_buy_bid = copy.deepcopy(matched_bids_info_nego[r][match][0])
                 sorted_bids_nego[r + 1]["buy_blocks"].append(copy_of_buy_bid)
                 position_b = len(sorted_bids_nego[r + 1]["buy_blocks"]) - 1  # position of new buy block in list
                 for t in time_steps:
                     sorted_bids_nego[r + 1]["buy_blocks"][position_b][t][1] = remaining_demand[t]
 
             if add_sell_bid:
-                copy_of_sell_bid = copy.deepcopy(matched_bids_info[r][match][1])
+                copy_of_sell_bid = copy.deepcopy(matched_bids_info_nego[r][match][1])
                 sorted_bids_nego[r + 1]["sell_blocks"].append(copy_of_sell_bid)
                 position_s = len(sorted_bids_nego[r + 1]["sell_blocks"]) - 1  # position of new sell block in list
                 for t in time_steps:
                     sorted_bids_nego[r + 1]["sell_blocks"][position_s][t][1] = remaining_supply[t]
 
-
-
-            # store the results of the negotiation for this match and this round
-            nego_transactions[r][match] = {
-                "buyer": matched_bids_info[r][match][0]["bes_id"],
-                "seller": matched_bids_info[r][match][1]["bes_id"],
-                "price": trade_price,
-                "quantity": trade_power,
-                "saved_costs": saved_costs,
-                "additional_revenue": additional_revenue,
-                "remaining_demand": remaining_demand,
-                "remaining_supply": remaining_supply,
-                "opti_bes_res_buyer": opti_bes_res_buyer,
-                "opti_bes_res_seller": opti_bes_res_seller,
-                "average_trade_price": trade_price_sum / len(time_steps)
-            }
+                # store the results of the negotiation for this match and this round
+                nego_transactions[r][match] = {
+                    "buyer": matched_bids_info_nego[r][match][0]["bes_id"],
+                    "seller": matched_bids_info_nego[r][match][1]["bes_id"],
+                    "price": trade_price,
+                    "quantity": trade_power,
+                    "saved_costs": saved_costs,
+                    "additional_revenue": additional_revenue,
+                    "remaining_demand": remaining_demand,
+                    "remaining_supply": remaining_supply,
+                    "opti_bes_res_buyer": opti_bes_res_buyer,
+                    "opti_bes_res_seller": opti_bes_res_seller,
+                    "average_trade_price": trade_price_sum / len(time_steps)
+                }
 
         # Add all buyers/sellers that weren't matched (but were in sorted bids list) to the new sorted_bids_nego lists
         if len(sorted_bids_nego[r]["buy_blocks"]) > len(sorted_bids_nego[r]["sell_blocks"]):
@@ -244,12 +239,14 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
         # TODO: resort the new sorted_bids_nego lists according to criteria before matching
 
         # match all buyers and sellers for the next trading round
-        matched_bids_info[r + 1] = matching(sorted_bids_nego[r + 1], n_opt)
+        matched_bids_info_nego[r + 1] = matching(sorted_bids_nego[r + 1])
 
         # if exactly the same buyers and sellers are matched for the next round, stop the negotiation
-        # and remove the last matched_bids_info from r+1 round
-        if matched_bids_info[r] == matched_bids_info[r + 1]:
-            matched_bids_info.pop(r + 1)
+        # and remove the last matched_bids_info_nego from r+1 round
+        if matched_bids_info_nego[r] == matched_bids_info_nego[r + 1]:
+            matched_bids_info_nego.pop(r + 1)
+            sorted_bids_nego.pop(r + 1)  # TODO: check if this is necessary
+            nego_transactions.pop(r + 1)
             break
 
         # go to next negotiation trading round
@@ -257,7 +254,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     print("Finished all negotiations for time steps " + str(time_steps[0]) + " to " + str(time_steps[-1]) + ".")
 
-    return nego_transactions, participating_buyers, participating_sellers, sorted_bids_nego, last_time_step
+    return nego_transactions, participating_buyers, participating_sellers, sorted_bids_nego, last_time_step, matched_bids_info_nego
 
 
 def trade_with_grid(sorted_bids, sorted_bids_nego, participating_buyers, participating_sellers, params,
