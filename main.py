@@ -105,7 +105,7 @@ if __name__ == '__main__':
     # Set options for MAScity
     options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
                "bid_strategy": "devices",  # zero for zero-intelligence, learning, devices
-               "crit_prio": "mean_price",  # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
+               "crit_prio": "mean_quantity",  # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
                "descending": True,  # True: highest value of chosen has highest priority, False: lowest
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
                "trading_rounds": 0,  # Number of trading rounds for multi round trading, 0 for unlimited
@@ -147,7 +147,7 @@ if __name__ == '__main__':
         "n_hours": 36,  # ----,      number of hours of prediction horizon for rolling horizon
         "n_hours_ov": 36 - block_length,  # ----,      number of hours of overlap horizon for rolling horizon
         "n_opt_max": 8760,  # 8760  # -----,       maximum number of optimizations (one year)
-        "month": 1,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
+        "month": 4,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data
 
         # Parameters for rolling horizon with aggregated foresight
