@@ -1,5 +1,7 @@
 import numpy as np
 import copy
+import random
+random.seed(42)
 
 def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes,
                        strategies, block_length):
@@ -218,11 +220,21 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh):
             # most flexible buyer is the one, that can buy more than given buy quantity (soc of tes is low -> energy_forced high)
             sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"] + "_forced"]) # _forced
             # most flexible seller is the one, that can sell more than given in sell quantity (soc of tes is high -> energy_delayed high)
-            sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_forced"])#, reverse=True) # _delayed
+            sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_delayed"], reverse=True) # _delayed
         # otherwise lowest energy flexibility first
         else:
             sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"] + "_forced"])
             sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_delayed"])
+
+    elif options["crit_prio"] == "random":
+        sorted_buy_list = buy_list
+        if not sorted_buy_list:
+            random.shuffle(sorted_buy_list)
+
+        sorted_sell_list = sell_list
+        if not sorted_sell_list:
+            random.shuffle(sorted_sell_list)
+
 
     # STORE SORTED BUY AND SELL LISTS IN ONE DICTIONARY TO RETURN
     sorted_block_bids = {"buy_blocks": sorted_buy_list,

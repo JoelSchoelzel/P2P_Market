@@ -1,7 +1,8 @@
 from python import opti_bes_negotiation
 from python import characs_single_build
+import random
 import copy
-
+random.seed(42)
 
 def matching(sorted_block_bids):
     """Match the sorted block bids of the buyers to the ones of the sellers.
@@ -128,6 +129,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 seller_trade_price[t] = {}
                 buyer_diff_to_average[t] = float('inf')
                 seller_diff_to_average[t] = float('inf')
+                diff_buyer_seller = abs(matched_bids_info_nego[r][match][0][t][0] - matched_bids_info_nego[r][match][1][t][0])
                 saved_costs[t] = 0
                 additional_revenue[t] = 0
                 saved_costs_sum = 0
@@ -135,33 +137,90 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 delta_price = 0
                 trade_price_sum = 0
 
-                # run the optimization model for buyer and seller
-                while buyer_diff_to_average[t] > 0.005 and seller_diff_to_average[t] > 0.005:
+                # get the price and quantity of the matched bids for flex price delta
+                price_bid_buyer = matched_bids_info_nego[r][match][0][t][0]
+                quantity_bid_buyer = matched_bids_info_nego[r][match][0][t][1]
+                price_bid_seller = matched_bids_info_nego[r][match][1][t][0]
+                quantity_bid_seller = matched_bids_info_nego[r][match][1][t][1]
+                flex_buyer_delayed = matched_bids_info_nego[r][match][0]["flex_energy_delayed"]
+                flex_buyer_forced = matched_bids_info_nego[r][match][0]["flex_energy_forced"]
+                flex_seller_delayed = matched_bids_info_nego[r][match][1]["flex_energy_delayed"]
+                flex_seller_forced = matched_bids_info_nego[r][match][1]["flex_energy_forced"]
 
-                    opti_bes_res_buyer \
+                diff_buyer_seller_price = abs(price_bid_buyer - price_bid_seller)
+                diff_buyer_seller_flex = abs(flex_buyer_forced - flex_seller_forced)
+
+                #score = diff_buyer_seller_flex/max(flex_buyer_forced, flex_seller_forced)
+
+                if options["flex_price_delta"]:
+                    # TODO: implement flex price delta
+                    while diff_buyer_seller > 0.05: # while criteria is not working!
+
+                        if flex_buyer_forced > flex_seller_forced:
+                            buyer_delta_price = 0
+                            seller_delta_price = 0
+                        else:
+                            buyer_delta_price = 0
+                            seller_delta_price = 0
+
+                        opti_bes_res_buyer \
                             = opti_bes_negotiation.compute_opti(node=nodes[buyer_id], params=params, par_rh=par_rh,
                                                                 init_val=init_val["building_" + str(buyer_id)],
                                                                 n_opt=n_opt, options=options,
                                                                 matched_bids_info=matched_bids_info_nego[r][match],
                                                                 is_buying=True,
-                                                                delta_price=delta_price, block_length=block_length)
-                    opti_bes_res_seller \
+                                                                delta_price=buyer_delta_price, block_length=block_length,
+                                                                seller_delta=seller_delta_price)
+                        opti_bes_res_seller \
                             = opti_bes_negotiation.compute_opti(node=nodes[seller_id], params=params, par_rh=par_rh,
                                                                 init_val=init_val["building_" + str(seller_id)],
                                                                 n_opt=n_opt, options=options,
                                                                 matched_bids_info=matched_bids_info_nego[r][match],
                                                                 is_buying=False,
-                                                                delta_price=delta_price, block_length=block_length)
+                                                                delta_price=buyer_delta_price, block_length=block_length,
+                                                                seller_delta=seller_delta_price)
 
-                    # compare trade price of buyer and seller (resulting from opti) with average price of initial bids
-                    average_bids_price[t] = opti_bes_res_buyer["average_bids_price"][t]
-                    buyer_trade_price[t] = opti_bes_res_buyer["res_price_trade"][t]
-                    seller_trade_price[t] = opti_bes_res_seller["res_price_trade"][t]
-                    buyer_diff_to_average[t] = abs(buyer_trade_price[t] - average_bids_price[t])
-                    seller_diff_to_average[t] = abs(seller_trade_price[t] - average_bids_price[t])
+                        # compare trade price of buyer and seller (resulting from opti) with average price of initial bids
+                        average_bids_price[t] = opti_bes_res_buyer["average_bids_price"][t]
+                        buyer_trade_price[t] = opti_bes_res_buyer["res_price_trade"][t]
+                        seller_trade_price[t] = opti_bes_res_seller["res_price_trade"][t]
+                        buyer_diff_to_average[t] = abs(buyer_trade_price[t] - average_bids_price[t])
+                        seller_diff_to_average[t] = abs(seller_trade_price[t] - average_bids_price[t])
+                        diff_buyer_seller = abs(buyer_trade_price[t] - seller_trade_price[t])
+                        # update delta price
+                        delta_price += 0.005
 
-                    # update delta price
-                    delta_price += 0.005
+
+                else:
+                    # run the optimization model for buyer and seller
+                    #while diff_buyer_seller > 0.05:
+                    while buyer_diff_to_average[t] > 0.005 and seller_diff_to_average[t] > 0.005:
+
+                        opti_bes_res_buyer \
+                                = opti_bes_negotiation.compute_opti(node=nodes[buyer_id], params=params, par_rh=par_rh,
+                                                                    init_val=init_val["building_" + str(buyer_id)],
+                                                                    n_opt=n_opt, options=options,
+                                                                    matched_bids_info=matched_bids_info_nego[r][match],
+                                                                    is_buying=True,
+                                                                    delta_price=delta_price, block_length=block_length)
+                        opti_bes_res_seller \
+                                = opti_bes_negotiation.compute_opti(node=nodes[seller_id], params=params, par_rh=par_rh,
+                                                                    init_val=init_val["building_" + str(seller_id)],
+                                                                    n_opt=n_opt, options=options,
+                                                                    matched_bids_info=matched_bids_info_nego[r][match],
+                                                                    is_buying=False,
+                                                                    delta_price=delta_price, block_length=block_length)
+
+                        # compare trade price of buyer and seller (resulting from opti) with average price of initial bids
+                        average_bids_price[t] = opti_bes_res_buyer["average_bids_price"][t]
+                        buyer_trade_price[t] = opti_bes_res_buyer["res_price_trade"][t]
+                        seller_trade_price[t] = opti_bes_res_seller["res_price_trade"][t]
+                        buyer_diff_to_average[t] = abs(buyer_trade_price[t] - average_bids_price[t])
+                        seller_diff_to_average[t] = abs(seller_trade_price[t] - average_bids_price[t])
+                        diff_buyer_seller = abs(buyer_trade_price[t] - seller_trade_price[t])
+
+                        # update delta price
+                        delta_price += 0.005
 
                 # RESULTS OF NEGOTIATION FOR THIS MATCH AND THIS ROUND
 
@@ -317,7 +376,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 # most flexible buyer is the one, that can buy more than given buy quantity (soc of tes is low -> energy_forced high)
                 sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"] + "_forced"]) # _forced
                 # most flexible seller is the one, that can sell more than given in sell quantity (soc of tes is high -> energy_delayed high)
-                sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_forced"])#, reverse=True) #delayed
+                sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_delayed"], reverse=True)#, reverse=True) #delayed
                 sorted_bids_nego[r + 1]["sell_blocks"].clear()
                 sorted_bids_nego[r + 1]["buy_blocks"].clear()
                 for e in sorted_sell_list:
@@ -334,6 +393,25 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                     sorted_bids_nego[r + 1]["sell_blocks"].append(e)
                 for e in sorted_buy_list:
                     sorted_bids_nego[r + 1]["buy_blocks"].append(e)
+
+            # sort buy_list and sell_list by mean price of block_bids if mean price has been specified as criteria in options
+        if options["crit_prio"] == "random":
+
+            sorted_buy_list = buy_list
+            if not sorted_buy_list:
+                random.shuffle(sorted_buy_list)
+
+            sorted_sell_list = sell_list
+            if not sorted_sell_list:
+                random.shuffle(sorted_sell_list)
+
+            sorted_bids_nego[r + 1]["sell_blocks"].clear()
+            sorted_bids_nego[r + 1]["buy_blocks"].clear()
+            for e in sorted_sell_list:
+                sorted_bids_nego[r + 1]["sell_blocks"].append(e)
+            for e in sorted_buy_list:
+                sorted_bids_nego[r + 1]["buy_blocks"].append(e)
+
 
         # match all buyers and sellers for the next trading round
         matched_bids_info_nego[r + 1] = matching(sorted_bids_nego[r + 1])

@@ -130,6 +130,8 @@ if __name__ == '__main__':
                "altitude": districtData.site['altitude'],  # m,        height of location above sea level
                "bid_type": "block",  # block, single
                "negotiation": True,  # True: negotiation, False: auction
+               "enhanced_horizon": False, # False: only block bid length, True: all 36hours
+               "flex_price_delta": False
               }
 
     # load heating devs per building

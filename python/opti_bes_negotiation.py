@@ -13,7 +13,7 @@ import datetime
 import python.matching_negotiation as mat_neg
 
 def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_info,
-                 is_buying, delta_price, block_length):
+                 is_buying, delta_price, block_length, delta_price_seller=0):
 
     """Optimization model for the buyers and sellers participating in the negotiation. It is the same as the initial
     optimization model run in opti_bes, but with the difference that there are additional constraints and variables
@@ -30,7 +30,11 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # Extract parameters
     dt = par_rh["duration"][n_opt]
-    time_steps = par_rh["time_steps"][n_opt][0:block_length]
+    if options["enhanced_horizon"]:
+        time_steps = par_rh["time_steps"][n_opt]
+    else:
+        time_steps = par_rh["time_steps"][n_opt][0:block_length]
+
     # or time steps = complete prediction horizon
     #time_steps = par_rh["time_steps"][n_opt]
 
@@ -189,13 +193,28 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     average_trade_price = {}
 
     # quantity and price of the buyer and seller is only set for block length
-    for t in time_steps:
-    #for t in time_steps[0:block_length]:
-        price_bid_buyer[t] = matched_bids_info[0][t][0]
-        quantity_bid_buyer[t] = matched_bids_info[0][t][1]
-        price_bid_seller[t] = matched_bids_info[1][t][0]
-        quantity_bid_seller[t] = matched_bids_info[1][t][1]
-        average_trade_price[t] = (price_bid_buyer[t] + price_bid_seller[t])/2
+    if options["enhanced_horizon"]:
+        for t in time_steps[0:block_length]:
+            price_bid_buyer[t] = matched_bids_info[0][t][0]
+            quantity_bid_buyer[t] = matched_bids_info[0][t][1]
+            price_bid_seller[t] = matched_bids_info[1][t][0]
+            quantity_bid_seller[t] = matched_bids_info[1][t][1]
+            average_trade_price[t] = (price_bid_buyer[t] + price_bid_seller[t])/2
+        for t in time_steps[block_length:]:
+            price_bid_buyer[t] = 0
+            quantity_bid_buyer[t] = 0
+            price_bid_seller[t] = 0
+            quantity_bid_seller[t] = 0
+            average_trade_price[t] = 0
+
+    else:
+        for t in time_steps:
+            price_bid_buyer[t] = matched_bids_info[0][t][0]
+            quantity_bid_buyer[t] = matched_bids_info[0][t][1]
+            price_bid_seller[t] = matched_bids_info[1][t][0]
+            quantity_bid_seller[t] = matched_bids_info[1][t][1]
+            average_trade_price[t] = (price_bid_buyer[t] + price_bid_seller[t])/2
+
 
     """# quantity of the buyer and seller after block length is set to 0
     # price of buyer and seller after block length is set to grid prices
@@ -300,16 +319,29 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
         # if selling bid price is higher than buying bid price, price_trade is iteratively adjusted towards average
         else:
-            if is_buying:
-                model.addConstr(price_trade["buyer"][t] == price_bid_buyer[t] + delta_price,
-                                name="Price_trade_buyer" + str(t))
+            if options["flex_price_delta"]:
+                if is_buying:
+                    model.addConstr(price_trade["buyer"][t] == price_bid_buyer[t] + delta_price,
+                                    name="Price_trade_buyer" + str(t))
+                else:
+                    if price_bid_seller[t] >= delta_price:
+                        model.addConstr(price_trade["seller"][t] == price_bid_seller[t] - delta_price_seller,
+                                        name="Price_trade_seller" + str(t))
+                    else:  # if price bid seller is zero, delta is not subtracted!!!
+                        model.addConstr(price_trade["seller"][t] == price_bid_seller[t],
+                                        name="Price_trade_seller" + str(t))
+
             else:
-                if price_bid_seller[t] >= delta_price:
-                    model.addConstr(price_trade["seller"][t] == price_bid_seller[t] - delta_price,
-                                    name="Price_trade_seller" + str(t))
-                else:  # if price bid seller is zero, delta is not subtracted!!!
-                    model.addConstr(price_trade["seller"][t] == price_bid_seller[t],
-                                    name="Price_trade_seller" + str(t))
+                if is_buying:
+                    model.addConstr(price_trade["buyer"][t] == price_bid_buyer[t] + delta_price,
+                                    name="Price_trade_buyer" + str(t))
+                else:
+                    if price_bid_seller[t] >= delta_price:
+                        model.addConstr(price_trade["seller"][t] == price_bid_seller[t] - delta_price,
+                                        name="Price_trade_seller" + str(t))
+                    else:  # if price bid seller is zero, delta is not subtracted!!!
+                        model.addConstr(price_trade["seller"][t] == price_bid_seller[t],
+                                        name="Price_trade_seller" + str(t))
 
 
 

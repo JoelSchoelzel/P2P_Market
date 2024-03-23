@@ -58,7 +58,7 @@ if plot_kpi == "dcf_month":
     plt.legend()
 
 if plot_kpi == "total_demand":
-    df_week = df_time_jul.head(168)
+    df_week = df_time_apr.head(168)
     plt.ylabel("Power [kW]")  # Y-axis label
     plt.plot(df_week["total_demand"], color="red", label="Total demand")
     plt.plot(df_week["total_supply"], color="green", label="Total supply")
