@@ -19,7 +19,7 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
         block_bid["bes_" + str(n)] = {}
 
         # GET PARAMETERS AT EACH TIMESTEP T FOR BIDDING
-        for t in par_rh["time_steps"][n_opt][0:block_length]:  # for t, t+1, t+2
+        for t in par_rh["time_steps"][n_opt][0:block_length]:
             # t = par_rh["time_steps"][n_opt][0]
             p_imp = opti_res[n][4][t]
             chp_sell = opti_res[n][8]["chp"][t]
@@ -93,12 +93,12 @@ def mean_all(block_bid): #, new_characs
     block_length = len(block_bid)
 
     for t in block_bid:  # iterate through time steps
-        total_price += block_bid[t][0] * block_bid[t][1]
+        total_price += block_bid[t][0]
         count += 1
         sum_energy += block_bid[t][1]
         bes_id_list.append(block_bid[t][3])
 
-    mean_price = total_price / sum_energy if sum_energy > 0 else 0
+    mean_price = total_price / count if count > 0 else 0
     mean_quantity = sum_energy / count if count > 0 else 0
     bes_id = bes_id_list[0]
 
@@ -119,10 +119,10 @@ def mean_all(block_bid): #, new_characs
     mean_energy_forced = total_energy_forced / count_energy_forced if count > 0 else 0
     mean_energy_delayed = total_energy_delayed / count_energy_delayed if count > 0 else 0"""
 
-    return bes_id, mean_price, sum_energy, total_price, mean_quantity, # mean_energy_forced, mean_energy_delayed
+    return bes_id, mean_price, sum_energy, total_price, mean_quantity  # mean_energy_forced, mean_energy_delayed
 
 
-def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
+def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh):
     """All block bids are sorted by the criteria specified in options["crit_prio"].
     Returns:
         block_bids (nested dict): {buy/sell: position i: time steps t0-t2: [p, q, n]} """
@@ -210,7 +210,6 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh, opti_res):
         else:
             sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_quantity"])
             sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_quantity"])
-
 
     # sort buy_list and sell_list by flexible mean energy if mean energy has been specified as criteria in options
     elif options["crit_prio"] == "flex_energy":

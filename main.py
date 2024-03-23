@@ -128,7 +128,7 @@ if __name__ == '__main__':
                "time_zone": districtData.site['timeZone'],  # ---,      time zone
                "location": districtData.site['location'],  # degree,   latitude, longitude of location
                "altitude": districtData.site['altitude'],  # m,        height of location above sea level
-               "bid_type": "single",  # block, single
+               "bid_type": "block",  # block, single
                "negotiation": True,  # True: negotiation, False: auction
               }
 
@@ -137,7 +137,7 @@ if __name__ == '__main__':
     #scn = 0                                     # selected scenario
 
     if options["bid_type"] == "block":
-        block_length = 5
+        block_length = 3
     else:
         block_length = 1
 
@@ -147,7 +147,7 @@ if __name__ == '__main__':
         "n_hours": 36,  # ----,      number of hours of prediction horizon for rolling horizon
         "n_hours_ov": 36 - block_length,  # ----,      number of hours of overlap horizon for rolling horizon
         "n_opt_max": 8760,  # 8760  # -----,       maximum number of optimizations (one year)
-        "month": 7,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
+        "month": 1,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data
 
         # Parameters for rolling horizon with aggregated foresight
@@ -184,11 +184,22 @@ if __name__ == '__main__':
         with open(options["path_results"] + "/init_val_P2P_" + options_DG["scenario_name"] + ".p", 'wb') as file_init:
             pickle.dump(par_rh, file_init)
 
-        with open(options["path_results"] + "/res_time_P2P_" + options_DG["scenario_name"] + ".p", 'wb') as file_res_list:
-            pickle.dump(res_time, file_res_list)
+        if par_rh["month"] == 1:
+            with open(options["path_results"] + "/res_time_P2P_" + options_DG["scenario_name"] + "_jan.p", 'wb') as file_res_list_jan:
+                pickle.dump(res_time, file_res_list_jan)
+            with open(options["path_results"] + "/res_val_P2P_" + options_DG["scenario_name"] + "_jan.p",'wb') as file_res_val_jan:
+                pickle.dump(res_val, file_res_val_jan)
+        elif par_rh["month"] == 4:
+            with open(options["path_results"] + "/res_time_P2P_" + options_DG["scenario_name"] + "_apr.p", 'wb') as file_res_list_apr:
+                pickle.dump(res_time, file_res_list_apr)
+            with open(options["path_results"] + "/res_val_P2P_" + options_DG["scenario_name"] + "_apr.p",'wb') as file_res_val_apr:
+                pickle.dump(res_val, file_res_val_apr)
+        elif par_rh["month"] == 7:
+            with open(options["path_results"] + "/res_time_P2P_" + options_DG["scenario_name"] + "_jul.p", 'wb') as file_res_list_jul:
+                pickle.dump(res_time, file_res_list_jul)
+            with open(options["path_results"] + "/res_val_P2P_" + options_DG["scenario_name"] + "_jul.p",'wb') as file_res_val_jul:
+                pickle.dump(res_val, file_res_val_jul)
 
-        with open(options["path_results"] + "/res_val_P2P_" + options_DG["scenario_name"] + ".p", 'wb') as file_res_val:
-            pickle.dump(res_val, file_res_val)
 
 
         # Compute plots

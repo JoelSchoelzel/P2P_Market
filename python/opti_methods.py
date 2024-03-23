@@ -47,6 +47,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         # create trade_res to store results
         trade_res = {}
         last_time_step = {}
+        participating_buyers = {}
+        participating_sellers = {}
 
         # create characteristics to store flexibility characteristics of each building
         characteristics = {}
@@ -120,27 +122,27 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 # separate bids in buying & selling, sort by crit (mean price/quantity or flexibility characteristic)
                 mar_dict["sorted_bids"][n_opt], mar_dict["sell_list"][n_opt], mar_dict["buy_list"][n_opt] = \
                     mar_pre_nego.sort_block_bids(block_bid=mar_dict["block_bids"][n_opt], options=options,
-                                                 new_characs=characteristics[n_opt],n_opt=n_opt, par_rh=par_rh,
-                                                 opti_res=opti_res[n_opt])
+                                                 new_characs=characteristics[n_opt],n_opt=n_opt, par_rh=par_rh)
 
                 # match the block bids to each other according to crit
                 mar_dict["matched_bids_info"][n_opt] \
                     = mat_neg.matching(sorted_block_bids=mar_dict["sorted_bids"][n_opt])
 
                 # run negotiation optimization (with constraints adapted to matched peer) and save results
-                (mar_dict["negotiation_results"][n_opt], participating_buyers, participating_sellers,
+                (mar_dict["negotiation_results"][n_opt], participating_buyers[n_opt], participating_sellers[n_opt],
                  mar_dict["sorted_bids_nego"][n_opt], last_time_step[n_opt], mar_dict["matched_bids_info_nego"][n_opt])\
                     = mat_neg.negotiation(nodes=nodes, params=params, par_rh=par_rh,
                                           init_val=init_val[n_opt], n_opt=n_opt, options=options,
                                           matched_bids_info=mar_dict["matched_bids_info"][n_opt],
-                                          sorted_bids=mar_dict["sorted_bids"][n_opt], block_length=block_length)
+                                          sorted_bids=mar_dict["sorted_bids"][n_opt], block_length=block_length,
+                                          opti_res=opti_res[n_opt])
 
                 # trade the remaining power with the grid
                 mar_dict["transactions_with_grid"][n_opt] = \
                     mat_neg.trade_with_grid(sorted_bids=mar_dict["sorted_bids"][n_opt],
                                             sorted_bids_nego=mar_dict["sorted_bids_nego"][n_opt],
-                                            participating_buyers=participating_buyers,
-                                            participating_sellers=participating_sellers,
+                                            participating_buyers=participating_buyers[n_opt],
+                                            participating_sellers=participating_sellers[n_opt],
                                             params=params, par_rh=par_rh, n_opt=n_opt, block_length=block_length,
                                             opti_res=opti_res[n_opt])
 
@@ -150,8 +152,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                                  opti_res=opti_res[n_opt],
                                                                  nego_transactions=mar_dict["negotiation_results"][n_opt],
                                                                  last_time_step=last_time_step[n_opt],
-                                                                 participating_buyers=participating_buyers,
-                                                                 participating_sellers=participating_sellers)
+                                                                 participating_buyers=participating_buyers[n_opt],
+                                                                 participating_sellers=participating_sellers[n_opt])
 
 
 
