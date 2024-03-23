@@ -38,6 +38,7 @@ def calc_characs(nodes, options, par_rh, block_length, opti_res: dict = None, st
             "energy_delayed": energy the TES can be discharged by
     """
 
+
     # list of all heaters that use/produce electricity
     EHG = ["hp35", "hp55", "chp", "bz"]
 

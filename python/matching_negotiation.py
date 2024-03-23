@@ -1,9 +1,5 @@
-import python.market_preprocessing as mar_pre
-import python.bidding_strategies as bd
-import python.market_preprocessing as mar_pre
-
 from python import opti_bes_negotiation
-from python import market_preprocessing_nego
+from python import characs_single_build
 import copy
 
 
@@ -117,6 +113,12 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             remaining_supply = {}
             opti_bes_res_buyer = {}
             opti_bes_res_seller = {}
+            buyer_id = matched_bids_info_nego[r][match][0]["bes_id"]
+            seller_id = matched_bids_info_nego[r][match][1]["bes_id"]
+            participating_buyers.add(buyer_id)
+            participating_sellers.add(seller_id)
+            participating_buildings.add(buyer_id)
+            participating_buildings.add(seller_id)
 
             for t in time_steps:
                 # initialize variables
@@ -126,12 +128,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 seller_trade_price[t] = {}
                 buyer_diff_to_average[t] = float('inf')
                 seller_diff_to_average[t] = float('inf')
-                buyer_id = matched_bids_info_nego[r][match][0]["bes_id"]
-                seller_id = matched_bids_info_nego[r][match][1]["bes_id"]
-                participating_buyers.add(buyer_id)
-                participating_sellers.add(seller_id)
-                participating_buildings.add(buyer_id)
-                participating_buildings.add(seller_id)
                 saved_costs[t] = 0
                 additional_revenue[t] = 0
                 saved_costs_sum = 0
@@ -198,6 +194,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             new_total_price = 0
             count = 0
             new_sum_energy = 0
+            res_soc_buyer = opti_bes_res_buyer["res_soc"]["tes"]
+            res_soc_seller = opti_bes_res_seller["res_soc"]["tes"]
             # add unsatisfied buyers and sellers to next trading round with remaining demand/supply
             if add_buy_bid:
                 copy_of_buy_bid = copy.deepcopy(matched_bids_info_nego[r][match][0])
@@ -213,6 +211,9 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 copy_of_buy_bid["mean_quantity"] = new_mean_quantity
                 copy_of_buy_bid["sum_energy"] = new_sum_energy
                 copy_of_buy_bid["total_price"] = new_total_price
+                new_flex_delayed, new_flex_forced = characs_single_build.calc_characs_single(nodes=nodes, block_length=block_length, bes_id=buyer_id, soc_state=res_soc_buyer)
+                copy_of_buy_bid["flex_energy_delayed"] = new_flex_delayed
+                copy_of_buy_bid["flex_energy_forced"] = new_flex_forced
                 sorted_bids_nego[r + 1]["buy_blocks"].append(copy_of_buy_bid)
 
             if add_sell_bid:
@@ -229,6 +230,9 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 copy_of_sell_bid["mean_quantity"] = new_mean_quantity
                 copy_of_sell_bid["sum_energy"] = new_sum_energy
                 copy_of_sell_bid["total_price"] = new_total_price
+                new_flex_delayed, new_flex_forced = characs_single_build.calc_characs_single(nodes=nodes, block_length=block_length, bes_id=seller_id, soc_state=res_soc_seller)
+                copy_of_sell_bid["flex_energy_delayed"] = new_flex_delayed
+                copy_of_sell_bid["flex_energy_forced"] = new_flex_forced
                 sorted_bids_nego[r + 1]["sell_blocks"].append(copy_of_sell_bid)
 
             # store the results of the negotiation for this match and this round
@@ -288,8 +292,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
         if options["crit_prio"] == "mean_quantity":
             if options["descending"]:
-                sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_quantity"]) #, reverse=True)
-                sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_quantity"]) #, reverse=True)
+                sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_quantity"], reverse=True)
+                sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_quantity"], reverse=True)
                 sorted_bids_nego[r + 1]["sell_blocks"].clear()
                 sorted_bids_nego[r + 1]["buy_blocks"].clear()
                 for e in sorted_sell_list:
@@ -297,8 +301,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 for e in sorted_buy_list:
                     sorted_bids_nego[r + 1]["buy_blocks"].append(e)
             else:
-                sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_quantity"], reverse=True)
-                sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_quantity"], reverse=True)
+                sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_quantity"])
+                sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_quantity"])
                 sorted_bids_nego[r + 1]["sell_blocks"].clear()
                 sorted_bids_nego[r + 1]["buy_blocks"].clear()
                 for e in sorted_sell_list:
@@ -311,9 +315,9 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             # highest energy flexibility of seller (lowest flexibility of buyer) first if descending has been set True in options
             if options["descending"]:
                 # most flexible buyer is the one, that can buy more than given buy quantity (soc of tes is low -> energy_forced high)
-                sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"] + "_forced"])
+                sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"] + "_forced"]) # _forced
                 # most flexible seller is the one, that can sell more than given in sell quantity (soc of tes is high -> energy_delayed high)
-                sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_delayed"], reverse=True)
+                sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_forced"])#, reverse=True) #delayed
                 sorted_bids_nego[r + 1]["sell_blocks"].clear()
                 sorted_bids_nego[r + 1]["buy_blocks"].clear()
                 for e in sorted_sell_list:
