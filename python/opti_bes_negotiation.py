@@ -35,10 +35,6 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     else:
         time_steps = par_rh["time_steps"][n_opt][0:block_length]
 
-    # or time steps = complete prediction horizon
-    #time_steps = par_rh["time_steps"][n_opt]
-
-
     # Durations of time steps # for aggregated RH
     #duration = par_rh["duration"][n_opt]
 

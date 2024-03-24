@@ -2,6 +2,7 @@ from python import opti_bes_negotiation
 from python import characs_single_build
 import random
 import copy
+import numpy as np
 random.seed(42)
 
 def matching(sorted_block_bids):
@@ -33,37 +34,10 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
     Returns:
         nego_transactions (dict): Dictionary containing the results of the negotiation phase for each match.
         total_market_info (dict): Dictionary containing the results of the total market (all matched and unmatched peers).
-        last_time_step (int): Last time step of the optimization horizon."""
+        last_time_step (int): Last time step of the optimization horizon.
 
-    """"### CALCULATE SUPPLY & DEMAND COVER FACTOR FOR EACH TIME STEP BEFORE TRADING
-    total_demand = {}
-    total_supply = {}
-    supply_cover_factor = {}
-    demand_cover_factor = {}
-
-    for t in time_steps:
-        total_demand[t] = 0  # Initialize total_demand for time step t
-        total_supply[t] = 0  # Initialize total_supply for time step t
-
-        # Calculate total demand for time step t
-        for buyer_block in sorted_bids["buy_blocks"]:
-            if t in buyer_block:  # Check if time step t exists in the buyer_block
-                total_demand[t] += buyer_block[t][1]  # Add the quantity for time step t
-
-        # Calculate total supply for time step t
-        for seller_block in sorted_bids["sell_blocks"]:
-            if t in seller_block:  # Check if time step t exists in the seller_block
-                total_supply[t] += seller_block[t][1]  # Add the quantity for time step t
-
-        # Calculate SCF and DCF before trading for time step t
-        if total_supply[t] > 0:  # Ensure there's no division by zero
-            supply_cover_factor[t] = min(total_supply[t], total_demand[t]) / total_supply[t]
-        else:
-            supply_cover_factor[t] = 0
-        if total_demand[t] > 0:
-            demand_cover_factor[t] = min(total_supply[t], total_demand[t]) / total_demand[t]
-        else:
-            demand_cover_factor[t] = 0"""
+        nego_transactions, participating_buyers, participating_sellers, sorted_bids_nego, last_time_step, matched_bids_info_nego
+        """
 
     # Get the time steps of the block bid
     time_steps = par_rh["time_steps"][n_opt][0:block_length]
@@ -112,6 +86,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             additional_revenue = {}
             remaining_demand = {}
             remaining_supply = {}
+            diff_buyer_seller = {}
             opti_bes_res_buyer = {}
             opti_bes_res_seller = {}
             buyer_id = matched_bids_info_nego[r][match][0]["bes_id"]
@@ -129,7 +104,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 seller_trade_price[t] = {}
                 buyer_diff_to_average[t] = float('inf')
                 seller_diff_to_average[t] = float('inf')
-                diff_buyer_seller = abs(matched_bids_info_nego[r][match][0][t][0] - matched_bids_info_nego[r][match][1][t][0])
+                diff_buyer_seller[t] = abs(matched_bids_info_nego[r][match][0][t][0] - matched_bids_info_nego[r][match][1][t][0])
                 saved_costs[t] = 0
                 additional_revenue[t] = 0
                 saved_costs_sum = 0
@@ -139,29 +114,30 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
                 # get the price and quantity of the matched bids for flex price delta
                 price_bid_buyer = matched_bids_info_nego[r][match][0][t][0]
-                quantity_bid_buyer = matched_bids_info_nego[r][match][0][t][1]
                 price_bid_seller = matched_bids_info_nego[r][match][1][t][0]
-                quantity_bid_seller = matched_bids_info_nego[r][match][1][t][1]
-                flex_buyer_delayed = matched_bids_info_nego[r][match][0]["flex_energy_delayed"]
                 flex_buyer_forced = matched_bids_info_nego[r][match][0]["flex_energy_forced"]
-                flex_seller_delayed = matched_bids_info_nego[r][match][1]["flex_energy_delayed"]
                 flex_seller_forced = matched_bids_info_nego[r][match][1]["flex_energy_forced"]
+                flex_buyer_delayed = matched_bids_info_nego[r][match][0]["flex_energy_delayed"]
+                flex_seller_delayed = matched_bids_info_nego[r][match][1]["flex_energy_delayed"]
 
                 diff_buyer_seller_price = abs(price_bid_buyer - price_bid_seller)
                 diff_buyer_seller_flex = abs(flex_buyer_forced - flex_seller_forced)
+                speed = diff_buyer_seller_flex / max(flex_buyer_forced, flex_seller_forced) if max(flex_buyer_forced, flex_seller_forced) > 0 else 0
+                step_scale = 0.25
+                max_step = step_scale * diff_buyer_seller_price
+                scaling_top = 1
+                scaling_bottom = -1
+                norm_flex = (speed - min(flex_buyer_forced, flex_seller_forced)) / (max(flex_buyer_forced, flex_seller_forced) - min(flex_buyer_forced, flex_seller_forced))* (scaling_top - scaling_bottom) + scaling_bottom if max(flex_buyer_forced, flex_seller_forced) > 0 else 0
 
-                #score = diff_buyer_seller_flex/max(flex_buyer_forced, flex_seller_forced)
+                sigmoid = 1 / (1 + np.exp(-norm_flex))
+                buyer_delta = sigmoid * max_step
+                seller_delta = (1-sigmoid) * max_step
+
+                if diff_buyer_seller[t] <= 0.05:
+                    diff_buyer_seller[t] = 0.06
 
                 if options["flex_price_delta"]:
-                    # TODO: implement flex price delta
-                    while diff_buyer_seller > 0.05: # while criteria is not working!
-
-                        if flex_buyer_forced > flex_seller_forced:
-                            buyer_delta_price = 0
-                            seller_delta_price = 0
-                        else:
-                            buyer_delta_price = 0
-                            seller_delta_price = 0
+                    while diff_buyer_seller[t] > 0.05:
 
                         opti_bes_res_buyer \
                             = opti_bes_negotiation.compute_opti(node=nodes[buyer_id], params=params, par_rh=par_rh,
@@ -169,27 +145,23 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                                                                 n_opt=n_opt, options=options,
                                                                 matched_bids_info=matched_bids_info_nego[r][match],
                                                                 is_buying=True,
-                                                                delta_price=buyer_delta_price, block_length=block_length,
-                                                                seller_delta=seller_delta_price)
+                                                                delta_price=buyer_delta, block_length=block_length,
+                                                                delta_price_seller=seller_delta)
                         opti_bes_res_seller \
                             = opti_bes_negotiation.compute_opti(node=nodes[seller_id], params=params, par_rh=par_rh,
                                                                 init_val=init_val["building_" + str(seller_id)],
                                                                 n_opt=n_opt, options=options,
                                                                 matched_bids_info=matched_bids_info_nego[r][match],
                                                                 is_buying=False,
-                                                                delta_price=buyer_delta_price, block_length=block_length,
-                                                                seller_delta=seller_delta_price)
+                                                                delta_price=buyer_delta, block_length=block_length,
+                                                                delta_price_seller=seller_delta)
 
-                        # compare trade price of buyer and seller (resulting from opti) with average price of initial bids
-                        average_bids_price[t] = opti_bes_res_buyer["average_bids_price"][t]
                         buyer_trade_price[t] = opti_bes_res_buyer["res_price_trade"][t]
                         seller_trade_price[t] = opti_bes_res_seller["res_price_trade"][t]
-                        buyer_diff_to_average[t] = abs(buyer_trade_price[t] - average_bids_price[t])
-                        seller_diff_to_average[t] = abs(seller_trade_price[t] - average_bids_price[t])
-                        diff_buyer_seller = abs(buyer_trade_price[t] - seller_trade_price[t])
+                        diff_buyer_seller[t] = abs(buyer_trade_price[t] - seller_trade_price[t])
                         # update delta price
-                        delta_price += 0.005
-
+                        seller_delta += seller_delta
+                        buyer_delta += buyer_delta
 
                 else:
                     # run the optimization model for buyer and seller
@@ -217,7 +189,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                         seller_trade_price[t] = opti_bes_res_seller["res_price_trade"][t]
                         buyer_diff_to_average[t] = abs(buyer_trade_price[t] - average_bids_price[t])
                         seller_diff_to_average[t] = abs(seller_trade_price[t] - average_bids_price[t])
-                        diff_buyer_seller = abs(buyer_trade_price[t] - seller_trade_price[t])
+                        diff_buyer_seller[t] = abs(buyer_trade_price[t] - seller_trade_price[t])
 
                         # update delta price
                         delta_price += 0.005
@@ -326,7 +298,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
         buy_list = sorted_bids_nego[r + 1]["buy_blocks"]
         sell_list = sorted_bids_nego[r + 1]["sell_blocks"]
 
-        # sort buy_list and sell_list by mean price of block_bids if mean price has been specified as criteria in options
         if options["crit_prio"] == "mean_price":
             # highest paying and lowest asking first if descending has been set True in options
             if options["descending"]:
@@ -400,7 +371,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             sorted_buy_list = buy_list
             if not sorted_buy_list:
                 random.shuffle(sorted_buy_list)
-
             sorted_sell_list = sell_list
             if not sorted_sell_list:
                 random.shuffle(sorted_sell_list)

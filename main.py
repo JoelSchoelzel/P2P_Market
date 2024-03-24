@@ -131,7 +131,7 @@ if __name__ == '__main__':
                "bid_type": "block",  # block, single
                "negotiation": True,  # True: negotiation, False: auction
                "enhanced_horizon": False, # False: only block bid length, True: all 36hours
-               "flex_price_delta": False
+               "flex_price_delta": True
               }
 
     # load heating devs per building
