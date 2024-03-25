@@ -165,25 +165,25 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
                 else:
                     # run the optimization model for buyer and seller
-                    #while diff_buyer_seller > 0.05:
-                    while buyer_diff_to_average[t] > 0.005 and seller_diff_to_average[t] > 0.005:
+                    while diff_buyer_seller[t] > 0.05:
+                    #while buyer_diff_to_average[t] > 0.005 and seller_diff_to_average[t] > 0.005:
 
                         opti_bes_res_buyer \
-                                = opti_bes_negotiation.compute_opti(node=nodes[buyer_id], params=params, par_rh=par_rh,
-                                                                    init_val=init_val["building_" + str(buyer_id)],
-                                                                    n_opt=n_opt, options=options,
-                                                                    matched_bids_info=matched_bids_info_nego[r][match],
-                                                                    is_buying=True,
-                                                                    delta_price=delta_price, block_length=block_length)
+                            = opti_bes_negotiation.compute_opti(node=nodes[buyer_id], params=params, par_rh=par_rh,
+                                                                init_val=init_val["building_" + str(buyer_id)],
+                                                                n_opt=n_opt, options=options,
+                                                                matched_bids_info=matched_bids_info_nego[r][match],
+                                                                is_buying=True, delta_price=delta_price,
+                                                                block_length=block_length)
                         opti_bes_res_seller \
-                                = opti_bes_negotiation.compute_opti(node=nodes[seller_id], params=params, par_rh=par_rh,
-                                                                    init_val=init_val["building_" + str(seller_id)],
-                                                                    n_opt=n_opt, options=options,
-                                                                    matched_bids_info=matched_bids_info_nego[r][match],
-                                                                    is_buying=False,
-                                                                    delta_price=delta_price, block_length=block_length)
+                            = opti_bes_negotiation.compute_opti(node=nodes[seller_id], params=params, par_rh=par_rh,
+                                                                init_val=init_val["building_" + str(seller_id)],
+                                                                n_opt=n_opt, options=options,
+                                                                matched_bids_info=matched_bids_info_nego[r][match],
+                                                                is_buying=False, delta_price=delta_price,
+                                                                block_length=block_length)
 
-                        # compare trade price of buyer and seller (resulting from opti) with average price of initial bids
+                        # compare trade price of buyer & seller (resulting from opti) with average price of initial bids
                         average_bids_price[t] = opti_bes_res_buyer["average_bids_price"][t]
                         buyer_trade_price[t] = opti_bes_res_buyer["res_price_trade"][t]
                         seller_trade_price[t] = opti_bes_res_seller["res_price_trade"][t]
@@ -216,10 +216,10 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 remaining_demand[t] = abs(matched_bids_info_nego[r][match][0][t][1] - trade_power[t])
                 remaining_supply[t] = abs(matched_bids_info_nego[r][match][1][t][1] - trade_power[t])
 
-                if remaining_demand[t] > 0 and not add_buy_bid:
+                if remaining_demand[t] > 1e-3 and not add_buy_bid:
                     add_buy_bid = True
 
-                if remaining_supply[t] > 0 and not add_sell_bid:
+                if remaining_supply[t] > 1e-3 and not add_sell_bid:
                     add_sell_bid = True
 
             new_total_price = 0
@@ -278,7 +278,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 "remaining_supply": remaining_supply,
                 "opti_bes_res_buyer": opti_bes_res_buyer,
                 "opti_bes_res_seller": opti_bes_res_seller,
-                #"average_trade_price": trade_price_sum / len(time_steps)
             }
 
         # Add all buyers/sellers that weren't matched (but were in sorted bids list) to the new sorted_bids_nego lists

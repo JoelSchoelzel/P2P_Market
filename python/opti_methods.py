@@ -31,7 +31,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
 
         # range of prices for bids
         options["p_max"] = params["eco"]["pr", "el"]  # price for electricity bought from grid
-        options["p_min"] = params["eco"]["sell_chp"]  # price for electricity from CHP sold to grid
+        # options["p_min"] = params["eco"]["sell_chp"]  # price for electricity from CHP sold to grid
+        options["p_min"] = params["eco"]["sell_pv"]  # price for electricity from PV sold to grid
 
         # compute market agents for prosumers (number of building energy system)
         mar_agent_bes = []
@@ -227,9 +228,10 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
 
         # ------------------ CALCULATE RESULTS ------------------
         res_time, res_val = calc_results.calc_results_p2p(par_rh=par_rh, block_bids=mar_dict["block_bids"],
-                                                                     options=options, block_length=block_length,
-                                                                     nego_results=mar_dict["negotiation_results"],
-                                                                     transactions_grid=mar_dict["transactions_with_grid"])
+                                                          options=options, block_length=block_length,
+                                                          nego_results=mar_dict["negotiation_results"],
+                                                          transactions_grid=mar_dict["transactions_with_grid"],
+                                                          init_val=init_val, last_time_step=last_time_step,)
 
         # return opti_res_new, mar_dict, trade_res, characteristics  #opti_res,
         return mar_dict, characteristics, init_val, res_time, res_val

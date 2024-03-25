@@ -211,26 +211,9 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
             quantity_bid_seller[t] = matched_bids_info[1][t][1]
             average_trade_price[t] = (price_bid_buyer[t] + price_bid_seller[t])/2
 
-
-    """# quantity of the buyer and seller after block length is set to 0
-    # price of buyer and seller after block length is set to grid prices
-    for t in time_steps[block_length:]:
-        quantity_bid_buyer[t] = 0
-        quantity_bid_seller[t] = 0
-        price_bid_buyer[t] = params["eco"]["pr", "el"]
-        price_bid_seller[t] = params["eco"]["sell_pv"]
-        #price_bid_seller[t] = params["eco"]["sell_chp"]
-        # if seller has chp, the chp grid sell price is set; if seller has no chp, the pv grid sell price is set
-        #for dev in ["chp", "pv"]:
-        #    if node["devs"][dev]["cap"] > 0:
-        #        price_bid_seller[t] = params["eco"]["sell" + "_" + dev]"""
-
-
-
     for t in time_steps:
         p_imp[t] = model.addVar(vtype="C", name="P_imp_" + str(t))
         y_imp[t] = model.addVar(vtype="B", lb=0.0, ub=1.0, name="y_imp_exp_" + str(t))
-
 
     for dev in ("chp", "pv"):
         p_use[dev] = {}
@@ -317,9 +300,13 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         else:
             if options["flex_price_delta"]:
                 if is_buying:
+                    model.addConstr(price_trade["buyer"][t] >= price_bid_buyer[t],
+                                    name="Min_Price_trade_buyer" + str(t))
                     model.addConstr(price_trade["buyer"][t] == price_bid_buyer[t] + delta_price,
                                     name="Price_trade_buyer" + str(t))
                 else:
+                    model.addConstr(price_trade["seller"][t] <= price_bid_seller[t],
+                                    name="Max_Price_trade_seller" + str(t))
                     if price_bid_seller[t] >= delta_price:
                         model.addConstr(price_trade["seller"][t] == price_bid_seller[t] - delta_price_seller,
                                         name="Price_trade_seller" + str(t))
@@ -329,9 +316,13 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
             else:
                 if is_buying:
+                    model.addConstr(price_trade["buyer"][t] >= price_bid_buyer[t],
+                                    name="Min_Price_trade_buyer" + str(t))
                     model.addConstr(price_trade["buyer"][t] == price_bid_buyer[t] + delta_price,
                                     name="Price_trade_buyer" + str(t))
                 else:
+                    model.addConstr(price_trade["seller"][t] <= price_bid_seller[t],
+                                    name="Max_Price_trade_seller" + str(t))
                     if price_bid_seller[t] >= delta_price:
                         model.addConstr(price_trade["seller"][t] == price_bid_seller[t] - delta_price,
                                         name="Price_trade_seller" + str(t))
@@ -354,7 +345,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
         else:
             # power the seller can trade is limited by the quantity the buyer is willing to buy
-            if quantity_bid_seller[t]!=0:
+            if quantity_bid_seller[t] != 0:
                 model.addConstr(power_trade["seller"][t] <= quantity_bid_buyer[t],
                                 name="max_Power_trade_seller")
                 model.addConstr(power_trade["seller"][t] >= 0,

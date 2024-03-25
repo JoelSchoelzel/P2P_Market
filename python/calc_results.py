@@ -4,7 +4,8 @@ import pandas as pd
 import pickle
 
 
-def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, transactions_grid):
+def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, transactions_grid,
+                     init_val, last_time_step):
 
     last_n_opt = par_rh["n_opt"]
     time_steps = []
@@ -54,8 +55,13 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
     for t in time_steps:
         if total_supply_all_bes[t] > 0:
             scf[t] = min(total_supply_all_bes[t], total_demand_all_bes[t]) / total_supply_all_bes[t]
+        else:
+            scf[t] = 0
+
         if total_demand_all_bes[t] > 0:
             dcf[t] = min(total_supply_all_bes[t], total_demand_all_bes[t]) / total_demand_all_bes[t]
+        else:
+            dcf[t] = 0
 
     # Calculate the Supply Coverage Factor (SCF) and Demand Coverage Factor (DCF) for the month
     if total_supply_month > 0:
@@ -68,19 +74,21 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
     else:
         total_dcf_month = 0
 
-    # --------------------- MDCF, MSCF ---------------------
+    # --------------------- traded power, MDCF, MSCF, trade price, revenue, costs, gain  ---------------------
     traded_power = {}
     price = {}
     additional_revenue = {}
     saved_costs = {}
     average_trade_price = {}
     gain = {}
+    sum_price = {}
 
     for i in time_steps:
         traded_power[i] = 0
         additional_revenue[i] = 0
         saved_costs[i] = 0
         gain[i] = 0
+        sum_price[i] = 0
         average_trade_price[i] = 0
         price[i] = {}
 
@@ -95,29 +103,46 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
                     saved_costs[t] += nego_results[opt][round_nb][match]["saved_costs"][t]/1000 #€/kWh
                     gain[t] = saved_costs[t] + additional_revenue[t]
 
+
     # calculate average trade price at time step t for all buildings
     for t in time_steps:
         for match in price[t]:
-            average_trade_price[t] += price[t][match]
+            sum_price[t] += price[t][match]
         if len(price[t]) > 0:
-            average_trade_price[t] /= len(price[t])
+            average_trade_price[t] = sum_price[t] / len(price[t])
 
     total_traded_power = 0
     total_additional_revenue = 0
     total_saved_costs = 0
     total_gain = 0
+    sum_average_trade_price = 0
 
     for t in time_steps:
         total_traded_power += traded_power[t]
         total_additional_revenue += additional_revenue[t]
         total_saved_costs += saved_costs[t]
         total_gain = gain[t]
+        sum_average_trade_price += average_trade_price[t]
 
     total_mdcf = total_traded_power / total_demand_month
     total_mscf = total_traded_power / total_supply_month
+    total_average_trade_price = sum_average_trade_price / len(time_steps)
 
-    # --------------------- Total Power from/to Grid ---------------------
+    # --------------------- SOC ---------------------
+    soc = {}
+    last_time_steps = list(last_time_step.values())
 
+    for n in range(options["nb_bes"]):
+        for dev in ["tes", "bat", "ev"]:
+            soc[n] = {dev: {i: 0 for i in last_time_steps} for dev in ["tes", "bat", "ev"]}
+
+    for n in range(options["nb_bes"]):
+        for dev in ["tes", "bat", "ev"]:
+            for t in last_time_steps:
+                for opt in range(1, par_rh["n_opt"]):
+                    soc[n][dev][t] = init_val[opt]["building_"+str(n)]["soc"][dev]
+
+    # --------------------- Power from/to Grid ---------------------
     power_from_grid = {}
     power_to_grid = {}
 
@@ -158,7 +183,8 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
         "power_to_grid": power_to_grid,
         "additional_revenue": additional_revenue,
         "saved_costs": saved_costs,
-        "gain": gain
+        "gain": gain,
+        "soc": soc
     }
 
     results_values = {
@@ -169,7 +195,7 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
         "total_demand_month": total_demand_month,
         "total_supply_month": total_supply_month,
         "total_traded_power": total_traded_power,
-        "average_trade_price": average_trade_price,
+        "total_average_trade_price": total_average_trade_price,
         "total_power_from_grid": total_power_from_grid,
         "total_power_to_grid": total_power_to_grid,
         "total_additional_revenue": total_additional_revenue,
