@@ -766,6 +766,6 @@ def compute_initial_values_block(nb_buildings, opti_res, nego_transactions, last
                     last_opti_res_seller = match_value.get("opti_bes_res_seller")
                     break
         for dev in ["tes", "bat", "ev"]:
-            init_val_block["building_" + str(seller_id)]["soc"][dev]=last_opti_res_seller["res_soc"][dev][last_time_step]
+            init_val_block["building_" + str(seller_id)]["soc"][dev] = last_opti_res_seller["res_soc"][dev][last_time_step]
 
     return init_val_block

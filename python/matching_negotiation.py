@@ -121,17 +121,20 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 flex_seller_delayed = matched_bids_info_nego[r][match][1]["flex_energy_delayed"]
 
                 diff_buyer_seller_price = abs(price_bid_buyer - price_bid_seller)
-                diff_buyer_seller_flex = abs(flex_buyer_forced - flex_seller_forced)
-                speed = diff_buyer_seller_flex / max(flex_buyer_forced, flex_seller_forced) if max(flex_buyer_forced, flex_seller_forced) > 0 else 0
                 step_scale = 0.25
                 max_step = step_scale * diff_buyer_seller_price
+
                 scaling_top = 1
                 scaling_bottom = -1
-                norm_flex = (speed - min(flex_buyer_forced, flex_seller_forced)) / (max(flex_buyer_forced, flex_seller_forced) - min(flex_buyer_forced, flex_seller_forced))* (scaling_top - scaling_bottom) + scaling_bottom if max(flex_buyer_forced, flex_seller_forced) > 0 else 0
+                if max(flex_buyer_forced, flex_seller_forced) > 0:
+                    norm_flex_b = scaling_bottom + (scaling_top - scaling_bottom) * ((flex_buyer_forced - min(flex_buyer_forced, flex_seller_forced)) / (max(flex_buyer_forced, flex_seller_forced) - min(flex_buyer_forced, flex_seller_forced)))
+                else:
+                    norm_flex_b = 0
 
-                sigmoid = 1 / (1 + np.exp(-norm_flex))
-                buyer_delta = sigmoid * max_step
-                seller_delta = (1-sigmoid) * max_step
+                sigmoid_b = 1 / (1 + np.exp(-norm_flex_b))
+
+                buyer_delta = max_step * sigmoid_b
+                seller_delta = max_step * (1-sigmoid_b)
 
                 if diff_buyer_seller[t] <= 0.05:
                     diff_buyer_seller[t] = 0.06

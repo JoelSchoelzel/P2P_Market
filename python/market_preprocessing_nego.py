@@ -30,50 +30,43 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
             dem_heat = nodes[n]["heat"][t]
             dem_dhw = nodes[n]["dhw"][t]
             dem_elec = nodes[n]["elec"][t]
-            pv_peak = np.max(nodes[n]["pv_power"][t])
+            pv_peak = np.max(nodes[n]["pv_power"])
             p_ch_bat = opti_res[n][5]["bat"][t]
             p_dch_bat = opti_res[n][6]["bat"][t]
             soc_bat = opti_res[n][3]["bat"][t]
+            soc_tes = opti_res[n][3]["tes"][t]
             heat_hp = opti_res[n][2]["hp35"][t] + opti_res[n][2]["hp55"][t]
             heat_chp = opti_res[n][2]["chp"][t]
-            power_pv = nodes[n]["pv_power"][t]
             power_hp = max(opti_res[n][1]["hp35"][t], opti_res[n][1]["hp55"][t])
             heat_devs = sum([opti_res[n][2]["hp35"][t], opti_res[n][2]["hp55"][t], opti_res[n][2]["chp"][t],
                              opti_res[n][2]["boiler"][t], dem_dhw * 0.5])
-            soc = opti_res[n][3]["tes"][t]
 
-            x = []
-            for i in range(7):
-                x.append(sum(nodes[n]["heat"][i * 24:i * 24 + 24]) + 0.5 * sum(nodes[n]["dhw"][i * 24:i * 24 + 24]))
-            soc_set_max = max(x)
-
-            # COMPUTE BLOCK BIDS AND INFLEXIBLE DEMANDS
+            # ------------- COMPUTE BLOCK BIDS -------------
 
             # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
-            #if power_hp >= 0.0 and p_imp > 0.0 and pv_sell == 0:
+            # if power_hp >= 0.0 and p_imp > 0.0 and pv_sell == 0:
             if power_hp >= 0.0 and p_imp > 0.0 and pv_sell < 1e-3:
                 block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
                     mar_agent_prosumer[n].compute_hp_bids(p_imp=p_imp, n=n, bid_strategy=bid_strategy, dem_heat=dem_heat,
-                                                          dem_dhw=dem_dhw, soc=soc, power_hp=power_hp,options=options,
+                                                          dem_dhw=dem_dhw, soc=soc_tes, power_hp=power_hp, options=options,
                                                           strategies=strategies, weights=weights, heat_hp=heat_hp,
-                                                          heat_devs=heat_devs, soc_set_max=soc_set_max)
-
+                                                          heat_devs=heat_devs, node=nodes[n])  # , soc_set_max=soc_set_max)
 
             # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
             elif pv_sell > 0:
                 block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_pv_bids(
-                    dem_elec=dem_elec, soc_bat=soc_bat, power_pv=power_pv, p_ch_bat=p_ch_bat, p_dch_bat=p_dch_bat,
-                    pv_sell=pv_sell, pv_peak=pv_peak, t=t, n=n, bid_strategy=options["bid_strategy"],
-                   strategies=strategies, weights=weights, options=options)
+                    dem_elec=dem_elec, soc_bat=soc_bat, p_ch_bat=p_ch_bat, p_dch_bat=p_dch_bat,
+                    pv_sell=pv_sell, pv_peak=pv_peak, n=n, bid_strategy=options["bid_strategy"],
+                    strategies=strategies, weights=weights, options=options)  # power_pv=power_pv
                 # bes[n]["hp_dem"][n_opt] = 0
 
             # when electricity from chp needs to be sold, compute_chp_bids() of the mar_agent is called
             elif chp_sell > 0:
                 block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
                     mar_agent_prosumer[n].compute_chp_bids(chp_sell=chp_sell, n=n, bid_strategy=bid_strategy,
-                                                           dem_heat=dem_heat, dem_dhw=dem_dhw, soc=soc, options=options,
+                                                           dem_heat=dem_heat, dem_dhw=dem_dhw, soc=soc_tes, options=options,
                                                            strategies=strategies, weights=weights, heat_chp=heat_chp,
-                                                           heat_devs=heat_devs, soc_set_max=soc_set_max)
+                                                           heat_devs=heat_devs, node=nodes[n])  # , soc_set_max=soc_set_max)
 
             # when no electricity needs to be bought or sold, compute_empty_bids() of the mar_agent is called
             else:
@@ -92,7 +85,7 @@ def mean_all(block_bid): #, new_characs
     count = 0
     sum_energy = 0
     bes_id_list = []
-    block_length = len(block_bid)
+    # block_length = len(block_bid)
 
     for t in block_bid:  # iterate through time steps
         total_price += block_bid[t][0]

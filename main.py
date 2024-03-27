@@ -130,16 +130,16 @@ if __name__ == '__main__':
                "altitude": districtData.site['altitude'],  # m,        height of location above sea level
                "bid_type": "block",  # block, single
                "negotiation": True,  # True: negotiation, False: auction
-               "enhanced_horizon": False, # False: only block bid length, True: all 36hours
+               "enhanced_horizon": False,  # False: only block bid length, True: all 36hours
                "flex_price_delta": True
-              }
+               }
 
     # load heating devs per building
     #scenarios = scenarios.get_scenarios(options)  # Stadtnetz: 195 scenarios
     #scn = 0                                     # selected scenario
 
     if options["bid_type"] == "block":
-        block_length = 3
+        block_length = 6
     else:
         block_length = 1
 

@@ -57,29 +57,29 @@ def read_economics():
                 for key in pC.keys()}
     
     # Always EUR per kWh (meter per anno)
-    params["eco"]["sell_pv"] = 0.081 # €/kWh valid for pv systems with < 10 kWp 0.082
-    params["eco"]["sell_chp"] = 0.191 # €/kWh (average Q4 2021 - Q2 2022 + avoided costs for grid usage)
-    params["eco"]["co2_gas"] = 0.411 # kg/kWh (Germany, 2019; https://de.statista.com/statistik/daten/studie/38897/umfrage/co2-emissionsfaktor-fuer-den-strommix-in-deutschland-seit-1990/)
-    params["eco"]["co2_el"] = 0.241 # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
-    params["eco"]["co2_pv"] = 0.056 # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
+    params["eco"]["sell_pv"]  = 0.081  # €/kWh valid for pv systems with < 10 kWp 0.082
+    params["eco"]["sell_chp"] = 0.191  # €/kWh (average Q4 2021 - Q2 2022 + avoided costs for grid usage)
+    params["eco"]["co2_gas"]  = 0.411  # kg/kWh (Germany, 2019; https://de.statista.com/statistik/daten/studie/38897/umfrage/co2-emissionsfaktor-fuer-den-strommix-in-deutschland-seit-1990/)
+    params["eco"]["co2_el"]   = 0.241  # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
+    params["eco"]["co2_pv"]   = 0.056  # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
 
     # calculate costs with prices of Q3+Q4 2021
-    params["eco"]["pr",   "el"]     = 0.4627 # 0.3287 €/kWh, Q3+Q4 2021 (https://www-genesis.destatis.de/genesis/online?operation=previous&levelindex=1&step=1&titel=Ergebnis&levelid=1663949631295&acceptscookies=false#abreadcrumb)
-    params["eco"]["gas"]     = 0.0683   # €/kWh, Q3+Q4 2021 (https://www-genesis.destatis.de/genesis/online?sequenz=tabelleErgebnis&selectionname=61243-0010&language=de#abreadcrumb)
+    params["eco"]["pr", "el"] = 0.4627  # €/kWh average price 2023 # (https://www.bdew.de/presse/pressemappen/strompreis/) # 0.3287 €/kWh, Q3+Q4 2021 (https://www-genesis.destatis.de/genesis/online?operation=previous&levelindex=1&step=1&titel=Ergebnis&levelid=1663949631295&acceptscookies=false#abreadcrumb)
+    params["eco"]["gas"]      = 0.0683   # €/kWh, Q3+Q4 2021 (https://www-genesis.destatis.de/genesis/online?sequenz=tabelleErgebnis&selectionname=61243-0010&language=de#abreadcrumb)
 
     # calculate costs with raised el/gas prices of Q3 2022
     #params["eco"]["pr",   "el"] = 0.4403 # Verivox Q3 2022 (https://www.verivox.de/strom/verbraucherpreisindex/)
     #params["eco"]["gas"] = 0.1853 # Verivox Q3 2022 (https://www.verivox.de/gas/verbraucherpreisindex/)
 
-    params["phy"]["rho_w"]           = 1000 # [kg/m^3]
-    params["phy"]["c_w"]             = 4180 # [J/(kg*K)]
-    params["phy"]["beta"]            = 0.2
-    params["phy"]["A_max"]           = 40   # Maximum available roof area
+    params["phy"]["rho_w"]      = 1000  # [kg/m^3]
+    params["phy"]["c_w"]        = 4180  # [J/(kg*K)]
+    params["phy"]["beta"]       = 0.2
+    params["phy"]["A_max"]      = 40   # Maximum available roof area
     
     # Further parameters
-    params["gp"]["mip_gap"]         = 0.01 # https://www.gurobi.com/documentation/9.1/refman/mipgap2.html
-    params["gp"]["time_limit"]      = 100 # [s]  https://www.gurobi.com/documentation/9.1/refman/timelimit.html
-    params["gp"]["numeric_focus"]   = 3   # https://www.gurobi.com/documentation/9.1/refman/numericfocus.html
+    params["gp"]["mip_gap"]       = 0.01  # https://www.gurobi.com/documentation/9.1/refman/mipgap2.html
+    params["gp"]["time_limit"]    = 100  # [s]  https://www.gurobi.com/documentation/9.1/refman/timelimit.html
+    params["gp"]["numeric_focus"] = 3   # https://www.gurobi.com/documentation/9.1/refman/numericfocus.html
 
 
     return params
@@ -541,7 +541,7 @@ def map_devices(options, nodes, building_params, par_rh, districtData): # maps d
         # HEATPUMP
         # TODO: mod_lvl
         devs[n]["hp35"] = dict(cap=0.0, dT_max=15, exists=0, mod_lvl=1)
-        devs[n]["hp55"] = dict(cap=0.0,dT_max=15, exists=0, mod_lvl=1)
+        devs[n]["hp55"] = dict(cap=0.0, dT_max=15, exists=0, mod_lvl=1)
         # CHP FOR MULTI-FAMILY HOUSES
         # TODO: mod_lvl
         devs[n]["chp"] = dict(cap=0.0, eta_th=0.62, eta_el=0.30, mod_lvl=0.6)
@@ -559,6 +559,9 @@ def map_devices(options, nodes, building_params, par_rh, districtData): # maps d
 
 
         devs[n]["tes"]["cap"] = districtData.district[n]['capacities']['TES']
+
+        if districtData.district[n]['capacities']['BAT']:
+            devs[n]["bat"]["cap"] = districtData.district[n]['capacities']['BAT']
 
         if districtData.district[n]['capacities']['EV'] :
             devs[n]["ev"]["cap"] = districtData.district[n]['capacities']['EV']
