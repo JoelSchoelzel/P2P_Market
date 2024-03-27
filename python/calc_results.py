@@ -132,7 +132,7 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
     soc = {}
     last_time_steps = list(last_time_step.values())
 
-    for n in range(options["nb_bes"]):
+    """for n in range(options["nb_bes"]):
         for dev in ["tes", "bat", "ev"]:
             soc[n] = {dev: {i: 0 for i in last_time_steps} for dev in ["tes", "bat", "ev"]}
 
@@ -140,7 +140,20 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
         for dev in ["tes", "bat", "ev"]:
             for t in last_time_steps:
                 for opt in range(1, par_rh["n_opt"]):
-                    soc[n][dev][t] = init_val[opt]["building_"+str(n)]["soc"][dev]
+                    soc[n][dev][t] = init_val[opt]["building_"+str(n)]["soc"][dev]"""
+
+    soc_tes = {}
+    for n in range(options["nb_bes"]):
+        soc_tes[n] = []
+        for opt in range(1, par_rh["n_opt"]):
+            soc_tes[n].append(init_val[opt]["building_" + str(n)]["soc"]["tes"])
+
+    soc_bat = {}
+    for n in range(options["nb_bes"]):
+        soc_bat[n] = []
+        for opt in range(1, par_rh["n_opt"]):
+            soc_bat[n].append(init_val[opt]["building_" + str(n)]["soc"]["bat"])
+
 
     # --------------------- Power from/to Grid ---------------------
     power_from_grid = {}
@@ -184,7 +197,8 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
         "additional_revenue": additional_revenue,
         "saved_costs": saved_costs,
         "gain": gain,
-        "soc": soc
+        "soc_tes": soc_tes,
+        "soc_bat": soc_bat
     }
 
     results_values = {
