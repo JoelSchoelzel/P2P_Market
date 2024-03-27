@@ -93,4 +93,4 @@ class mar_agent_bes(object):
                 p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100
         p = np.around(p, decimals=6)
 
-        return [n, p, q, t, "selling"], unflex
+        return [p, q, buying, n] #, unflex

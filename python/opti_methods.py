@@ -15,7 +15,7 @@ import python.bidding_strategies as bd
 import python.auction as auction
 import python.characteristics as characs
 import python.stackelberg as stack
-
+import python.parse_inputs as parse_inputs
 def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
     # Run rolling horizon
     init_val = {}  # not needed for first optimization, thus empty dictionary
@@ -157,6 +157,14 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         # create trade_res to store results
         trade_res = {}
 
+        # parameters for learning bidding strategy
+        pars_li = parse_inputs.learning_bidding()
+        # initiate propensities for learning intelligence agent
+        if options["bid_strategy"] == "learning":
+            mar_dict["propensities"][0], strategies = mar_pre.initial_prop(par_rh, options, pars_li)
+        else:
+            strategies = {}
+
         #calculate characteristics
         print("Calculate characteristics...")
         characteristics = characs.calc_characs(nodes, options, par_rh)
@@ -196,7 +204,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             if options["stackelberg"] == True:
 
                 # compute bids for the Stackelberg game
-                mar_dict["bid"][n_opt] = mar_pre.compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, options)
+                mar_dict["bid"][n_opt] = mar_pre.compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, options,
+                                                              nodes, strategies)
 
                 # separate bids in buying and selling and store under "sorted_bids"
                 mar_dict["sorted_bids"][n_opt] = mar_pre.sort_participants(mar_dict["bid"][n_opt])
@@ -206,7 +215,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                 # run Stackelberg game
                 mar_dict["stackelberg_res"][n_opt] = stack.stackelberg_game(buy_list=buy_list_sorted, sell_list=sell_list_sorted,
                                                                             nodes=nodes, params=params, par_rh=par_rh,
-                                                                            building_param=building_params, init_val=init_val,
+                                                                            building_param=building_params, init_val=init_val[n_opt],
                                                                             n_opt=n_opt, options=options)
 
             ### Auction

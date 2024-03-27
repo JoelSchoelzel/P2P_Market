@@ -261,10 +261,15 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     #        model.addConstr(power[dev][t] == node["pv_power"][t],
     #                        name="Solar_electrical_" + dev + "_" + str(t))
 
+    # Solar components
+    for dev in solar:
+        for t in time_steps:
+            model.addConstr(power[dev][t] == demands["PV_GEN"][t],
+                            name="Solar_electrical_" + dev + "_" + str(t))
 
     #set solar to 0
-    for t in time_steps:
-        model.addConstr(power["pv"][t] == 0, name="Solar_electrical_pv_" + str(t))
+    # for t in time_steps:
+    #     model.addConstr(power["pv"][t] == 0, name="Solar_electrical_pv_" + str(t))
     # %% BUILDING STORAGES # %% DOMESTIC FLEXIBILITIES
 
     ## Nominal storage content (SOC)
