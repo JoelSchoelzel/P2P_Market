@@ -307,7 +307,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
                 else:
                     model.addConstr(price_trade["seller"][t] <= price_bid_seller[t],
                                     name="Max_Price_trade_seller" + str(t))
-                    if price_bid_seller[t] >= delta_price:
+                    if price_bid_seller[t] >= delta_price_seller:
                         model.addConstr(price_trade["seller"][t] == price_bid_seller[t] - delta_price_seller,
                                         name="Price_trade_seller" + str(t))
                     else:  # if price bid seller is zero, delta is not subtracted!!!
@@ -424,11 +424,9 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
             model.addConstr(power[dev][t] == demands["PV_GEN"][t],
                             name="Solar_electrical_" + dev + "_" + str(t))
 
-
-
-    #set solar to 0
-    #for t in time_steps:
-        #model.addConstr(power["pv"][t] == 0, name="Solar_electrical_pv_" + str(t))
+    # set solar to 0
+    # for t in time_steps:
+        # model.addConstr(power["pv"][t] == 0, name="Solar_electrical_pv_" + str(t))
     # %% BUILDING STORAGES # %% DOMESTIC FLEXIBILITIES
 
     ## Nominal storage content (SOC)
@@ -437,7 +435,6 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     #    model.addConstr(soc_init[dev] <= soc_nom[dev], name="SOC_nom_inits_"+dev)
 
     # Minimal and maximal charging, discharging and soc
-
 
     dev = "tes"
     eta_tes = node["devs"][dev]["eta_tes"]
@@ -766,6 +763,7 @@ def compute_initial_values_block(nb_buildings, opti_res, nego_transactions, last
                     last_opti_res_seller = match_value.get("opti_bes_res_seller")
                     break
         for dev in ["tes", "bat", "ev"]:
-            init_val_block["building_" + str(seller_id)]["soc"][dev] = last_opti_res_seller["res_soc"][dev][last_time_step]
+            init_val_block["building_" + str(seller_id)]["soc"][dev] \
+                = last_opti_res_seller["res_soc"][dev][last_time_step]
 
     return init_val_block

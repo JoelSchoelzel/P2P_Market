@@ -50,23 +50,23 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
                     mar_agent_prosumer[n].compute_hp_bids(p_imp=p_imp, n=n, bid_strategy=bid_strategy, dem_heat=dem_heat,
                                                           dem_dhw=dem_dhw, soc=soc_tes, power_hp=power_hp, options=options,
                                                           strategies=strategies, weights=weights, heat_hp=heat_hp,
-                                                          heat_devs=heat_devs, node=nodes[n])  # , soc_set_max=soc_set_max)
+                                                          heat_devs=heat_devs, node=nodes[n])
 
             # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
             elif pv_sell > 0:
                 block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_pv_bids(
                     dem_elec=dem_elec, soc_bat=soc_bat, p_ch_bat=p_ch_bat, p_dch_bat=p_dch_bat,
                     pv_sell=pv_sell, pv_peak=pv_peak, n=n, bid_strategy=options["bid_strategy"],
-                    strategies=strategies, weights=weights, options=options)  # power_pv=power_pv
-                # bes[n]["hp_dem"][n_opt] = 0
+                    strategies=strategies, weights=weights, options=options)
+
 
             # when electricity from chp needs to be sold, compute_chp_bids() of the mar_agent is called
             elif chp_sell > 0:
                 block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
                     mar_agent_prosumer[n].compute_chp_bids(chp_sell=chp_sell, n=n, bid_strategy=bid_strategy,
-                                                           dem_heat=dem_heat, dem_dhw=dem_dhw, soc=soc_tes, options=options,
-                                                           strategies=strategies, weights=weights, heat_chp=heat_chp,
-                                                           heat_devs=heat_devs, node=nodes[n])  # , soc_set_max=soc_set_max)
+                                                           dem_heat=dem_heat, dem_dhw=dem_dhw, soc=soc_tes,
+                                                           options=options,strategies=strategies, weights=weights,
+                                                           heat_chp=heat_chp, heat_devs=heat_devs, node=nodes[n])
 
             # when no electricity needs to be bought or sold, compute_empty_bids() of the mar_agent is called
             else:
@@ -76,7 +76,7 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
 
 
 # CALCULATE CRITERIA FOR SORTING BLOCK BIDS (mean price, mean quantity, or characteristic)
-def mean_all(block_bid): #, new_characs
+def mean_all(block_bid):
     """Calculates the mean value of the matching criteria of a block bid.
      Returns: mean_price, mean_quantity, mean_energy_forced, mean_energy_delayed, bes_id"""
 
@@ -114,7 +114,7 @@ def mean_all(block_bid): #, new_characs
     mean_energy_forced = total_energy_forced / count_energy_forced if count > 0 else 0
     mean_energy_delayed = total_energy_delayed / count_energy_delayed if count > 0 else 0"""
 
-    return bes_id, mean_price, sum_energy, total_price, mean_quantity  # mean_energy_forced, mean_energy_delayed
+    return bes_id, mean_price, sum_energy, total_price, mean_quantity
 
 
 def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh):
@@ -227,7 +227,6 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh):
         sorted_sell_list = sell_list
         if not sorted_sell_list:
             random.shuffle(sorted_sell_list)
-
 
     # STORE SORTED BUY AND SELL LISTS IN ONE DICTIONARY TO RETURN
     sorted_block_bids = {"buy_blocks": sorted_buy_list,
