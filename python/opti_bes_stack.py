@@ -12,7 +12,7 @@ import numpy as np
 import datetime
 
 
-def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, options, is_buying, buy_list, sell_list, price_signal):
+def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, options, is_buying, buy_list, sell_list, price_signal, available_supply, total_demand, adjust_demand):
     # Define subsets
     heater = ("boiler", "chp", "eh", "hp35", "hp55")
     storage = ("bat", "tes", "ev")
@@ -66,7 +66,7 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
                 [node["devs"]["COP_sh35_appended"][param02], node["devs"]["COP_sh35_appended"][param02 + param01 - 1]])
             COP55[param00] = np.mean(
                 [node["devs"]["COP_sh55_appended"][param02], node["devs"]["COP_sh55_appended"][param02 + param01 - 1]])
-            # PV_GEN[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
+            PV_GEN[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
             EV_AVAIL[param00] = np.mean(
                 [node["ev_avail_appended"][param02], node["ev_avail_appended"][param02 + param01 - 1]])
             EV_DEM_LEAVE[param00] = np.mean(
@@ -78,7 +78,7 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
             "dhw": dhw,
             "COP35": COP35,
             "COP55": COP55,
-            # "PV_GEN": PV_GEN,
+            "PV_GEN": PV_GEN,
             "EV_AVAIL": EV_AVAIL,
             "EV_DEM_LEAVE": EV_DEM_LEAVE,
         }
@@ -193,21 +193,11 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
     demand_from_seller = {}  # Total transaction amount of seller with all buyers
     # price_signal = {}  # Price signal of seller
 
+    # Define decision variable p_transaction to optimize the trading amount between each buyer with each seller
+    # and demand_from_seller to model the total demand of a seller from all buyers
     for t in time_steps:
-        demand_from_seller[t] = model.addVar(vtype="C", name="Total_demand_from_seller_" + str(t))
-        # price_signal[t] = model.addVar(vtype="C", name="Transaction_price_" + str(t))
-
-
-    # Define decision variable p_transaction_buyer_seller to model the trading amount between each buyer with each seller
-    for t in time_steps:
-        # for buyer_id, buyer in buy_list[t].items():
-        #     for seller_id, seller in sell_list[t].items():
-                # Get the building numbers of buyer and seller
-                #buyer_building = buyer["building"]
-                #seller_building = seller["building"]
-
         p_transaction_buyer_seller[t] = model.addVar(vtype="C", name="P_transaction_" + str(t))
-
+        demand_from_seller[t] = model.addVar(vtype="C", name="Total_demand_from_seller_" + str(t))
 
     # Update
     model.update()
@@ -315,9 +305,16 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
     #        model.addConstr(power[dev][t] == node["pv_power"][t],
     #                        name="Solar_electrical_" + dev + "_" + str(t))
 
+    # Solar components
+    for dev in solar:
+        for t in time_steps:
+            model.addConstr(power[dev][t] == demands["PV_GEN"][t],
+                            name="Solar_electrical_" + dev + "_" + str(t))
     # set solar to 0
-    for t in time_steps:
-        model.addConstr(power["pv"][t] == 0, name="Solar_electrical_pv_" + str(t))
+    # for t in time_steps:
+    #     model.addConstr(power["pv"][t] == 0, name="Solar_electrical_pv_" + str(t))
+
+
     # %% BUILDING STORAGES # %% DOMESTIC FLEXIBILITIES
 
     ## Nominal storage content (SOC)

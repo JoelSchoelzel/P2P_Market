@@ -149,7 +149,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         # compute market agents for prosumer
         mar_agent_bes = []
         for n in range(options["nb_bes"]):
-            mar_agent_bes.append(bd.mar_agent_bes(p_max, p_min, par_rh))
+            mar_agent_bes.append(bd.mar_agent_bes(p_max, p_min, par_rh, nodes[n]))
 
         # needed market dicts
         mar_dict = mar_pre.dict_for_market_data(par_rh)
@@ -158,12 +158,13 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         trade_res = {}
 
         # parameters for learning bidding strategy
-        pars_li = parse_inputs.learning_bidding()
-        # initiate propensities for learning intelligence agent
-        if options["bid_strategy"] == "learning":
-            mar_dict["propensities"][0], strategies = mar_pre.initial_prop(par_rh, options, pars_li)
-        else:
-            strategies = {}
+        # pars_li = parse_inputs.learning_bidding()
+        # # initiate propensities for learning intelligence agent
+        # if options["bid_strategy"] == "learning":
+        #     mar_dict["propensities"][0], strategies = mar_pre.initial_prop(par_rh, options, pars_li)
+        # else:
+        #     strategies = {}
+        strategies = {}
 
         #calculate characteristics
         print("Calculate characteristics...")
@@ -208,7 +209,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                                                               nodes, strategies)
 
                 # separate bids in buying and selling and store under "sorted_bids"
-                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_participants(mar_dict["bid"][n_opt])
+                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_participants(mar_dict["bid"][n_opt], par_rh, n_opt)
 
                 buy_list_sorted, sell_list_sorted = mar_dict["sorted_bids"][n_opt]
 

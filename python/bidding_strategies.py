@@ -1,12 +1,16 @@
 import numpy as np
 
 class mar_agent_bes(object):
-    def __init__(self, p_max, p_min, pars_rh):
+    def __init__(self, p_max, p_min, par_rh, node):
         self.p_min = p_min
         self.p_max = p_max
 
         self.p = {}
         self.q = {}
+
+        self.dt = par_rh["duration"][0][0]
+        self.soc_nom_tes = node["devs"]["tes"]["cap"]
+        self.soc_nom_bat = node["devs"]["bat"]["cap"]
 
 
     def compute_hp_bids(self, p_imp, n, bid_strategy):
@@ -56,7 +60,7 @@ class mar_agent_bes(object):
                         strategies, weights):
 
         soc_nom = self.soc_nom_bat
-        power_nom = self.power_nom_bat
+        #power_nom = self.power_nom_bat
 
         soc_set_max = soc_nom - (p_ch_bat + pv_sell) * self.dt
         soc_set_min = p_dch_bat * self.dt

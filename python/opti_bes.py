@@ -61,7 +61,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             dhw[param00] = np.mean([node["dhw_appended"][param02], node["dhw_appended"][param02 + param01 - 1]])
             COP35[param00] = np.mean([node["devs"]["COP_sh35_appended"][param02], node["devs"]["COP_sh35_appended"][param02 + param01 - 1]])
             COP55[param00] = np.mean([node["devs"]["COP_sh55_appended"][param02], node["devs"]["COP_sh55_appended"][param02 + param01 - 1]])
-            #PV_GEN[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
+            PV_GEN[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
             EV_AVAIL[param00] = np.mean([node["ev_avail_appended"][param02], node["ev_avail_appended"][param02 + param01 - 1]])
             EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave_appended"][param02], node["ev_dem_leave_appended"][param02 + param01 - 1]])
 
@@ -71,7 +71,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         "dhw": dhw,
         "COP35": COP35,
         "COP55": COP55,
-        #"PV_GEN": PV_GEN,
+        "PV_GEN": PV_GEN,
         "EV_AVAIL": EV_AVAIL,
         "EV_DEM_LEAVE": EV_DEM_LEAVE,
         }
