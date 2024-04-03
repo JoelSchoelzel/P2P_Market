@@ -126,8 +126,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
                 scaling_top = 1
                 scaling_bottom = -1
-                if max(flex_buyer_forced, flex_seller_forced) > 0:
-                    norm_flex_b = scaling_bottom + (scaling_top - scaling_bottom) * ((flex_buyer_forced - min(flex_buyer_forced, flex_seller_forced)) / (max(flex_buyer_forced, flex_seller_forced) - min(flex_buyer_forced, flex_seller_forced)))
+                if max(flex_buyer_delayed, flex_seller_delayed) > 0:
+                    norm_flex_b = scaling_bottom + (scaling_top - scaling_bottom) * ((flex_buyer_delayed - min(flex_buyer_delayed, flex_seller_delayed)) / (max(flex_buyer_delayed, flex_seller_delayed) - min(flex_buyer_delayed, flex_seller_delayed)))
                 else:
                     norm_flex_b = 0
 
@@ -141,7 +141,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
                 if options["flex_price_delta"]:
                     while diff_buyer_seller[t] > 0.05:
-
                         opti_bes_res_buyer \
                             = opti_bes_negotiation.compute_opti(node=nodes[buyer_id], params=params, par_rh=par_rh,
                                                                 init_val=init_val["building_" + str(buyer_id)],
@@ -166,11 +165,10 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                         seller_delta += seller_delta
                         buyer_delta += buyer_delta
 
-                else:
+                elif not options["flex_price_delta"]:
                     # run the optimization model for buyer and seller
-                    while diff_buyer_seller[t] > 0.05:
-                    #while buyer_diff_to_average[t] > 0.005 and seller_diff_to_average[t] > 0.005:
-
+                    # while diff_buyer_seller[t] > 0.05:
+                    while buyer_diff_to_average[t] > 0.005 and seller_diff_to_average[t] > 0.005:
                         opti_bes_res_buyer \
                             = opti_bes_negotiation.compute_opti(node=nodes[buyer_id], params=params, par_rh=par_rh,
                                                                 init_val=init_val["building_" + str(buyer_id)],
@@ -322,7 +320,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 for e in sorted_buy_list:
                     sorted_bids_nego[r + 1]["buy_blocks"].append(e)
 
-        if options["crit_prio"] == "mean_quantity":
+        elif options["crit_prio"] == "mean_quantity":
             if options["descending"]:
                 sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_quantity"], reverse=True)
                 sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_quantity"], reverse=True)
@@ -346,10 +344,10 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
         elif options["crit_prio"] == "flex_energy":
             # highest energy flexibility of seller (lowest flexibility of buyer) first if descending has been set True in options
             if options["descending"]:
-                # most flexible buyer is the one, that can buy more than given buy quantity (soc of tes is low -> energy_forced high)
-                sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"] + "_forced"]) # _forced
-                # most flexible seller is the one, that can sell more than given in sell quantity (soc of tes is high -> energy_delayed high)
-                sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_delayed"], reverse=True)#, reverse=True) #delayed
+                # most flexible seller is the one, that can sell less than given in sell quantity (soc of tes is low -> energy_forced high)
+                sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_delayed"], reverse=True)
+                # least flexible buyer is the one, that can not buy less than given buy quantity (soc of tes is low -> energy_delayed low)
+                sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"] + "_delayed"])
                 sorted_bids_nego[r + 1]["sell_blocks"].clear()
                 sorted_bids_nego[r + 1]["buy_blocks"].clear()
                 for e in sorted_sell_list:
@@ -358,8 +356,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                     sorted_bids_nego[r + 1]["buy_blocks"].append(e)
             # otherwise lowest energy flexibility first
             else:
-                sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"] + "_forced"])
                 sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_delayed"])
+                sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"] + "_delayed"], reverse=True)
                 sorted_bids_nego[r + 1]["sell_blocks"].clear()
                 sorted_bids_nego[r + 1]["buy_blocks"].clear()
                 for e in sorted_sell_list:
@@ -367,9 +365,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 for e in sorted_buy_list:
                     sorted_bids_nego[r + 1]["buy_blocks"].append(e)
 
-            # sort buy_list and sell_list by mean price of block_bids if mean price has been specified as criteria in options
-        if options["crit_prio"] == "random":
-
+        # randomly sort buy_list and sell_list if it has been specified as criteria in options
+        elif options["crit_prio"] == "random":
             sorted_buy_list = buy_list
             if not sorted_buy_list:
                 random.shuffle(sorted_buy_list)
@@ -383,7 +380,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 sorted_bids_nego[r + 1]["sell_blocks"].append(e)
             for e in sorted_buy_list:
                 sorted_bids_nego[r + 1]["buy_blocks"].append(e)
-
 
         # match all buyers and sellers for the next trading round
         matched_bids_info_nego[r + 1] = matching(sorted_bids_nego[r + 1])

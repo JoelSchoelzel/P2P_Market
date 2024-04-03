@@ -30,7 +30,8 @@ class mar_agent_bes(object):
             x = []
             for i in range(7):
                 x.append(sum(node["heat"][i * 24:i * 24 + 24]) + 0.5 * sum(node["dhw"][i * 24:i * 24 + 24]))
-            soc_set_max = max(x)
+            # soc_set_max = max(x)
+            soc_set_max = self.soc_nom_tes
             soc_set_min = (dem_heat + 0.5 * dem_dhw) * self.dt
             charge = self.eta_ch * heat_devs
             discharge = 1 / self.eta_dch * (dem_heat + 0.5 * dem_dhw)
@@ -87,7 +88,8 @@ class mar_agent_bes(object):
             x = []
             for i in range(7):
                 x.append(sum(node["heat"][i*24:i*24+24]) + sum(node["dhw"][i*24:i*24+24]))
-            soc_set_max = max(x)
+            # soc_set_max = max(x)
+            soc_set_max = self.soc_nom_tes
             soc_set_min = (dem_heat + dem_dhw) * self.dt
             charge = self.eta_ch * heat_devs
             discharge = 1 / self.eta_dch * dem_heat
@@ -143,7 +145,8 @@ class mar_agent_bes(object):
         # compute bids with device oriented strategy
         if bid_strategy == "devices":
             soc_nom = self.soc_nom_bat
-            soc_set_max = soc_nom - (p_ch_bat + pv_sell) * self.dt
+            # soc_set_max = soc_nom - (p_ch_bat + pv_sell) * self.dt
+            soc_set_max = soc_nom
             soc_set_min = p_dch_bat * self.dt
             # power_nom = self.power_nom_bat
 

@@ -65,9 +65,6 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         else:
             strategies = {}
 
-
-
-
         # START OPTIMIZATION (Start optimizations for the first time step of the block bids)
         for n_opt in range(0, par_rh["n_opt"]):
             opti_res[n_opt] = {}
@@ -105,15 +102,13 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) +
                   "% of optimizations processed.")
 
-
             # calculate new flexibility characteristics for 3 steps using the SOC from optimization results
             characteristics[n_opt] = characs.calc_characs(nodes=nodes, options=options, par_rh=par_rh,
                                                           block_length=block_length, opti_res=opti_res,
                                                           start_step=n_opt)
 
             # ----------------- P2P TRADING NEGOTIATION WITH BLOCK BIDS -----------------
-            if options["negotiation"] == True:
-
+            if options["negotiation"]:
                 # compute the block bids for each building
                 mar_dict["block_bids"][n_opt], bes = \
                     mar_pre_nego.compute_block_bids(bes=bes, opti_res=opti_res[n_opt], par_rh=par_rh,
@@ -123,7 +118,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 # separate bids in buying & selling, sort by crit (mean price/quantity or flexibility characteristic)
                 mar_dict["sorted_bids"][n_opt], mar_dict["sell_list"][n_opt], mar_dict["buy_list"][n_opt] = \
                     mar_pre_nego.sort_block_bids(block_bid=mar_dict["block_bids"][n_opt], options=options,
-                                                 new_characs=characteristics[n_opt],n_opt=n_opt, par_rh=par_rh)
+                                                 new_characs=characteristics[n_opt], n_opt=n_opt, par_rh=par_rh)
 
                 # match the block bids to each other according to crit
                 mar_dict["matched_bids_info"][n_opt] \
@@ -156,12 +151,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                                  participating_buyers=participating_buyers[n_opt],
                                                                  participating_sellers=participating_sellers[n_opt])
 
-
-
-
-
             # ----------------- P2P TRADING WITH AUCTION AND SINGLE BIDS -----------------
-            elif options["negotiation"] == False:
+            elif not options["negotiation"]:
                 mar_dict["bid"][n_opt], bes = mar_pre.compute_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,
                                                                options, nodes, init_val, mar_dict["propensities"][n_opt], strategies)
 
@@ -219,7 +210,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 opti_res_new = {}
                 for n_opt in range(par_rh["n_opt"]):
                     opti_res_new[n_opt] = {}
-                    for i in range(18): # 18 is the number of result categories in opti_bes
+                    for i in range(18):  # 18 is the number of result categories in opti_bes
                         # if number of result categories changes, this needs to be changed as well!!!
                         opti_res_new[n_opt][i] = {}
                         for n in range(options["nb_bes"]):
@@ -234,8 +225,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                           init_val=init_val, last_time_step=last_time_step,)
 
         # return opti_res_new, mar_dict, trade_res, characteristics  #opti_res,
-        return mar_dict, characteristics, init_val, res_time, res_val
-
+        return mar_dict, characteristics, init_val, res_time, res_val, opti_res
 
     elif options["optimization"] == "P2P_typeWeeks":
         # runs optimization for type weeks instead of whole month/year

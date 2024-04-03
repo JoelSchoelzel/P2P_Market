@@ -67,7 +67,7 @@ def calc_characs_single(nodes, block_length, bes_id, soc_state):
                 # charge is set to the capacity
                 charge = nodes[n]["devs"]["tes"]["cap"]
             # check whether end of data is reached
-            if n_opt + tau_forced >= max_step: #anpassen
+            if n_opt + tau_forced >= max_step:
                 break
 
         characs["tau_forced"][n_opt] = tau_forced

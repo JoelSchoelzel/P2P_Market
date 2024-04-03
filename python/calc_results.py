@@ -15,11 +15,15 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
     # --------------------- SCF, DCF ---------------------
     total_demand = {t: {} for t in time_steps}
     total_supply = {t: {} for t in time_steps}
+    buyer_prices = {t: {} for t in time_steps}
+    seller_prices = {t: {} for t in time_steps}
 
     for opt in range(par_rh["n_opt"]):
         for t in time_steps:
             total_demand[t] = {"bes_" + str(n): 0 for n in range(options["nb_bes"])}
             total_supply[t] = {"bes_" + str(n): 0 for n in range(options["nb_bes"])}
+            buyer_prices[t] = {"bes_" + str(n): [] for n in range(options["nb_bes"])}
+            seller_prices[t] = {"bes_" + str(n): [] for n in range(options["nb_bes"])}
 
     for opt in range(par_rh["n_opt"]):
         for n in range(options["nb_bes"]):
@@ -27,8 +31,10 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
             for t in valid_time_steps:
                 if isinstance(block_bids[opt]["bes_"+str(n)][t], list) and block_bids[opt]["bes_"+str(n)][t][2] == "True":
                     total_demand[t]["bes_"+str(n)] = block_bids[opt]["bes_"+str(n)][t][1]/1000 # convert from Wh to kWh
+                    buyer_prices[t]["bes_"+str(n)].append(block_bids[opt]["bes_"+str(n)][t][0])
                 elif isinstance(block_bids[opt]["bes_"+str(n)][t], list) and block_bids[opt]["bes_"+str(n)][t][2] == "False":
                     total_supply[t]["bes_"+str(n)] = block_bids[opt]["bes_"+str(n)][t][1]/1000 # convert from Wh to kWh
+                    seller_prices[t]["bes_"+str(n)].append(block_bids[opt]["bes_"+str(n)][t][0])
 
     # Initialize the variable to store the sum of all supplies
     total_supply_month = 0
@@ -95,14 +101,14 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
     for opt in range(par_rh["n_opt"]):
         for round_nb in nego_results[opt]:
             for match in nego_results[opt][round_nb]:
-                valid_time_steps = {k: v for k, v in nego_results[opt][round_nb][match]["quantity"].items() if isinstance(k, int)}
-                for t in valid_time_steps:
-                    traded_power[t] += nego_results[opt][round_nb][match]["quantity"][t]/1000 # convert from Wh to kWh
-                    price[t][match] = nego_results[opt][round_nb][match]["price"][t] #€/kWh
-                    additional_revenue[t] += nego_results[opt][round_nb][match]["additional_revenue"][t]/1000 #€/kWh
-                    saved_costs[t] += nego_results[opt][round_nb][match]["saved_costs"][t]/1000 #€/kWh
-                    gain[t] = saved_costs[t] + additional_revenue[t]
-
+                # valid_time_steps = {k: v for k, v in nego_results[opt][round_nb][match]["quantity"].items() if isinstance(k, int)}
+                for t in nego_results[opt][round_nb][match]["quantity"]:
+                    if isinstance(nego_results[opt][round_nb][match]["quantity"][t], float):  # valid_time_steps
+                        traded_power[t] += nego_results[opt][round_nb][match]["quantity"][t]/1000  # convert from Wh to kWh
+                        price[t][match] = nego_results[opt][round_nb][match]["price"][t]  # €/kWh
+                        additional_revenue[t] += nego_results[opt][round_nb][match]["additional_revenue"][t]/1000  # €/kWh
+                        saved_costs[t] += nego_results[opt][round_nb][match]["saved_costs"][t]/1000  # €/kWh
+                        gain[t] = saved_costs[t] + additional_revenue[t]
 
     # calculate average trade price at time step t for all buildings
     for t in time_steps:
@@ -121,7 +127,7 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
         total_traded_power += traded_power[t]
         total_additional_revenue += additional_revenue[t]
         total_saved_costs += saved_costs[t]
-        total_gain = gain[t]
+        total_gain += gain[t]
         sum_average_trade_price += average_trade_price[t]
 
     total_mdcf = total_traded_power / total_demand_month
@@ -154,7 +160,6 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
         for opt in range(1, par_rh["n_opt"]):
             soc_bat[n].append(init_val[opt]["building_" + str(n)]["soc"]["bat"])
 
-
     # --------------------- Power from/to Grid ---------------------
     power_from_grid = {}
     power_to_grid = {}
@@ -184,6 +189,9 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
         total_power_from_grid += power_from_grid[t]
         total_power_to_grid += power_to_grid[t]
 
+    buyer_price = {n: [] for n in range(options["nb_bes"])}
+    seller_price = {n: [] for n in range(options["nb_bes"])}
+
     # --------------------- STORE THE RESULTS ---------------------
     results_over_time = {
         "total_demand": total_demand_all_bes,
@@ -196,6 +204,8 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
         "power_to_grid": power_to_grid,
         "additional_revenue": additional_revenue,
         "saved_costs": saved_costs,
+        "buyer_price": buyer_price,
+        "seller_price": seller_price,
         "gain": gain,
         "soc_tes": soc_tes,
         "soc_bat": soc_bat
