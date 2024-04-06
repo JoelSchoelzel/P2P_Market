@@ -167,8 +167,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
                 elif not options["flex_price_delta"]:
                     # run the optimization model for buyer and seller
-                    # while diff_buyer_seller[t] > 0.05:
-                    while buyer_diff_to_average[t] > 0.005 and seller_diff_to_average[t] > 0.005:
+                    while buyer_diff_to_average[t] > 0.05 and seller_diff_to_average[t] > 0.05:
                         opti_bes_res_buyer \
                             = opti_bes_negotiation.compute_opti(node=nodes[buyer_id], params=params, par_rh=par_rh,
                                                                 init_val=init_val["building_" + str(buyer_id)],
@@ -198,19 +197,32 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 # RESULTS OF NEGOTIATION FOR THIS MATCH AND THIS ROUND
 
                 # Set trade power and trade price of this match
-                trade_power[t] = min(opti_bes_res_buyer["res_power_trade"][t], opti_bes_res_seller["res_power_trade"][t])
+                # if there is more supply than demand, the buyer can buy more than he initially wanted
+                if (matched_bids_info_nego[r][match][1][t][1] > matched_bids_info_nego[r][match][0][t][1] and
+                        matched_bids_info_nego[r][match][0][t][1] <= opti_bes_res_buyer["res_power_trade"][t] <= matched_bids_info_nego[r][match][1][t][1]):
+                    if isinstance(matched_bids_info_nego[r][match][0][t], list) and isinstance(
+                            matched_bids_info_nego[r][match][1][t], list):
+                        trade_power[t] = max(opti_bes_res_buyer["res_power_trade"][t], opti_bes_res_seller["res_power_trade"][t])
+                # also if there is more demand than supply, the seller can sell more than he initially wanted
+                elif (matched_bids_info_nego[r][match][1][t][1] < matched_bids_info_nego[r][match][0][t][1] and
+                        matched_bids_info_nego[r][match][1][t][1] <= opti_bes_res_seller["res_power_trade"][t] <= matched_bids_info_nego[r][match][0][t][1]):
+                    if isinstance(matched_bids_info_nego[r][match][0][t], list) and isinstance(matched_bids_info_nego[r][match][1][t], list):
+                        trade_power[t] = max(opti_bes_res_buyer["res_power_trade"][t], opti_bes_res_seller["res_power_trade"][t])
+                else:
+                    trade_power[t] = min(opti_bes_res_buyer["res_power_trade"][t], opti_bes_res_seller["res_power_trade"][t])
+
                 trade_price[t] = (buyer_trade_price[t] + seller_trade_price[t]) / 2
                 trade_price_sum += trade_price[t]
 
                 # calculate the saved costs for this match compared to trading with grid
-                saved_costs[t] = trade_power[t] * (params["eco"]["pr", "el"] - trade_price[t])
+                saved_costs[t] = trade_power[t] * abs(params["eco"]["pr", "el"] - trade_price[t])
                 saved_costs_sum += saved_costs[t]
 
                 # calculate the additional revenue for this match compared to trading with grid
                 if opti_res[seller_id][8]["pv"][t] > 1e-4:
-                    additional_revenue[t] = trade_power[t] * (trade_price[t] - params["eco"]["sell" + "_" + "pv"])
+                    additional_revenue[t] = trade_power[t] * abs(trade_price[t] - params["eco"]["sell" + "_" + "pv"])
                 elif opti_res[seller_id][8]["chp"][t] > 1e-4:
-                    additional_revenue[t] = trade_power[t] * (trade_price[t] - params["eco"]["sell" + "_" + "chp"])
+                    additional_revenue[t] = trade_power[t] * abs(trade_price[t] - params["eco"]["sell" + "_" + "chp"])
                 additional_rev_sum += additional_revenue[t]
 
                 # calculate demand & supply that haven't been fulfilled
