@@ -121,7 +121,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 flex_seller_delayed = matched_bids_info_nego[r][match][1]["flex_energy_delayed"]
 
                 diff_buyer_seller_price = abs(price_bid_buyer - price_bid_seller)
-                step_scale = 0.25
+                step_scale = 0.5
                 max_step = step_scale * diff_buyer_seller_price
 
                 scaling_top = 1
@@ -198,14 +198,17 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
                 # Set trade power and trade price of this match
                 # if there is more supply than demand, the buyer can buy more than he initially wanted
-                if (matched_bids_info_nego[r][match][1][t][1] > matched_bids_info_nego[r][match][0][t][1] and
-                        matched_bids_info_nego[r][match][0][t][1] <= opti_bes_res_buyer["res_power_trade"][t] <= matched_bids_info_nego[r][match][1][t][1]):
+
+                seller_bid = matched_bids_info_nego[r][match][1][t][1]
+                buyer_bid = matched_bids_info_nego[r][match][0][t][1]
+                if (seller_bid >= buyer_bid and
+                        buyer_bid <= opti_bes_res_buyer["res_power_trade"][t] <= seller_bid):
                     if isinstance(matched_bids_info_nego[r][match][0][t], list) and isinstance(
                             matched_bids_info_nego[r][match][1][t], list):
                         trade_power[t] = max(opti_bes_res_buyer["res_power_trade"][t], opti_bes_res_seller["res_power_trade"][t])
                 # also if there is more demand than supply, the seller can sell more than he initially wanted
-                elif (matched_bids_info_nego[r][match][1][t][1] < matched_bids_info_nego[r][match][0][t][1] and
-                        matched_bids_info_nego[r][match][1][t][1] <= opti_bes_res_seller["res_power_trade"][t] <= matched_bids_info_nego[r][match][0][t][1]):
+                elif (seller_bid < buyer_bid and
+                      seller_bid <= opti_bes_res_seller["res_power_trade"][t] <= buyer_bid):
                     if isinstance(matched_bids_info_nego[r][match][0][t], list) and isinstance(matched_bids_info_nego[r][match][1][t], list):
                         trade_power[t] = max(opti_bes_res_buyer["res_power_trade"][t], opti_bes_res_seller["res_power_trade"][t])
                 else:
@@ -226,8 +229,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 additional_rev_sum += additional_revenue[t]
 
                 # calculate demand & supply that haven't been fulfilled
-                remaining_demand[t] = abs(matched_bids_info_nego[r][match][0][t][1] - trade_power[t])
-                remaining_supply[t] = abs(matched_bids_info_nego[r][match][1][t][1] - trade_power[t])
+                remaining_demand[t] = abs(buyer_bid - trade_power[t])
+                remaining_supply[t] = abs(seller_bid - trade_power[t])
 
                 if remaining_demand[t] > 1e-3 and not add_buy_bid:
                     add_buy_bid = True

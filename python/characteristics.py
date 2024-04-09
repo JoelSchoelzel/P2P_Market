@@ -122,7 +122,6 @@ def calc_characs(nodes, options, par_rh, block_length, opti_res: dict = None, st
         for n_opt in data_steps:
 
         ### temporal flexibility
-
         # forced flexibility, time until TES is fully charged with maximum charging
 
             if soc_opti is not None:
@@ -250,7 +249,6 @@ def calc_characs(nodes, options, par_rh, block_length, opti_res: dict = None, st
         for n_opt in result_steps:
 
             # average and cycle power flexibility
-
             energy_forced = 0  # energy that can the TES can be charged with
             i = 0  # variable to iterate through hours, represents whole hours
             # loop through the whole hours previously calculated as tau_forced

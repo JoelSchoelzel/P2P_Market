@@ -211,7 +211,7 @@ def sort_block_bids(block_bid, options, new_characs, n_opt, par_rh):
         # highest energy flexibility of seller (lowest flexibility of buyer) first if descending has been set True in options
         if options["descending"]:
             # most flexible seller is the one, that can sell less than given in sell quantity (soc of tes is low -> energy_forced high)
-            sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_delayed"], reverse=True)
+            sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_forced"], reverse=True)  # delayed
             # least flexible buyer is the one, that can not buy less than given buy quantity (soc of tes is low -> energy_delayed low)
             sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"] + "_delayed"])
 

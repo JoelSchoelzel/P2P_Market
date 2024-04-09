@@ -130,8 +130,8 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
         total_gain += gain[t]
         sum_average_trade_price += average_trade_price[t]
 
-    total_mdcf = total_traded_power / total_demand_month
-    total_mscf = total_traded_power / total_supply_month
+    total_mdcf = total_traded_power / total_demand_month if total_demand_month > 0 else 0
+    total_mscf = total_traded_power / total_supply_month if total_supply_month > 0 else 0
     total_average_trade_price = sum_average_trade_price / len(time_steps)
 
     # --------------------- SOC ---------------------
