@@ -64,8 +64,8 @@ def read_economics():
     params["eco"]["co2_pv"] = 0.056 # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
 
     # calculate costs with prices of Q3+Q4 2021
-    params["eco"]["pr",   "el"]     = 0.3287 # €/kWh, Q3+Q4 2021 (https://www-genesis.destatis.de/genesis/online?operation=previous&levelindex=1&step=1&titel=Ergebnis&levelid=1663949631295&acceptscookies=false#abreadcrumb)
-    params["eco"]["gas"]     = 0.0683   # €/kWh, Q3+Q4 2021 (https://www-genesis.destatis.de/genesis/online?sequenz=tabelleErgebnis&selectionname=61243-0010&language=de#abreadcrumb)
+    params["eco"]["pr", "el"] = 0.3287 # €/kWh, Q3+Q4 2021 (https://www-genesis.destatis.de/genesis/online?operation=previous&levelindex=1&step=1&titel=Ergebnis&levelid=1663949631295&acceptscookies=false#abreadcrumb)
+    params["eco"]["gas"] = 0.0683   # €/kWh, Q3+Q4 2021 (https://www-genesis.destatis.de/genesis/online?sequenz=tabelleErgebnis&selectionname=61243-0010&language=de#abreadcrumb)
 
     # calculate costs with raised el/gas prices of Q3 2022
     #params["eco"]["pr",   "el"] = 0.4403 # Verivox Q3 2022 (https://www.verivox.de/strom/verbraucherpreisindex/)
@@ -675,6 +675,10 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
 
 
         devs[n]["tes"]["cap"] = districtData.district[n]['capacities']['TES']
+
+        # newly added to get battery capacity from district generator
+        if districtData.district[n]['capacities']['BAT']:
+            devs[n]["bat"]["cap"] = districtData.district[n]['capacities']['BAT']
 
         if districtData.district[n]['capacities']['EV'] :
             devs[n]["ev"]["cap"] = districtData.district[n]['capacities']['EV']

@@ -487,6 +487,10 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         res_p_use[dev] = {(t): p_use[dev][t].X for t in time_steps}
         res_p_sell[dev] = {(t): p_sell[dev][t].X for t in time_steps}
 
+    res_dem = {}
+    for dev in ["elec", "heat", "dhw", "COP35", "COP55", "PV_GEN", "EV_AVAIL", "EV_DEM_LEAVE"]:
+        res_dem[dev] = {(t): demands[dev][t] for t in time_steps}
+
     obj = model.ObjVal
     print("Obj: " + str(model.ObjVal))
     objVal = obj
@@ -510,7 +514,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     return (res_y, res_power, res_heat, res_soc,
             res_p_imp, res_p_ch, res_p_dch, res_p_use, res_p_sell,
             obj, res_c_dem, res_rev, res_soc_nom, node,
-            objVal, runtime, soc_init_rh, res_gas_sum)
+            objVal, runtime, soc_init_rh, res_gas_sum, res_dem)
 
 
 

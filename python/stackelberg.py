@@ -96,6 +96,7 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
     # initialize the required dictionaries
     p_transaction = {}
     obj_val_buyer = {}
+    obj_val_adj = {}
     net_cost_value = {}
     net_cost = {}
     average_net_cost = {}
@@ -110,6 +111,8 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
     new_price_signal = {}
     opti_stack_res_buyer = {}
     opti_stack_res_seller = {}
+    opti_stack_adj = {}
+    sdr = {}
 
     # Get initial shares for each seller
     share_seller = {}
@@ -118,20 +121,21 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
     price_signal = {t: {seller["building"]: seller["price"] for seller in sell_list[t].values()} for t in time_steps}
     init_price_signal = {t: {seller["building"]: seller["price"] for seller in sell_list[t].values()} for t in time_steps}
     available_supply = {t: {seller["building"]: seller["quantity"] for seller in sell_list[t].values()} for t in time_steps}
+    initial_demand_buyer = {t: {buyer["building"]: buyer["quantity"] for buyer in buy_list[t].values()} for t in time_steps}
 
-    # Case for same initial price_signal for each seller
-    # price_signal = {}
-    # init_price_signal = {}
+    total_initial_sdd = {}
+    for t in time_steps:
+        total_initial_sdd[t] = {sum(available_supply[t].values()) - sum(initial_demand_buyer[t].values())}
 
     ### Start Stackelberg game
     for t in time_steps:
         num_sellers = len(sell_list[t])
-        # price_signal[t] = {seller["building"]: (params["eco"]["sell_chp"] + params["eco"]["pr", "el"]) / 2 for seller in sell_list[t].values()}
-        # init_price_signal[t] = {seller["building"]:(params["eco"]["sell_chp"] + params["eco"]["pr", "el"]) / 2 for seller in sell_list[t].values()}
-        initial_demand_buyer[t] = {buyer["building"]: buyer["quantity"] for buyer in buy_list[t].values()}
         share_seller[t] = {seller["building"]: 1 / num_sellers for seller in sell_list[t].values()}
+        opti_stack_res_buyer[t] = {buyer["building"]: {seller["building"]: {} for seller in sell_list[t].values()} for buyer in buy_list[t].values()}
+        opti_stack_adj[t] = {buyer["building"]: {seller["building"]: {} for seller in sell_list[t].values()} for buyer in buy_list[t].values()}
         p_transaction[t] = {buyer["building"]: {seller["building"]: {} for seller in sell_list[t].values()} for buyer in buy_list[t].values()}
         obj_val_buyer[t] = {buyer["building"]: {seller["building"]: {} for seller in sell_list[t].values()} for buyer in buy_list[t].values()}
+        obj_val_adj[t] = {buyer["building"]: {seller["building"]: {} for seller in sell_list[t].values()} for buyer in buy_list[t].values()}
         net_cost_value[t] = {seller["building"]: {} for seller in sell_list[t].values()}
         net_cost[t] = {seller["building"]: {} for seller in sell_list[t].values()}
         total_demand_seller[t] = {seller["building"]: {} for seller in sell_list[t].values()}
@@ -142,8 +146,10 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
         power_to_grid[t] = {seller["building"]: {} for seller in sell_list[t].values()}
         previous_price_signal[t] = {seller["building"]: {} for seller in sell_list[t].values()}
         new_price_signal[t] = {seller["building"]: {} for seller in sell_list[t].values()}
+        sdr[t] = {seller["building"]: {} for seller in sell_list[t].values()}
         average_net_cost[t] = {}
         stack_trans_res[t] = {}
+
 
         if not buy_list[t] or not sell_list[t]:
             stack_trans_res[t] = 0
@@ -158,20 +164,20 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                 for buyer in buy_list[t].values():
                     for seller in sell_list[t].values():
 
-                        opti_stack_res_buyer = opti_bes_stack.compute_opti_stack(node=nodes[buyer["building"]], params=params,
+                        opti_stack_res_buyer[t][buyer["building"]][seller["building"]] = opti_bes_stack.compute_opti_stack(node=nodes[buyer["building"]], params=params,
                                                                                  par_rh=par_rh, building_param=building_param,
                                                                                  init_val=init_val["building_" + str(buyer["building"])],
                                                                                  n_opt=n_opt, options=options,
-                                                                                 buy_list=buy_list, sell_list=sell_list,
-                                                                                 is_buying=True, price_signal=price_signal[t][seller["building"]],
+                                                                                 is_buying=True, price_signal=price_signal,
+                                                                                 sdr=1, adjust_demand=False, seller=seller["building"]
                                                                                  )
 
                         # get the optimal transaction amount of each buyer with each seller
-                        res_p_trans_buyer_seller = opti_stack_res_buyer[-1]
+                        res_p_trans_buyer_seller = opti_stack_res_buyer[t][buyer["building"]][seller["building"]][-1]
                         p_transaction[t][buyer["building"]][seller["building"]] = res_p_trans_buyer_seller[t]
 
                         # Get the objective function value of each buyer with each seller
-                        objective_val_buyer = opti_stack_res_buyer[14]
+                        objective_val_buyer = opti_stack_res_buyer[t][buyer["building"]][seller["building"]][14]
                         obj_val_buyer[t][buyer["building"]][seller["building"]] = objective_val_buyer
 
                         # Get the power demand of each buyer
@@ -190,45 +196,51 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                     #     total_demand_seller[t][seller["building"]] = share_seller[t][seller["building"]] * sum(p_transaction[t][buyer["building"]][seller["building"]] for buyer in buy_list[t].values())
 
                     # total revenue of sellers
-                    total_revenue_seller[t][seller["building"]] = price_signal[t][seller["building"]] * total_demand_seller[t][seller["building"]]
+                    total_revenue_seller[t][seller["building"]] = price_signal[t][seller["building"]] \
+                                                                  * min(available_supply[t][seller["building"]], total_demand_seller[t][seller["building"]])
                     # and amount to trade with the grid
-                    power_to_grid[t][seller["building"]] = available_supply[t][seller["building"]] - total_demand_seller[t][seller["building"]]
+                    power_to_grid[t][seller["building"]] = (available_supply[t][seller["building"]] -
+                                                            min(total_demand_seller[t][seller["building"]], available_supply[t][seller["building"]]))
 
-                for buyer in buy_list[t].values():
-                    # for each buyer calculate the total traded amount using optimal transaction amount and shares of sellers
-                    total_trade_buyer[t][buyer["building"]] = sum(
-                        p_transaction[t][buyer["building"]][seller["building"]] *
-                        share_seller[t][seller["building"]] for seller in sell_list[t].values())
-                    # total trading cost
-                    total_cost_buyer[t][buyer["building"]] = sum(
-                        p_transaction[t][buyer["building"]][seller["building"]] * share_seller[t][seller["building"]] *
-                        price_signal[t][seller["building"]] for seller in sell_list[t].values())
-                    # and amount to trade with the grid
-                    power_from_grid[t][buyer["building"]] = (initial_demand_buyer[t][buyer["building"]] -
-                                                             total_trade_buyer[t][buyer["building"]])
+                # for buyer in buy_list[t].values():
+                #     # for each buyer calculate the total traded amount using optimal transaction amount and shares of sellers
+                #     total_trade_buyer[t][buyer["building"]] = sum(
+                #         p_transaction[t][buyer["building"]][seller["building"]] *
+                #         share_seller[t][seller["building"]] for seller in sell_list[t].values())
+                #     # total trading cost
+                #     total_cost_buyer[t][buyer["building"]] = sum(
+                #         p_transaction[t][buyer["building"]][seller["building"]] * share_seller[t][seller["building"]] *
+                #         price_signal[t][seller["building"]] for seller in sell_list[t].values())
+                #     # and amount to trade with the grid
+                #     power_from_grid[t][buyer["building"]] = (initial_demand_buyer[t][buyer["building"]] -
+                #                                              total_trade_buyer[t][buyer["building"]])
                     # or from opti_bes_stack??
                     # power_from_grid[t][buyer["building"]] = power_demand_buyer[t][buyer["building"]] - total_trade_buyer[t][buyer["building"]]
 
                 # Calculate the net cost of buyers from trading with a seller
                 for seller in sell_list[t].values():
-                    # net_cost[t][seller["building"]] = sum(obj_val_buyer[t][buyer["building"]][seller["building"]] for buyer in buy_list.values())
-                    # net_cost_scaled = MinMaxScaler(feature_range=(0, 1)).fit_transform(net_cost)
-
                     if available_supply[t][seller["building"]] < total_demand_seller[t][seller["building"]]:
+                        for buyer in buy_list[t].values():
+                            sdr[t][seller["building"]] = available_supply[t][seller["building"]] / total_demand_seller[t][seller["building"]]
 
-                        opti_stack_rerun = opti_bes_stack.compute_opti_stack(node=nodes[buyer["building"]], params=params,
-                                                                                 par_rh=par_rh, building_param=building_param,
-                                                                                 init_val=init_val["building_" + str(buyer["building"])],
-                                                                                 n_opt=n_opt, options=options,
-                                                                                 buy_list=buy_list, sell_list=sell_list,
-                                                                                 is_buying=True, price_signal=price_signal[t][seller["building"]],
-                                                                                 )
+                            opti_stack_adj[t][buyer["building"]][seller["building"]] = opti_bes_stack.compute_opti_stack(node=nodes[buyer["building"]], params=params,
+                                                                               par_rh=par_rh, building_param=building_param,
+                                                                               init_val=init_val[
+                                                                                   "building_" + str(buyer["building"])],
+                                                                               n_opt=n_opt, options=options,
+                                                                               is_buying=True,
+                                                                               price_signal=price_signal,
+                                                                               sdr=sdr[t][seller["building"]], adjust_demand=True, seller=seller["building"])
 
+                            obj_val_adj[t][buyer["building"]][seller["building"]] = opti_stack_adj[t][buyer["building"]][seller["building"]][14]
 
-
-
-                    net_cost_value[t][seller["building"]] = sum(
-                        obj_val_buyer[t][buyer["building"]][seller["building"]] for buyer in buy_list[t].values())
+                        net_cost_value[t][seller["building"]] = sum(obj_val_adj[t][buyer["building"]][seller["building"]] for buyer in buy_list[t].values())
+                    else:
+                        sdr[t][seller["building"]] = 1
+                        # net_cost[t][seller["building"]] = sum(obj_val_buyer[t][buyer["building"]][seller["building"]] for buyer in buy_list.values())
+                        # net_cost_scaled = MinMaxScaler(feature_range=(0, 1)).fit_transform(net_cost)
+                        net_cost_value[t][seller["building"]] = sum(
+                            obj_val_buyer[t][buyer["building"]][seller["building"]] for buyer in buy_list[t].values())
 
                 # Get the min and max values from net_cost_value dictionary as floats
                 max_net_cost = max(net_cost_value[t].values())
@@ -249,12 +261,27 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                     share_seller[t][seller["building"]] * net_cost[t][seller["building"]] for seller in
                     sell_list[t].values())
 
+                for buyer in buy_list[t].values():
+                    # for each buyer calculate the total traded amount using optimal transaction amount and shares of sellers
+                    total_trade_buyer[t][buyer["building"]] = sum(
+                        p_transaction[t][buyer["building"]][seller["building"]] * sdr[t][seller["building"]] *
+                        share_seller[t][seller["building"]] for seller in sell_list[t].values())
+                    # total trading cost
+                    total_cost_buyer[t][buyer["building"]] = sum(
+                        p_transaction[t][buyer["building"]][seller["building"]] * sdr[t][seller["building"]] * share_seller[t][seller["building"]] *
+                        price_signal[t][seller["building"]] for seller in sell_list[t].values())
+                    # and amount to trade with the grid
+                    power_from_grid[t][buyer["building"]] = (initial_demand_buyer[t][buyer["building"]] -
+                                                             total_trade_buyer[t][buyer["building"]])
+                    # or from opti_bes_stack??
+                    # power_from_grid[t][buyer["building"]] = power_demand_buyer[t][buyer["building"]] - total_trade_buyer[t][buyer["building"]]
+
                 # save the result of the transaction amount and price for each buyer and seller
                 for buyer in buy_list[t].values():
                     for seller in sell_list[t].values():
 
                         price = price_signal[t][seller["building"]]
-                        quantity = p_transaction[t][buyer["building"]][seller["building"]] * share_seller[t][seller["building"]]
+                        quantity = p_transaction[t][buyer["building"]][seller["building"]] * sdr[t][seller["building"]] * share_seller[t][seller["building"]]
                         seller_share = share_seller[t][seller["building"]]
                         init_price = init_price_signal[t][seller["building"]]
                         total_trans_buyer = total_trade_buyer[t][buyer["building"]]
@@ -277,7 +304,7 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                             "init_price_seller": init_price,
                             "total_trade_buyer": total_trans_buyer,
                             "init_demand_buyer": init_demand_buyer,
-                            "total_trade_seller": total_trans_seller,
+                            "total_demand_seller": total_trans_seller,
                             "available_supply_seller": available_supply_seller,
                             "total_cost_trade_buyer": total_trans_cost_buyer,
                             "total_revenue_trade_seller": total_trans_revenue_seller,

@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
     # Set options for DistrictGenerator
     options_DG = {
-        "scenario_name": "scenario2",  # name of csv input file
+        "scenario_name": "scenario_possible",  # name of csv input file
     }
 
     '''
@@ -273,6 +273,10 @@ if __name__ == '__main__':
         with open(options["path_results"] + "/P2P_typeWeeks_opti_output/" + options_DG["scenario_name"] + ".p",
                   'wb') as fp:
             pickle.dump(opti_results, fp)
+
+    # Run (rolling horizon) optimization for decentral approach
+    elif options["optimization"] == "decentral":  # neither adapted to 15min input data nor to clustered data yet
+        decentral_opti = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
 
     # End time (Time measurement)
     time["end"] = datetime.datetime.now()
