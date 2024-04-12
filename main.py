@@ -241,12 +241,12 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 
 
 if __name__ == '__main__':
-    for scenario in ["Quartier_1"]:  # , "Quartier_2", "Quartier_3"]:
-        first_run = False
-        for month in [1]:  # , 7]:
+    for scenario in ["Quartier_3"]:  # , "Quartier_2", "Quartier_3"]:
+        first_run = True
+        for month in [4]:  # , 7]:
             for block_length in [5]:  # , 3, 5]:
-                for enhanced_horizon in [False]:  # , True]:
-                    for crit_prio in ["mean_price"]:  #    # , "mean_quantity", "flex_energy"]:
+                for enhanced_horizon in [False]: #, True]:
+                    for crit_prio in ["mean_quantity"]: #"mean_price", "mean_quantity",
                         run_optimization(scenario, calcUserProfiles=first_run, crit_prio=crit_prio,
                                          block_length=block_length,
                                          enhanced_horizon=enhanced_horizon, month=month)
