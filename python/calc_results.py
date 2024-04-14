@@ -5,7 +5,7 @@ import pickle
 
 
 def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, transactions_grid,
-                     init_val, last_time_step):
+                     init_val, last_time_step, opti_res):
 
     last_n_opt = par_rh["n_opt"]
     time_steps = []
@@ -30,10 +30,10 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
             valid_time_steps = {k: v for k, v in block_bids[opt]["bes_" + str(n)].items() if isinstance(k, int)}
             for t in valid_time_steps:
                 if isinstance(block_bids[opt]["bes_"+str(n)][t], list) and block_bids[opt]["bes_"+str(n)][t][2] == "True":
-                    total_demand[t]["bes_"+str(n)] = block_bids[opt]["bes_"+str(n)][t][1]/1000 # convert from Wh to kWh
+                    total_demand[t]["bes_"+str(n)] = block_bids[opt]["bes_"+str(n)][t][1]/1000  # convert from Wh to kWh
                     buyer_prices[t]["bes_"+str(n)].append(block_bids[opt]["bes_"+str(n)][t][0])
                 elif isinstance(block_bids[opt]["bes_"+str(n)][t], list) and block_bids[opt]["bes_"+str(n)][t][2] == "False":
-                    total_supply[t]["bes_"+str(n)] = block_bids[opt]["bes_"+str(n)][t][1]/1000 # convert from Wh to kWh
+                    total_supply[t]["bes_"+str(n)] = block_bids[opt]["bes_"+str(n)][t][1]/1000  # convert from Wh to kWh
                     seller_prices[t]["bes_"+str(n)].append(block_bids[opt]["bes_"+str(n)][t][0])
 
     # Initialize the variable to store the sum of all supplies
@@ -79,6 +79,8 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
         total_dcf_month = min(total_supply_month, total_demand_month) / total_demand_month
     else:
         total_dcf_month = 0
+
+
 
     # --------------------- traded power, MDCF, MSCF, trade price, revenue, costs, gain  ---------------------
     traded_power = {}
@@ -134,20 +136,82 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
     total_mscf = total_traded_power / total_supply_month if total_supply_month > 0 else 0
     total_average_trade_price = sum_average_trade_price / len(time_steps)
 
+    # ----------- SCF/DCF and MSCF/MDCF based on opti results (not block bids) and CHP power  ---------------------
+    total_supply_opti = {t: {} for t in time_steps}
+    total_demand_opti = {t: {} for t in time_steps}
+    total_chp_power = {t: {} for t in time_steps}
+
+    for opt in range(par_rh["n_opt"]):
+        for t in time_steps:
+            total_demand_opti[t] = {"bes_" + str(n): 0 for n in range(options["nb_bes"])}
+            total_supply_opti[t] = {"bes_" + str(n): 0 for n in range(options["nb_bes"])}
+            total_chp_power[t] = {"bes_" + str(n): 0 for n in range(options["nb_bes"])}
+
+    for opt in range(par_rh["n_opt"]):
+        for n in range(options["nb_bes"]):
+            valid_time_steps = {k: v for k, v in block_bids[opt]["bes_" + str(n)].items() if isinstance(k, int)}
+            for t in valid_time_steps:
+                total_demand_opti[t]["bes_" + str(n)] = opti_res[opt][n][4][t] / 1000  # convert from Wh to kWh
+                total_supply_opti[t]["bes_" + str(n)] = (opti_res[opt][n][8]["chp"][t] + opti_res[opt][n][8]["pv"][t]) / 1000
+                total_chp_power[t]["bes_" + str(n)] = opti_res[opt][n][1]["chp"][t] / 1000
+
+    # Initialize the variable to store the sum of all supplies
+    total_supply_opti_month = 0
+    total_demand_opti_month = 0
+    total_demand_opti_all_bes = {}
+    total_supply_opti_all_bes = {}
+    scf_opti = {}
+    dcf_opti = {}
+    total_chp_power_all_bes = {}
+    total_chp_power_month = 0
+
+    for i in time_steps:
+        total_supply_opti_all_bes[i] = 0
+        total_demand_opti_all_bes[i] = 0
+        total_chp_power_all_bes[i] = 0
+
+    for t in total_supply_opti:
+        for building in total_supply_opti[t]:
+            total_supply_opti_all_bes[t] += total_supply_opti[t][building]
+        total_supply_opti_month += total_supply_opti_all_bes[t]
+
+    for t in total_demand_opti:
+        for building in total_demand_opti[t]:
+            total_demand_opti_all_bes[t] += total_demand_opti[t][building]
+        total_demand_opti_month += total_demand_opti_all_bes[t]
+
+    for t in total_chp_power:
+        for building in total_chp_power[t]:
+            total_chp_power_all_bes[t] += total_chp_power[t][building]
+        total_chp_power_month += total_chp_power_all_bes[t]
+
+    # calculate scf dcf for each time step
+    for t in time_steps:
+        if total_supply_opti_all_bes[t] > 0:
+            scf_opti[t] = min(total_supply_opti_all_bes[t], total_demand_opti_all_bes[t]) / total_supply_opti_all_bes[t]
+        else:
+            scf_opti[t] = 0
+
+        if total_demand_opti_all_bes[t] > 0:
+            dcf_opti[t] = min(total_supply_opti_all_bes[t], total_demand_opti_all_bes[t]) / total_demand_opti_all_bes[t]
+        else:
+            dcf_opti[t] = 0
+
+    # Calculate the Supply Coverage Factor (SCF) and Demand Coverage Factor (DCF) for the month
+    if total_supply_opti_month > 0:
+        total_scf_opti_month = min(total_supply_opti_month, total_demand_opti_month) / total_supply_opti_month
+    else:
+        total_scf_opti_month = 0
+
+    if total_demand_opti_month > 0:
+        total_dcf_opti_month = min(total_supply_opti_month, total_demand_opti_month) / total_demand_opti_month
+    else:
+        total_dcf_opti_month = 0
+
+    total_mdcf_opti = total_traded_power / total_demand_opti_month if total_demand_opti_month > 0 else 0
+    total_mscf_opti = total_traded_power / total_supply_opti_month if total_supply_opti_month > 0 else 0
+
     # --------------------- SOC ---------------------
-    soc = {}
-    last_time_steps = list(last_time_step.values())
-
-    """for n in range(options["nb_bes"]):
-        for dev in ["tes", "bat", "ev"]:
-            soc[n] = {dev: {i: 0 for i in last_time_steps} for dev in ["tes", "bat", "ev"]}
-
-    for n in range(options["nb_bes"]):
-        for dev in ["tes", "bat", "ev"]:
-            for t in last_time_steps:
-                for opt in range(1, par_rh["n_opt"]):
-                    soc[n][dev][t] = init_val[opt]["building_"+str(n)]["soc"][dev]"""
-
     soc_tes = {}
     for n in range(options["nb_bes"]):
         soc_tes[n] = []
@@ -194,8 +258,11 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
 
     # --------------------- STORE THE RESULTS ---------------------
     results_over_time = {
+        "total_chp_power": total_chp_power,
         "total_demand": total_demand_all_bes,
         "total_supply": total_supply_all_bes,
+        "total_supply_opti": total_supply_opti_all_bes,
+        "total_demand_opti": total_demand_opti_all_bes,
         "traded_power": traded_power,
         "scf": scf,
         "dcf": dcf,
@@ -212,12 +279,19 @@ def calc_results_p2p(par_rh, block_bids, options, block_length, nego_results, tr
     }
 
     results_values = {
+        "total_chp_power_month": total_chp_power_month,
         "scf_month": total_scf_month,
         "dcf_month": total_dcf_month,
         "mscf_month": total_mscf,
         "mdcf_month": total_mdcf,
+        "scf_opti_month": total_scf_opti_month,
+        "dcf_opti_month": total_dcf_opti_month,
+        "mscf_opti_month": total_mscf_opti,
+        "mdcf_opti_month": total_mdcf_opti,
         "total_demand_month": total_demand_month,
         "total_supply_month": total_supply_month,
+        "total_supply_opti_month": total_supply_opti_month,
+        "total_demand_opti_month": total_demand_opti_month,
         "total_traded_power": total_traded_power,
         "total_average_trade_price": total_average_trade_price,
         "total_power_from_grid": total_power_from_grid,

@@ -196,12 +196,17 @@ def compute_last_opti(node, params, par_rh, init_val, n_opt, options, matched_bi
             price_bid_seller[t] = matched_bids_info[1][t][0]
             quantity_bid_seller[t] = matched_bids_info[1][t][1]
             average_trade_price[t] = (price_bid_buyer[t] + price_bid_seller[t])/2
+            price_trade_final[t] = price_trade_final[t]
+            power_trade_final[t] = power_trade_final[t]
+
         for t in time_steps[block_length:]:
             price_bid_buyer[t] = 0
             quantity_bid_buyer[t] = 0
             price_bid_seller[t] = 0
             quantity_bid_seller[t] = 0
             average_trade_price[t] = 0
+            price_trade_final[t] = 0
+            power_trade_final[t] = 0
 
     else:
         for t in time_steps:
@@ -285,9 +290,7 @@ def compute_last_opti(node, params, par_rh, init_val, n_opt, options, matched_bi
 
     # Constraints for trading price
     for t in time_steps:
-
         # if buying bid price is higher than selling bid price, price_trade is set to average of both
-
         if is_buying:
             model.addConstr(price_trade["buyer"][t] == price_trade_final[t],
                             name="Price_trade_buyer" + str(t))
@@ -303,7 +306,7 @@ def compute_last_opti(node, params, par_rh, init_val, n_opt, options, matched_bi
         if is_buying:
             model.addConstr(power_trade["buyer"][t] == power_trade_final[t], name="max_Power_trade_buyer")
         else:
-                model.addConstr(power_trade["seller"][t] == power_trade_final[t], name="max_Power_trade_seller")
+            model.addConstr(power_trade["seller"][t] == power_trade_final[t], name="max_Power_trade_seller")
 
     # Determine nominal heat at every timestep
     for t in time_steps:
