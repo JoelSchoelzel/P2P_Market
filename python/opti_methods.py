@@ -222,7 +222,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                           options=options, block_length=block_length,
                                                           nego_results=mar_dict["negotiation_results"],
                                                           transactions_grid=mar_dict["transactions_with_grid"],
-                                                          init_val=init_val, last_time_step=last_time_step,)
+                                                          init_val=init_val, last_time_step=last_time_step,
+                                                          opti_res=opti_res)
 
         # return opti_res_new, mar_dict, trade_res, characteristics  #opti_res,
         return mar_dict, characteristics, init_val, res_time, res_val, opti_res
