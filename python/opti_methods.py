@@ -15,6 +15,7 @@ import python.bidding_strategies as bd
 import python.auction as auction
 import python.characteristics as characs
 import python.stackelberg as stack
+import python.opti_bes_last as last_opti
 import python.parse_inputs as parse_inputs
 def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
     # Run rolling horizon
@@ -145,6 +146,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         # range of prices
         p_max = params["eco"]["pr", "el"]
         p_min = params["eco"]["sell_chp"]
+        # p_max = 0.28
+        # p_min = 0.22
 
         # compute market agents for prosumer
         mar_agent_bes = []
@@ -214,7 +217,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                 buy_list_sorted, sell_list_sorted = mar_dict["sorted_bids"][n_opt]
 
                 # run Stackelberg game
-                mar_dict["stackelberg_res"][n_opt] = stack.stackelberg_game(buy_list=buy_list_sorted, sell_list=sell_list_sorted,
+                mar_dict["stackelberg_res"][n_opt], opti_res_soc = stack.stackelberg_game(buy_list=buy_list_sorted, sell_list=sell_list_sorted,
                                                                             nodes=nodes, params=params, par_rh=par_rh,
                                                                             building_param=building_params, init_val=init_val[n_opt],
                                                                             n_opt=n_opt, options=options)

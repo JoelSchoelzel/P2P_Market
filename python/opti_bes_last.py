@@ -12,7 +12,8 @@ import numpy as np
 import datetime
 
 
-def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, options, is_buying, price_signal, sdr, adjust_demand, seller):
+def compute_opti_last(node, params, par_rh, building_param, init_val, n_opt, options, id, price_signal,
+                      trade_buyer, trade_seller, trade_cost_buyer, trade_revenue_seller):
     # Define subsets
     heater = ("boiler", "chp", "eh", "hp35", "hp55")
     storage = ("bat", "tes", "ev")
@@ -189,26 +190,32 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
     c_transaction = model.addVar(vtype="C", name="c_transaction")
     revenue_transaction = model.addVar(vtype="C", name="revenue_transaction")
 
-    p_transaction_buyer_seller = {}  # Possible transaction amount of a buyer with a seller
+    trade_amount_buyer = {}  # Amount of electricity bought by buyer
+    trade_expense_buyer = {}  # Cost of buying electricity by buyer
+    for t in time_steps:
+        trade_amount_buyer[t] = {}
+        trade_expense_buyer[t] = {}
+        trade_amount_buyer[t][id] = trade_buyer[t].get(id, 0) if trade_buyer[t].get(id) else 0
+        trade_expense_buyer[t][id] = trade_cost_buyer[t].get(id, 0) if trade_cost_buyer[t].get(id) else 0
+
+
+
+    # p_transaction_buyer_seller = {}  # Possible transaction amount of a buyer with a seller
     demand_from_seller = {}  # Total transaction amount of seller with all buyers
     # price_signal = {}  # Price signal of seller
 
     # Define decision variable p_transaction to optimize the trading amount between each buyer with each seller
     # and demand_from_seller to model the total demand of a seller from all buyers
-    for t in time_steps:
-        p_transaction_buyer_seller[t] = model.addVar(vtype="C", name="P_transaction_" + str(t))
-        demand_from_seller[t] = model.addVar(vtype="C", name="Total_demand_from_seller_" + str(t))
+    # for t in time_steps:
+    #     p_transaction_buyer_seller[t] = model.addVar(vtype="C", name="P_transaction_" + str(t))
+    #     demand_from_seller[t] = model.addVar(vtype="C", name="Total_demand_from_seller_" + str(t))
 
     # Update
     model.update()
 
     # Objective
-    if is_buying:
-        model.setObjective(c_dem["grid"] - revenue["pv"] - revenue["chp"] + c_dem["boiler"]
-                           + c_dem["chp"] + c_transaction, gp.GRB.MINIMIZE)
-    else:
-        model.setObjective(c_dem["grid"] - revenue["pv"] - revenue["chp"] + c_dem["boiler"]
-                           + c_dem["chp"] - revenue_transaction, gp.GRB.MINIMIZE)
+    model.setObjective(c_dem["grid"] - revenue["pv"] - revenue["chp"] + c_dem["boiler"]
+                       + c_dem["chp"] + c_transaction - revenue_transaction, gp.GRB.MINIMIZE)
 
 
     ####### Define constraints
@@ -223,56 +230,49 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
                         name="Demand_costs_" + dev)
 
     # Demand related costs (electricity)    # eco["b"]["el"] * eco["crf"]
-    if adjust_demand:
-        dev = "grid"
-        model.addConstr(c_dem[dev] == sum(
-            (p_imp[t] - p_transaction_buyer_seller[t]) * params["eco"]["pr", "el"] for t in time_steps),
-                        name="Demand_costs_" + dev)
+    dev = "grid"
+    model.addConstr(c_dem[dev] == sum((p_imp[t] - trade_amount_buyer[t][id]) * params["eco"]["pr", "el"] for t in time_steps),
+                    name="Demand_costs_" + dev)
 
-    else:
-        dev = "grid"
-        model.addConstr(c_dem[dev] == sum(
-            (p_imp[t] - p_transaction_buyer_seller[t]) * params["eco"]["pr", "el"] for t in time_steps),
-                        name="Demand_costs_" + dev)
+    # Revenues for selling electricity to the grid
+    # for dev in ("chp", "pv"):
+    #     model.addConstr(revenue[dev] == sum((p_sell[dev][t] - trade_seller[t].get(seller, 0)) * params["eco"]["sell" + "_" + dev] for t in time_steps),
+    #                     name="Feed_in_rev_" + dev)
 
-    # Revenues for selling electricity to the grid / neighborhood
+    # Revenues for selling electricity to the grid
     for dev in ("chp", "pv"):
-        model.addConstr(revenue[dev] == sum((p_sell[dev][t] - demand_from_seller[t]) * params["eco"]["sell" + "_" + dev] for t in time_steps),
+        model.addConstr(revenue[dev] == sum((p_sell["chp"][t] + p_sell["pv"][t] - trade_seller[t].get(id, 0)) * params["eco"]["sell" + "_" + dev] for t in time_steps),
                         name="Feed_in_rev_" + dev)
+
 
     ### Constraints for trading with participants
     # Cost of buying electricity from participants
-    if is_buying:
-        model.addConstr(c_transaction == sum(p_transaction_buyer_seller[t] * price_signal[t].get(seller, 0) for t in time_steps),
-                            name="Transaction_cost")
-
-
+    model.addConstr(c_transaction == sum(trade_expense_buyer[t][id] for t in time_steps), name="Transaction_cost")
 
     # Revenue from selling electricity to participants
-    else:
-        model.addConstr(revenue_transaction == sum(demand_from_seller[t] * price_signal[t].get(seller, 0) for t in time_steps), name="Transaction_revenue")
+    model.addConstr(revenue_transaction == sum(trade_revenue_seller[t].get(id, 0) for t in time_steps), name="Transaction_revenue")
 
     # Constraint for trading amount
-    for t in time_steps:
-        if is_buying:
-            if seller in price_signal[t]:
-                if adjust_demand:
-                    model.addConstr(p_transaction_buyer_seller[t] <= p_imp[t] * sdr[t][seller], name="max_transaction_amount_buyer")
-                    model.addConstr(p_transaction_buyer_seller[t] >= 0, name="min_transaction_amount_buyer")
-                else:
-                    model.addConstr(p_transaction_buyer_seller[t] <= p_imp[t], name="max_transaction_amount_buyer")
-                    model.addConstr(p_transaction_buyer_seller[t] >= 0, name="min_transaction_amount_buyer")
-
-            else:
-                model.addConstr(p_transaction_buyer_seller[t] == 0, name="max_transaction_amount_buyer")
-
-        else:
-            if seller in price_signal[t]:
-                model.addConstr(demand_from_seller[t] <= p_sell[t], name="max_transaction_amount_seller_" + str(t))
-                model.addConstr(demand_from_seller[t] >= 0, name="min_transaction_amount_seller_" + str(t))
-            else:
-                model.addConstr(demand_from_seller[t] == 0, name="max_transaction_amount_seller_" + str(t))
-
+    # for t in time_steps:
+    #     if is_buying:
+    #         if seller in price_signal[t]:
+    #             if adjust_demand:
+    #                 model.addConstr(p_transaction_buyer_seller[t] <= p_imp[t] * sdr[t][seller], name="max_transaction_amount_buyer")
+    #                 model.addConstr(p_transaction_buyer_seller[t] >= 0, name="min_transaction_amount_buyer")
+    #             else:
+    #                 model.addConstr(p_transaction_buyer_seller[t] <= p_imp[t], name="max_transaction_amount_buyer")
+    #                 model.addConstr(p_transaction_buyer_seller[t] >= 0, name="min_transaction_amount_buyer")
+    #
+    #         else:
+    #             model.addConstr(p_transaction_buyer_seller[t] == 0, name="max_transaction_amount_buyer")
+    #
+    #     else:
+    #         if seller in price_signal[t]:
+    #             model.addConstr(demand_from_seller[t] <= p_sell[t], name="max_transaction_amount_seller_" + str(t))
+    #             model.addConstr(demand_from_seller[t] >= 0, name="min_transaction_amount_seller_" + str(t))
+    #         else:
+    #             model.addConstr(demand_from_seller[t] == 0, name="max_transaction_amount_seller_" + str(t))
+    #
 
 
     ###### Technical constraints
@@ -535,14 +535,24 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
     for dev in ["boiler", "chp"]:
         res_c_dem[dev] = {(t): params["eco"]["gas"] * gas[dev][t].X for t in time_steps}
 
-    if adjust_demand:
-        res_c_dem["grid"] = {(t): (p_imp[t].X - p_transaction_buyer_seller[t].X) * params["eco"]["pr", "el"] for t in time_steps}
-    else:
-        res_c_dem["grid"] = {(t): (p_imp[t].X - p_transaction_buyer_seller[t].X) * params["eco"]["pr", "el"] for t in time_steps}
+    # Buyer's amount to import from the grid
+    res_power_from_grid = {(t): p_imp[t].X - trade_amount_buyer[t][id] for t in time_steps}
+
+    # Cost of trading with the grid
+    res_c_dem["grid"] = {(t): (p_imp[t].X - trade_amount_buyer[t][id]) * params["eco"]["pr", "el"] for t in time_steps}
 
     res_rev = {}
     for dev in ["pv", "chp"]:
         res_rev = {(t): p_sell[dev][t].X * params["eco"]["sell" + "_" + dev] for t in time_steps}
+
+    # Seller's amount to inject into the grid
+    res_power_to_grid = {(t): sum(p_sell[dev][t].X for dev in ["pv", "chp"]) - trade_seller[t].get(id, 0) for t in time_steps}
+
+    # Revenue from trading with grid
+    res_rev_grid = {(t): res_power_to_grid[t] * params["eco"]["sell_chp"] for t in time_steps}
+
+    # Revenue from trading with participants
+    #res_rev_trade = {(t): trade_revenue_seller[t] for t in time_steps}
 
     res_soc_nom = {dev: soc_nom[dev] for dev in storage}
 
@@ -552,20 +562,19 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
         res_p_use[dev] = {(t): p_use[dev][t].X for t in time_steps}
         res_p_sell[dev] = {(t): p_sell[dev][t].X for t in time_steps}
 
-    res_net_cost = {}
-    res_net_cost = {(t): (p_imp[t].X - p_transaction_buyer_seller[t].X) * params["eco"]["pr", "el"]
-                    + p_transaction_buyer_seller[t].X * price_signal[t].get(seller, 0)
-                    + gas["boiler"][t].X * params["eco"]["gas"] + gas["chp"][t].X * params["eco"]["gas"]
-                    for t in time_steps}
+    # res_net_cost = {}
+    # res_net_cost = {(t): (p_imp[t].X - p_transaction_buyer_seller[t].X) * params["eco"]["pr", "el"]
+    #                 + p_transaction_buyer_seller[t].X * price_signal[t].get(seller, 0)
+    #                 + gas["boiler"][t].X * params["eco"]["gas"] + gas["chp"][t].X * params["eco"]["gas"]
+    #                 for t in time_steps}
 
-    res_p_transaction_buyer_seller = {}
-    if is_buying:
-        if adjust_demand:
-            res_p_transaction_buyer_seller = {(t): p_transaction_buyer_seller[t].X for t in time_steps}
-        else:
-            res_p_transaction_buyer_seller = {(t): p_transaction_buyer_seller[t].X for t in time_steps}
+    # Amount traded by each participant
+    res_trade_buyer = {}
+    res_trade_seller = {}
+    res_trade_buyer = {(t): trade_amount_buyer[t][id] for t in time_steps}
+    res_trade_seller = {(t): trade_seller[t].get(id, 0) for t in time_steps}
 
-    res_price_signal = {(t): price_signal[t].get(seller, 0) for t in time_steps}
+    res_price_signal = {(t): price_signal[t].get(id, 0) for t in time_steps}
 
 
 
@@ -594,12 +603,14 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
     #         obj, res_c_dem, res_rev, res_soc_nom, node,
     #         objVal, runtime, soc_init_rh, res_gas_sum, res_price_signal, res_p_transaction_buyer_seller)
 
-    return (res_y, res_soc, res_p_imp, res_p_ch, res_p_dch, res_p_use, res_p_sell, obj, res_c_dem, res_soc_nom, node,
-            objVal, runtime, soc_init_rh, res_price_signal, res_net_cost, res_p_transaction_buyer_seller)
+    return (res_y, res_soc, res_p_imp, res_power_from_grid, res_c_dem, res_p_ch, res_p_dch, res_p_use, res_p_sell,
+            res_power_to_grid, res_rev_grid, res_soc_nom, node, objVal, runtime, soc_init_rh, res_price_signal,
+            res_trade_buyer, res_trade_seller)
 
-def compute_initial_values(opti_bes, par_rh, n_opt):
+def compute_initial_values_stack(par_rh, n_opt):
     init_val = {}
     init_val["soc"] = {}
+    opti_res_soc = {}
     # initial SOCs
     for dev in ["tes", "bat", "ev"]:
         init_val["soc"][dev] = opti_bes[3][dev][par_rh["hour_start"][n_opt] + par_rh["n_hours"] - par_rh["n_hours_ov"]]

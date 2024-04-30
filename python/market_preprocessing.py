@@ -145,7 +145,7 @@ def compute_bids(opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes, st
                 #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = 0
 
             # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
-            elif pv_sell > 0:
+            elif pv_sell > 1:
                 bid["bes_" + str(n)] = mar_agent_prosumer[n].compute_pv_bids(dem_elec, soc_bat, power_pv, p_ch_bat,
                                                                              p_dch_bat, pv_sell, pv_peak, t, n,
                                                                              bid_strategy, strategies, weights)
