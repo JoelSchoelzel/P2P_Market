@@ -140,7 +140,7 @@ if __name__ == '__main__':
     par_rh = {
         # Parameters for operational optimization
         "n_hours": 36, # ----,      number of hours of prediction horizon for rolling horizon
-        "n_hours_ov": 35, # ----,      number of hours of overlap horizon for rolling horizon
+        "n_hours_ov": 32, # ----,      number of hours of overlap horizon for rolling horizon
         "n_opt_max": 8760 , #8760  # -----,       maximum number of optimizations
         "month": 1,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data

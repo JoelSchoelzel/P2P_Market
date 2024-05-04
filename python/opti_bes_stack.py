@@ -191,7 +191,6 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
 
     p_transaction_buyer_seller = {}  # Possible transaction amount of a buyer with a seller
     demand_from_seller = {}  # Total transaction amount of seller with all buyers
-    # price_signal = {}  # Price signal of seller
 
     # Define decision variable p_transaction to optimize the trading amount between each buyer with each seller
     # and demand_from_seller to model the total demand of a seller from all buyers

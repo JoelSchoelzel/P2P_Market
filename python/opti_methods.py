@@ -160,6 +160,9 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         # create trade_res to store results
         trade_res = {}
 
+        # create soc_res to store soc_results
+        soc_res = {}
+
         # parameters for learning bidding strategy
         # pars_li = parse_inputs.learning_bidding()
         # # initiate propensities for learning intelligence agent
@@ -189,18 +192,25 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                     init_val[n_opt]["building_" + str(n)] = {}
                     opti_res[n_opt][n] = decentral_operation(nodes[n], params, par_rh, building_params,
                                                              init_val[n_opt]["building_" + str(n)], n_opt, options)
-                    init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
+
+                    if options["stackelberg"] == False:
+                        init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
                                                                                              par_rh, n_opt)
+                    else: pass
             else:
                 for n in range(options["nb_bes"]):
                     print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(n) + ".")
                     opti_res[n_opt][n] = decentral_operation(nodes[n], params, par_rh, building_params,
                                                              init_val[n_opt]["building_" + str(n)], n_opt, options)
-                    if n_opt < par_rh["n_opt"] - 1:
-                        init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
-                                                                                                 par_rh, n_opt)
-                    else:
-                        init_val[n_opt + 1] = 0
+
+                    if options["stackelberg"] == False:
+                        if n_opt < par_rh["n_opt"] - 1:
+                            init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
+                                                                                                     par_rh, n_opt)
+                        else:
+                            init_val[n_opt + 1] = 0
+
+                    else: pass
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) +
                   "% of optimizations processed.")
 
@@ -217,10 +227,12 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                 buy_list_sorted, sell_list_sorted = mar_dict["sorted_bids"][n_opt]
 
                 # run Stackelberg game
-                mar_dict["stackelberg_res"][n_opt], opti_res_soc = stack.stackelberg_game(buy_list=buy_list_sorted, sell_list=sell_list_sorted,
+                mar_dict["stackelberg_res"][n_opt], soc_res[n_opt] = stack.stackelberg_game(buy_list=buy_list_sorted, sell_list=sell_list_sorted,
                                                                             nodes=nodes, params=params, par_rh=par_rh,
                                                                             building_param=building_params, init_val=init_val[n_opt],
                                                                             n_opt=n_opt, options=options)
+
+                init_val[n_opt + 1] = last_opti.compute_initial_values_stack(buildings=options["nb_bes"], soc_res=soc_res[n_opt], par_rh=par_rh, n_opt=n_opt)
 
             ### Auction
             elif options["stackelberg"] == False:

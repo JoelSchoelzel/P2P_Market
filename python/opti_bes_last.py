@@ -253,26 +253,9 @@ def compute_opti_last(node, params, par_rh, building_param, init_val, n_opt, opt
     model.addConstr(revenue_transaction == sum(trade_revenue_seller[t].get(id, 0) for t in time_steps), name="Transaction_revenue")
 
     # Constraint for trading amount
-    # for t in time_steps:
-    #     if is_buying:
-    #         if seller in price_signal[t]:
-    #             if adjust_demand:
-    #                 model.addConstr(p_transaction_buyer_seller[t] <= p_imp[t] * sdr[t][seller], name="max_transaction_amount_buyer")
-    #                 model.addConstr(p_transaction_buyer_seller[t] >= 0, name="min_transaction_amount_buyer")
-    #             else:
-    #                 model.addConstr(p_transaction_buyer_seller[t] <= p_imp[t], name="max_transaction_amount_buyer")
-    #                 model.addConstr(p_transaction_buyer_seller[t] >= 0, name="min_transaction_amount_buyer")
-    #
-    #         else:
-    #             model.addConstr(p_transaction_buyer_seller[t] == 0, name="max_transaction_amount_buyer")
-    #
-    #     else:
-    #         if seller in price_signal[t]:
-    #             model.addConstr(demand_from_seller[t] <= p_sell[t], name="max_transaction_amount_seller_" + str(t))
-    #             model.addConstr(demand_from_seller[t] >= 0, name="min_transaction_amount_seller_" + str(t))
-    #         else:
-    #             model.addConstr(demand_from_seller[t] == 0, name="max_transaction_amount_seller_" + str(t))
-    #
+    for t in time_steps:
+        model.addConstr(p_imp[t] >= trade_amount_buyer[t][id], name="linking_constraint_demand")
+        model.addConstr(p_sell["pv"][t] + p_sell["chp"][t] >= trade_seller[t].get(id, 0), name="linking_constraint_supply")
 
 
     ###### Technical constraints
@@ -607,12 +590,14 @@ def compute_opti_last(node, params, par_rh, building_param, init_val, n_opt, opt
             res_power_to_grid, res_rev_grid, res_soc_nom, node, objVal, runtime, soc_init_rh, res_price_signal,
             res_trade_buyer, res_trade_seller)
 
-def compute_initial_values_stack(par_rh, n_opt):
+def compute_initial_values_stack(buildings, soc_res, par_rh, n_opt):
+
     init_val = {}
-    init_val["soc"] = {}
-    opti_res_soc = {}
-    # initial SOCs
-    for dev in ["tes", "bat", "ev"]:
-        init_val["soc"][dev] = opti_bes[3][dev][par_rh["hour_start"][n_opt] + par_rh["n_hours"] - par_rh["n_hours_ov"]]
+    for n in range(buildings):
+        init_val["building_" + str(n)] = {}
+        init_val["building_" + str(n)]["soc"] = {}
+        # initial SOCs
+        for dev in ["tes", "bat", "ev"]:
+            init_val["building_" + str(n)]["soc"][dev] = soc_res[n][dev][par_rh["hour_start"][n_opt] + par_rh["n_hours"] - par_rh["n_hours_ov"]]
 
     return init_val

@@ -1,6 +1,7 @@
 """ Sequential Stackelberg game for market clearing """
 
 import numpy as np
+#import cProfile
 
 from python import opti_bes_stack
 from python import opti_bes
@@ -92,8 +93,11 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
     epsilon = 0.01
 
     # iteration step size
-    l = 0.05
-    sigma = 1000
+    l = {}
+    sigma = {}
+
+    buyer_list = {}
+    seller_list = {}
 
     # initialize the required dictionaries
     p_transaction = {}
@@ -133,6 +137,33 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
         total_initial_sdd[t] = sum(initial_demand_buyer[t].values()) - sum(available_supply[t].values())
 
         k[t] = 0
+        l[t] = 0.05
+        sigma[t] = 1000
+
+        if total_initial_sdd[t] <= 8000:
+            l[t] = 0.05
+            sigma[t] = 1000
+        elif total_initial_sdd[t] > 8000 and total_initial_sdd[t] <= 12000:
+            l[t] = 0.033
+            sigma[t] = 1000
+        elif total_initial_sdd[t] > 12000 and total_initial_sdd[t] <= 16000:
+            l[t] = 0.025
+            sigma[t] = 2000
+        elif total_initial_sdd[t] > 16000 and total_initial_sdd[t] <= 20000:
+            l[t] = 0.02
+            sigma[t] = 2500
+        elif total_initial_sdd[t] > 20000 and total_initial_sdd[t] <= 24000:
+            l[t] = 0.017
+            sigma[t] = 3000
+        elif total_initial_sdd[t] > 24000 and total_initial_sdd[t] <= 28000:
+            l[t] = 0.014
+            sigma[t] = 3500
+        elif total_initial_sdd[t] > 28000 and total_initial_sdd[t] <= 32000:
+            l[t] = 0.012
+            sigma[t] = 4000
+        elif total_initial_sdd[t] > 32000 and total_initial_sdd[t] <= 36000:
+            l[t] = 0.011
+            sigma[t] = 4500
 
     # Case of price signals initialized with same average value
     price_signal = {t: {seller["building"]: (params["eco"]["pr", "el"] + params["eco"]["sell_chp"]) / 2 for seller in sell_list[t].values()} for t in time_steps}
@@ -195,25 +226,15 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                         objective_val_buyer = opti_stack_res_buyer[t][buyer["building"]][seller["building"]][11]
                         obj_val_buyer[t][buyer["building"]][seller["building"]] = objective_val_buyer
 
-                        # Objective value for one time_step: total cost at time_step t
-                        # objective_val_buyer = opti_stack_res_buyer[t][buyer["building"]][seller["building"]][15]
-                        # obj_val_buyer[t][buyer["building"]][seller["building"]] = objective_val_buyer[t]
-
-                        # Get the power demand of each buyer
-                        # p_imp_buyer = opti_stack_res_buyer[2]
-                        # power_demand_buyer[t][buyer["building"]] = p_imp_buyer[t]
 
                 # Calculate total demand of buyers from a seller using shares and update the shares for the next iteration
                 for seller in sell_list[t].values():
                     total_demand_seller[t][seller["building"]] = share_seller[t][seller["building"]] * sum(p_transaction[t][buyer["building"]][seller["building"]] for buyer in buy_list[t].values())
 
-
-
-
                 # Calculate the net cost of buyers from trading with a seller
                 # If the available supply of a seller is less than the total demand of buyers from that seller,
                 # run the optimization again with adjusted demand
-                for seller in sell_list[t].values():
+                #for seller in sell_list[t].values():
                     if available_supply[t][seller["building"]] < total_demand_seller[t][seller["building"]]:
                         sdr[t][seller["building"]] = available_supply[t][seller["building"]] / total_demand_seller[t][
                             seller["building"]]
@@ -237,7 +258,7 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                     net_cost_value[t][seller["building"]] = sum(obj_val_buyer[t][buyer["building"]][seller["building"]] for buyer in buy_list[t].values())
 
                 # Get actual amount traded by the seller
-                for seller in sell_list[t].values():
+                #for seller in sell_list[t].values():
                     actual_trade_seller[t][seller["building"]] = sum(p_transaction[t][buyer["building"]][seller["building"]] *
                                                                      share_seller[t][seller["building"]] * sdr[t][seller["building"]] for buyer in buy_list[t].values())
 
@@ -298,6 +319,7 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                         init_price = init_price_signal[t][seller["building"]]
                         total_trans_buyer = total_trade_buyer[t][buyer["building"]]
                         init_demand_buyer = initial_demand_buyer[t][buyer["building"]]
+                        possible_demand_seller = total_demand_seller[t][seller["building"]]
                         total_trans_seller = actual_trade_seller[t][seller["building"]]
                         available_supply_seller = available_supply[t][seller["building"]]
                         total_trans_cost_buyer = total_cost_buyer[t][buyer["building"]]
@@ -316,6 +338,7 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                             "init_price_seller": init_price,
                             "total_trade_buyer": total_trans_buyer,
                             "init_demand_buyer": init_demand_buyer,
+                            "possible_demand_seller": possible_demand_seller,
                             "total_demand_seller": total_trans_seller,
                             "available_supply_seller": available_supply_seller,
                             "total_cost_trade_buyer": total_trans_cost_buyer,
@@ -324,31 +347,7 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                             "power_to_grid": power_to_sell_to_grid,
                         }
 
-                if total_initial_sdd[t] <= 8000:
-                    l = 0.05
-                    sigma = 1000
-                elif total_initial_sdd[t] > 8000 and total_initial_sdd[t] <= 12000:
-                    l = 0.033
-                    sigma = 1000
-                elif total_initial_sdd[t] > 12000 and total_initial_sdd[t] <= 16000:
-                    l = 0.025
-                    sigma = 2000
-                elif total_initial_sdd[t] > 16000 and total_initial_sdd[t] <= 20000:
-                    l = 0.02
-                    sigma = 2500
-                elif total_initial_sdd[t] > 20000 and total_initial_sdd[t] <= 24000:
-                    l = 0.017
-                    sigma = 3000
-                elif total_initial_sdd[t] > 24000 and total_initial_sdd[t] <= 28000:
-                    l = 0.014
-                    sigma = 3500
-                elif total_initial_sdd[t] > 28000 and total_initial_sdd[t] <= 32000:
-                    l = 0.012
-                    sigma = 4000
-                elif total_initial_sdd[t] > 32000 and total_initial_sdd[t] <= 36000:
-                    l = 0.011
-                    sigma = 4500
-
+                # Update the shares and price signals of sellers
                 for seller in sell_list[t].values():
                     # Update shares: if net_cost > average_net_cost, decrease the probability of trading
                     # with that seller, else increase
@@ -365,7 +364,7 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                     # Secondly update the price_signal
                     # scale down the available supply and total demand
                     scaling_factor = 0.0001
-                    new_price_signal[t][seller["building"]] = (price_signal[t][seller["building"]] + l *
+                    new_price_signal[t][seller["building"]] = (price_signal[t][seller["building"]] + l[t] *
                                                             ((total_demand_seller[t][seller["building"]] -
                                                               available_supply[t][seller["building"]]) * scaling_factor))
 
@@ -382,7 +381,7 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
 
 
                 # Stopping criteria: supply demand difference
-                if (all(abs(total_demand_seller[t][seller["building"]] - available_supply[t][seller["building"]]) <= sigma for seller in sell_list[t].values())
+                if (all(abs(total_demand_seller[t][seller["building"]] - available_supply[t][seller["building"]]) <= sigma[t] for seller in sell_list[t].values())
                 or all(abs(price_signal[t][seller["building"]] - previous_price_signal[t][seller["building"]]) <= 0.0001 for seller in sell_list[t].values())
                         or k[t] == 20):
                     for seller in sell_list[t].values():
@@ -416,3 +415,4 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
 
     return stack_trans_res, res_soc
 
+#cProfile.run('stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param, init_val, n_opt, options)')
