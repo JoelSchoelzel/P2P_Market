@@ -22,7 +22,7 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
     # Extract parameters
     dt = par_rh["duration"][n_opt]
     # Create list of time steps per optimization horizon (dt --> hourly resolution)
-    time_steps = par_rh["time_steps"][n_opt]
+    time_steps = par_rh["time_steps"][n_opt][0:4]
     # Durations of time steps # for aggregated RH
     # duration = par_rh["duration"][n_opt]
 

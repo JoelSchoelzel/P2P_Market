@@ -79,7 +79,7 @@ def compute_bids(opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes, st
         for n in range(len(opti_res)):
             bid["bes_" + str(n)] = {}
             # get parameters for bidding at each time step
-            for t in par_rh["time_steps"][n_opt]:
+            for t in par_rh["time_steps"][n_opt][0:4]:
                 p_imp = opti_res[n][4][t]
                 chp_sell = opti_res[n][8]["chp"][t]
                 pv_sell = opti_res[n][8]["pv"][t]
@@ -230,7 +230,7 @@ def sort_participants(bid, par_rh, n_opt):
     sell_list = {}
 
     # sort by buy or sell
-    for t in par_rh["time_steps"][n_opt]:
+    for t in par_rh["time_steps"][n_opt][0:4]:
         buy_list[t] = {}
         sell_list[t] = {}
         for n in range(len(bid)):

@@ -84,7 +84,7 @@ def initial_demand(buy_list):
 def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param, init_val, n_opt, options):
 
     # Get the time step
-    time_steps = par_rh["time_steps"][n_opt]
+    time_steps = par_rh["time_steps"][n_opt][0:4]
 
     # Dictionary to store results of stackelberg game
     stack_trans_res = {}
@@ -383,7 +383,7 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                 # Stopping criteria: supply demand difference
                 if (all(abs(total_demand_seller[t][seller["building"]] - available_supply[t][seller["building"]]) <= sigma[t] for seller in sell_list[t].values())
                 or all(abs(price_signal[t][seller["building"]] - previous_price_signal[t][seller["building"]]) <= 0.0001 for seller in sell_list[t].values())
-                        or k[t] == 20):
+                        or k[t] == 50):
                     for seller in sell_list[t].values():
                         price_signal[t][seller["building"]] = previous_price_signal[t][seller["building"]]
 
@@ -406,7 +406,7 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
     for n in nodes:
         opti_last[n] = opti_bes_last.compute_opti_last(node=nodes[n], params=params,par_rh=par_rh, building_param=building_param,
                                                     init_val = init_val["building_" + str(n)], n_opt=n_opt, options=options, id=n,
-                                                    price_signal=price_signal, trade_buyer=total_trade_buyer, trade_seller=actual_trade_seller,
+                                                    price_signal=price_signal, available_supply=available_supply, trade_buyer=total_trade_buyer, trade_seller=actual_trade_seller,
                                                     trade_cost_buyer=total_cost_buyer, trade_revenue_seller=total_revenue_seller)
 
         power_imported_grid[n] = opti_last[n][3]

@@ -12,7 +12,7 @@ import numpy as np
 import datetime
 
 
-def compute_opti_last(node, params, par_rh, building_param, init_val, n_opt, options, id, price_signal,
+def compute_opti_last(node, params, par_rh, building_param, init_val, n_opt, options, id, price_signal, available_supply,
                       trade_buyer, trade_seller, trade_cost_buyer, trade_revenue_seller):
     # Define subsets
     heater = ("boiler", "chp", "eh", "hp35", "hp55")
@@ -23,7 +23,7 @@ def compute_opti_last(node, params, par_rh, building_param, init_val, n_opt, opt
     # Extract parameters
     dt = par_rh["duration"][n_opt]
     # Create list of time steps per optimization horizon (dt --> hourly resolution)
-    time_steps = par_rh["time_steps"][n_opt]
+    time_steps = par_rh["time_steps"][n_opt][0:4]
     # Durations of time steps # for aggregated RH
     # duration = par_rh["duration"][n_opt]
 
@@ -229,6 +229,14 @@ def compute_opti_last(node, params, par_rh, building_param, init_val, n_opt, opt
         model.addConstr(c_dem[dev] == params["eco"]["gas"] * sum(gas[dev][t] for t in time_steps),
                         name="Demand_costs_" + dev)
 
+    # Constraint to keep empty bids at zero
+    for t in time_steps:
+        if id not in trade_buyer[t] and id not in trade_seller[t]:
+            model.addConstr(p_imp[t] == 0)
+            model.addConstr(p_sell["pv"][t] == 0)
+            model.addConstr(p_sell["chp"][t] == 0)
+        else: pass
+
     # Demand related costs (electricity)    # eco["b"]["el"] * eco["crf"]
     dev = "grid"
     model.addConstr(c_dem[dev] == sum((p_imp[t] - trade_amount_buyer[t][id]) * params["eco"]["pr", "el"] for t in time_steps),
@@ -252,11 +260,15 @@ def compute_opti_last(node, params, par_rh, building_param, init_val, n_opt, opt
     # Revenue from selling electricity to participants
     model.addConstr(revenue_transaction == sum(trade_revenue_seller[t].get(id, 0) for t in time_steps), name="Transaction_revenue")
 
-    # Constraint for trading amount
+    # Demand and supply amount
     for t in time_steps:
+        # Keep buyer as buyer even if it did not make a trade
+        if id in trade_buyer[t] and trade_amount_buyer[t][id] == 0.0:
+            model.addConstr(y["house_load"][t] == 1.0)
+        else: pass
         model.addConstr(p_imp[t] >= trade_amount_buyer[t][id], name="linking_constraint_demand")
-        model.addConstr(p_sell["pv"][t] + p_sell["chp"][t] >= trade_seller[t].get(id, 0), name="linking_constraint_supply")
-
+        #model.addConstr(p_sell["pv"][t] + p_sell["chp"][t] >= trade_seller[t].get(id, 0), name="linking_constraint_supply")
+        model.addConstr(p_sell["pv"][t] + p_sell["chp"][t] == available_supply[t].get(id, 0), name="linking_constraint_supply")
 
     ###### Technical constraints
 
@@ -598,6 +610,6 @@ def compute_initial_values_stack(buildings, soc_res, par_rh, n_opt):
         init_val["building_" + str(n)]["soc"] = {}
         # initial SOCs
         for dev in ["tes", "bat", "ev"]:
-            init_val["building_" + str(n)]["soc"][dev] = soc_res[n][dev][par_rh["hour_start"][n_opt] + par_rh["n_hours"] - par_rh["n_hours_ov"]]
+            init_val["building_" + str(n)]["soc"][dev] = soc_res[n][dev][par_rh["hour_start"][n_opt] + par_rh["n_hours"] - par_rh["n_hours_ov"] - 1]
 
     return init_val
