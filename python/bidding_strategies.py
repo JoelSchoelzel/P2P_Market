@@ -14,7 +14,7 @@ class mar_agent_bes(object):
         self.soc_nom_bat = node["devs"]["bat"]["cap"]
 
 
-    def compute_hp_bids(self, p_imp, n, bid_strategy):
+    def compute_hp_bids(self, p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp, options):
 
 
         # compute bids with zero-intelligence
@@ -22,21 +22,26 @@ class mar_agent_bes(object):
             # create random price between p_min and p_max
             p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100
             q = p_imp
-            q_2 = 0
-            p_2 = 0
+
+        # calculate unflexible bids if flexible demands are enabled
+        if options["flexible_demands"]:
+            soc_set_min = (dem_heat + 0.5 * dem_dhw) * self.dt
+            if self.soc_nom_tes == 0 or soc <= soc_set_min:
+                unflex = p_imp
+            elif p_imp > power_hp:
+                unflex = p_imp - power_hp
+            else:
+                unflex = 0
+        # if flexible demands are disabled, everything is unflexible
+        else:
+            unflex = p_imp
 
         buying = str("True")
-        #p = np.around(p, decimals=4)
-        #p_2 = np.around(p_2, decimals=4)
 
-        return [p, q, buying, n]
+        return [p, q, buying, n], unflex
 
 
-    def compute_chp_bids(self, chp_sell, n, bid_strategy,):
-
-
-        q = chp_sell
-        buying = str("False")
+    def compute_chp_bids(self, chp_sell, n, bid_strategy, dem_heat, dem_dhw, soc, options):
 
         # compute bids with zero-intelligence
         if bid_strategy == "zero":
@@ -44,7 +49,19 @@ class mar_agent_bes(object):
             p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100
         p = np.around(p, decimals=6)
 
-        return [p, q, buying, n]
+        unflex = 0
+        # calculate unflexible bids if flexible demands are enabled
+        if options["flexible_demands"]:
+            soc_set_min = (dem_heat + 0.5 * dem_dhw) * self.dt
+            if self.soc_nom_tes == 0 or soc >= self.soc_nom_tes:
+                unflex = chp_sell
+        # if flexible demands are disabled, everything is unflexible
+        else:
+            unflex = chp_sell
+
+        q = chp_sell
+        buying = str("False")
+        return [p, q, buying, n], unflex
 
 
     def compute_empty_bids(self, n):
@@ -53,12 +70,12 @@ class mar_agent_bes(object):
         q = 0
         buying = str("True")
 
-        return [p, q, buying, n]
+        return [p, q, buying, n], 0
 
 
     #Added newly from https://github.com/JoelSchoelzel/local_market/blob/main/python/bidding_strategies.py
     def compute_pv_bids(self, dem_elec, soc_bat, power_pv, p_ch_bat, p_dch_bat, pv_sell, pv_peak, t, n, bid_strategy,
-                        strategies, weights):
+                        strategies, weights, options):
 
         # compute bids with device oriented bidding
         if bid_strategy == "devices":
@@ -90,16 +107,23 @@ class mar_agent_bes(object):
         elif bid_strategy == "zero":
             # create random price between p_min and p_max
             p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100
-            p = np.around(p, decimals=6)
+
+        unflex = 0
+        soc_set_max = self.soc_nom_bat - (p_ch_bat + pv_sell) * self.dt
+        if options["flexible_demands"]:
+            if soc_bat >= soc_set_max:
+                unflex = pv_sell
+            else:
+                unflex = 0
+        else:
+            unflex = pv_sell
 
         q = pv_sell
         buying = str("False")
-
-        unflex = 0
 
         # if bid_strategy != "devices":
         #     # check which bids are unflexible by checking which bids would have been placed with p_max for device oriented bidding
         #     if p == self.p_min:
         #         unflex = q
 
-        return [p, q, buying, n] #, unflex
+        return [p, q, buying, n], unflex

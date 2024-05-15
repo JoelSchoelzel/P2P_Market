@@ -157,11 +157,19 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
         # needed market dicts
         mar_dict = mar_pre.dict_for_market_data(par_rh)
 
+        # create bes for each building
+        bes = mar_pre.bes(par_rh, options["nb_bes"])
+
         # create trade_res to store results
         trade_res = {}
 
         # create soc_res to store soc_results
         soc_res = {}
+
+        demand_before_stack = {}
+        demand_after_stack = {}
+        tot_dem_before = 0
+        tot_dem_after = 0
 
         # parameters for learning bidding strategy
         # pars_li = parse_inputs.learning_bidding()
@@ -214,12 +222,16 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) +
                   "% of optimizations processed.")
 
+            # calculate new flexibility characteristics for 3 steps using the SOC from optimization results
+            characteristics[n_opt] = characs.calc_characs(nodes=nodes, options=options, par_rh=par_rh,
+                                                          opti_res=opti_res, start_step=n_opt, length=4)
+
             ### Stackelberg game
             if options["stackelberg"] == True:
 
                 # compute bids for the Stackelberg game
-                mar_dict["bid"][n_opt] = mar_pre.compute_bids(opti_res[n_opt], par_rh, mar_agent_bes, n_opt, options,
-                                                              nodes, strategies)
+                mar_dict["bid"][n_opt], bes = mar_pre.compute_bids(bes, opti_res[n_opt], par_rh, mar_agent_bes, n_opt,
+                                                                   options, nodes, strategies)
 
                 # separate bids in buying and selling and store under "sorted_bids"
                 mar_dict["sorted_bids"][n_opt] = mar_pre.sort_participants(mar_dict["bid"][n_opt], par_rh, n_opt)
@@ -227,12 +239,23 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                 buy_list_sorted, sell_list_sorted = mar_dict["sorted_bids"][n_opt]
 
                 # run Stackelberg game
-                mar_dict["stackelberg_res"][n_opt], soc_res[n_opt] = stack.stackelberg_game(buy_list=buy_list_sorted, sell_list=sell_list_sorted,
-                                                                            nodes=nodes, params=params, par_rh=par_rh,
-                                                                            building_param=building_params, init_val=init_val[n_opt],
-                                                                            n_opt=n_opt, options=options)
+                mar_dict["stack_pair_res"][n_opt], mar_dict["stack_buyer_res"][n_opt], \
+                    mar_dict["stack_seller_res"][n_opt], mar_dict["stack_total_res"][n_opt], soc_res[n_opt] \
+                    = stack.stackelberg_game(buy_list=buy_list_sorted, sell_list=sell_list_sorted,
+                                             nodes=nodes, params=params, par_rh=par_rh,building_param=building_params,
+                                             init_val=init_val[n_opt], n_opt=n_opt, options=options)
 
-                init_val[n_opt + 1] = last_opti.compute_initial_values_stack(buildings=options["nb_bes"], soc_res=soc_res[n_opt], par_rh=par_rh, n_opt=n_opt)
+                init_val[n_opt + 1] = last_opti.compute_initial_values_stack(buildings=options["nb_bes"], soc_res=soc_res[n_opt],
+                                                                             par_rh=par_rh, n_opt=n_opt)
+
+                # Check the demand difference before and after Stackelberg
+                demand_before_stack[n_opt] = sum(item.get("init_kum_dem") if isinstance(item, dict) else item
+                                                 for item in mar_dict["stack_total_res"][n_opt].values())
+                demand_after_stack[n_opt] = sum(item.get("res_kum_dem") if isinstance(item, dict) else item
+                                                 for item in mar_dict["stack_total_res"][n_opt].values())
+
+                tot_dem_before += demand_before_stack[n_opt]
+                tot_dem_after += demand_after_stack[n_opt]
 
             ### Auction
             elif options["stackelberg"] == False:
@@ -270,7 +293,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                             opti_res_new[n_opt][i][n] = {}
                             opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]
 
-        return mar_dict, characteristics, opti_res  # for stackelberg
+        return mar_dict, characteristics, opti_res, tot_dem_before, tot_dem_after  # for stackelberg
         # return opti_res_new, mar_dict, trade_res, characteristics  #for auction
 
     elif options["optimization"] == "P2P_typeWeeks":
@@ -369,6 +392,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
 
 
         return opti_res_new, index, mar_dict, trade_res
+
 
 def infeasible_model_adjust_fuel_cell_configuration(k, nodes, options, index_typeweeks, IISconstr):
 

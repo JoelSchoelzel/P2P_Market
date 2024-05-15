@@ -24,6 +24,7 @@ def compute_opti_last(node, params, par_rh, building_param, init_val, n_opt, opt
     dt = par_rh["duration"][n_opt]
     # Create list of time steps per optimization horizon (dt --> hourly resolution)
     time_steps = par_rh["time_steps"][n_opt][0:4]
+    #time_steps = par_rh["time_steps"][n_opt]
     # Durations of time steps # for aggregated RH
     # duration = par_rh["duration"][n_opt]
 
@@ -196,6 +197,7 @@ def compute_opti_last(node, params, par_rh, building_param, init_val, n_opt, opt
         trade_amount_buyer[t] = {}
         trade_expense_buyer[t] = {}
         trade_amount_buyer[t][id] = trade_buyer[t].get(id, 0) if trade_buyer[t].get(id) else 0
+        # trade_amount_buyer[t][id] = trade_buyer[t].get(id, trade_buyer[t].get(0, 0))
         trade_expense_buyer[t][id] = trade_cost_buyer[t].get(id, 0) if trade_cost_buyer[t].get(id) else 0
 
 
@@ -262,10 +264,11 @@ def compute_opti_last(node, params, par_rh, building_param, init_val, n_opt, opt
 
     # Demand and supply amount
     for t in time_steps:
-        # Keep buyer as buyer even if it did not make a trade
+        # Keep buyer as buyer even if it did not make any trade
         if id in trade_buyer[t] and trade_amount_buyer[t][id] == 0.0:
             model.addConstr(y["house_load"][t] == 1.0)
-        else: pass
+        else:
+            pass
         model.addConstr(p_imp[t] >= trade_amount_buyer[t][id], name="linking_constraint_demand")
         #model.addConstr(p_sell["pv"][t] + p_sell["chp"][t] >= trade_seller[t].get(id, 0), name="linking_constraint_supply")
         model.addConstr(p_sell["pv"][t] + p_sell["chp"][t] == available_supply[t].get(id, 0), name="linking_constraint_supply")

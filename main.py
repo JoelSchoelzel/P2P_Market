@@ -110,7 +110,8 @@ if __name__ == '__main__':
                "bid_strategy": "zero",  # zero for zero-intelligence
                "crit_prio": "alpha_el_flex_delayed", # criteria to assign priority for trading: price, alpha_el_flex_delayed
                "descending": True, # True: highest value of chosen has highest priority, False: lowest
-
+               "flexible_demands": True,  # True: flexible demands aren't necessarily fulfilled every step
+                
                "number_typeWeeks": 0, # set 0 in case no type weeks are investigated
                #"full_path_scenario": "C:\\Users\\miche\\districtgenerator_python\\data\\scenarios\\scenario4.csv", # scenario csv
                "full_path_scenario": ("C:/Users/cemca/PycharmProjects/MA/districtgenerator/data/scenarios/" + options_DG["scenario_name"] + ".csv"), # scenario csv, name set for DG is used
@@ -142,7 +143,7 @@ if __name__ == '__main__':
         "n_hours": 36, # ----,      number of hours of prediction horizon for rolling horizon
         "n_hours_ov": 32, # ----,      number of hours of overlap horizon for rolling horizon
         "n_opt_max": 8760 , #8760  # -----,       maximum number of optimizations
-        "month": 1,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
+        "month": 7,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data
 
         # Parameters for rolling horizon with aggregated foresight
@@ -230,13 +231,13 @@ if __name__ == '__main__':
     # Run (rolling horizon) optimization for whole year or month
     if options["optimization"] == "P2P":
         # run optimization incl. trading
-        mar_dict, characteristics, opti_results = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
-                                                                                    building_params, params)
+        mar_dict, characteristics, opti_results, tot_dem_bef, tot_dem_aft \
+            = opti_methods.rolling_horizon_opti(options, nodes, par_rh,building_params, params)
 
         # opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
 
-        print('Opti results:', opti_results)
-        print('Mar dict:', mar_dict)
+        # print('Opti results:', opti_results)
+        # print('Mar dict:', mar_dict)
         # print('Trade res:', trade_res)
         # print('Characteristics:', characteristics)
 

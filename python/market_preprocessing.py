@@ -8,7 +8,10 @@ def dict_for_market_data(par_rh):
         "transactions": {},
         "bid": {},
         "sorted_bids": {},
-        "stackelberg_res": {},
+        "stack_pair_res": {},
+        "stack_buyer_res": {},
+        "stack_seller_res": {},
+        "stack_total_res": {}
         }
 
     #mar_dict["markets"] = {}
@@ -55,20 +58,20 @@ def bes(pars_rh, numb_bes):
 
     bes = {}
     for n in range(numb_bes):
-        bes[n] = dict(adj_op = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        tra_dem = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        tra_dem_unflex = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        tra_gen = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        plus_gen = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        grid_dem = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        grid_gen = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        hp_dem = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])),
-        unflex = np.zeros((pars_rh["n_opt"], pars_rh["n_hours"])))
+        bes[n] = dict(adj_op = np.zeros(pars_rh["n_opt"]),
+        tra_dem = np.zeros(pars_rh["n_opt"]),
+        tra_dem_unflex = np.zeros(pars_rh["n_opt"]),
+        tra_gen = np.zeros(pars_rh["n_opt"]),
+        plus_gen = np.zeros(pars_rh["n_opt"]),
+        grid_dem = np.zeros(pars_rh["n_opt"]),
+        grid_gen = np.zeros(pars_rh["n_opt"]),
+        hp_dem = np.zeros(pars_rh["n_opt"]),
+        unflex = np.zeros(pars_rh["n_opt"]))
 
     return bes
 
 
-def compute_bids(opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes, strategies):
+def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes, strategies):
 
 
     bid = {}
@@ -79,40 +82,47 @@ def compute_bids(opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes, st
         for n in range(len(opti_res)):
             bid["bes_" + str(n)] = {}
             # get parameters for bidding at each time step
-            for t in par_rh["time_steps"][n_opt][0:4]:
+            # for t in par_rh["time_steps"][n_opt][0:4]:
+            for t in par_rh["time_steps"][n_opt]:
                 p_imp = opti_res[n][4][t]
                 chp_sell = opti_res[n][8]["chp"][t]
                 pv_sell = opti_res[n][8]["pv"][t]
                 bid_strategy = options["bid_strategy"]
+                dem_heat = nodes[n]["heat"][t]
+                dem_dhw = nodes[n]["dhw"][t]
                 dem_elec = nodes[n]["elec"][t]
                 soc_bat = opti_res[n][3]["bat"][t]
+                soc = opti_res[n][3]["tes"][t]
                 power_pv = nodes[n]["pv_power"][t]
                 p_ch_bat = opti_res[n][5]["bat"][t]
                 p_dch_bat = opti_res[n][6]["bat"][t]
                 pv_peak = np.max(nodes[n]["pv_power"][t])
+                power_hp = max(opti_res[n][1]["hp35"][t], opti_res[n][1]["hp55"][t])
 
                 # compute bids and inflexible demand
 
                 # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
                 if p_imp > 0.0:
-                    bid["bes_" + str(n)][t] = mar_agent_prosumer[n].compute_hp_bids(p_imp, n, bid_strategy)
-                    # bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = bid["bes_" + str(n)][1]
+                    bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
+                        mar_agent_prosumer[n].compute_hp_bids(p_imp, n, bid_strategy, dem_heat,
+                                                              dem_dhw, soc, power_hp, options)
 
                 # when electricity needs to be sold, compute_chp_bids() of the mar_agent is called
                 elif chp_sell > 0:
-                    bid["bes_" + str(n)][t] = mar_agent_prosumer[n].compute_chp_bids(chp_sell, n, bid_strategy)
-                    # bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = 0
+                    bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
+                        mar_agent_prosumer[n].compute_chp_bids(chp_sell, n, bid_strategy, dem_heat,
+                                                               dem_dhw, soc, options)
 
                 # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
                 elif pv_sell > 1e-3:
-                    bid["bes_" + str(n)][t] = mar_agent_prosumer[n].compute_pv_bids(dem_elec, soc_bat, power_pv, p_ch_bat,
-                                                                                 p_dch_bat, pv_sell, pv_peak, t, n,
-                                                                                 bid_strategy, strategies, weights)
-                    # bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = bid["bes_" + str(n)][1]
+                    bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
+                        mar_agent_prosumer[n].compute_pv_bids(dem_elec, soc_bat, power_pv, p_ch_bat, p_dch_bat,
+                                                              pv_sell, pv_peak, t, n, bid_strategy, strategies,
+                                                              weights, options)
 
+                # when no electricity needs to be bought or sold, compute_empty_bids() of the mar_agent is called
                 else:
-                    bid["bes_" + str(n)][t] = mar_agent_prosumer[n].compute_empty_bids(n)
-                    # bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = 0
+                    bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_empty_bids(n)
 
 
     elif options["stackelberg"] == False:
@@ -155,7 +165,7 @@ def compute_bids(opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes, st
                 bid["bes_" + str(n)] = mar_agent_prosumer[n].compute_empty_bids(n)
                 #bes[n]["hp_dem"][n_opt, t-pars_rh["hour_start"][n_opt]] = 0
 
-    return bid
+    return bid, bes
 
 
 
@@ -231,6 +241,7 @@ def sort_participants(bid, par_rh, n_opt):
 
     # sort by buy or sell
     for t in par_rh["time_steps"][n_opt][0:4]:
+    #for t in par_rh["time_steps"][n_opt]:
         buy_list[t] = {}
         sell_list[t] = {}
         for n in range(len(bid)):

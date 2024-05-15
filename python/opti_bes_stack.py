@@ -22,7 +22,8 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
     # Extract parameters
     dt = par_rh["duration"][n_opt]
     # Create list of time steps per optimization horizon (dt --> hourly resolution)
-    time_steps = par_rh["time_steps"][n_opt][0:4]
+    #time_steps = par_rh["time_steps"][n_opt][0:4]
+    time_steps = par_rh["time_steps"][n_opt]
     # Durations of time steps # for aggregated RH
     # duration = par_rh["duration"][n_opt]
 
@@ -191,12 +192,18 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
 
     p_transaction_buyer_seller = {}  # Possible transaction amount of a buyer with a seller
     demand_from_seller = {}  # Total transaction amount of seller with all buyers
-
+    price = {}  # Price signal of a seller
     # Define decision variable p_transaction to optimize the trading amount between each buyer with each seller
     # and demand_from_seller to model the total demand of a seller from all buyers
     for t in time_steps:
         p_transaction_buyer_seller[t] = model.addVar(vtype="C", name="P_transaction_" + str(t))
         demand_from_seller[t] = model.addVar(vtype="C", name="Total_demand_from_seller_" + str(t))
+
+        price[t] = {}
+        if t in price_signal and seller in price_signal[t]:
+            price[t][seller] = price_signal[t][seller]
+        else:
+            price[t] = {}
 
     # Update
     model.update()
@@ -241,10 +248,12 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
 
     ### Constraints for trading with participants
     # Cost of buying electricity from participants
+    # if is_buying:
+    #     model.addConstr(c_transaction == sum(p_transaction_buyer_seller[t] * price_signal[t].get(seller, 0) for t in time_steps),
+    #                         name="Transaction_cost")
     if is_buying:
-        model.addConstr(c_transaction == sum(p_transaction_buyer_seller[t] * price_signal[t].get(seller, 0) for t in time_steps),
+        model.addConstr(c_transaction == sum(p_transaction_buyer_seller[t] * price[t].get(seller, 0) for t in time_steps),
                             name="Transaction_cost")
-
 
 
     # Revenue from selling electricity to participants
@@ -254,7 +263,8 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
     # Constraint for trading amount
     for t in time_steps:
         if is_buying:
-            if seller in price_signal[t]:
+            # if seller in price_signal[t]:
+            if seller in price[t]:
                 if adjust_demand:
                     model.addConstr(p_transaction_buyer_seller[t] <= p_imp[t] * sdr[t][seller], name="max_transaction_amount_buyer")
                     model.addConstr(p_transaction_buyer_seller[t] >= 0, name="min_transaction_amount_buyer")
@@ -553,7 +563,7 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
 
     res_net_cost = {}
     res_net_cost = {(t): (p_imp[t].X - p_transaction_buyer_seller[t].X) * params["eco"]["pr", "el"]
-                    + p_transaction_buyer_seller[t].X * price_signal[t].get(seller, 0)
+                    + p_transaction_buyer_seller[t].X * price[t].get(seller, 0)
                     + gas["boiler"][t].X * params["eco"]["gas"] + gas["chp"][t].X * params["eco"]["gas"]
                     for t in time_steps}
 
@@ -564,7 +574,7 @@ def compute_opti_stack(node, params, par_rh, building_param, init_val, n_opt, op
         else:
             res_p_transaction_buyer_seller = {(t): p_transaction_buyer_seller[t].X for t in time_steps}
 
-    res_price_signal = {(t): price_signal[t].get(seller, 0) for t in time_steps}
+    res_price_signal = {(t): price[t].get(seller, 0) for t in time_steps}
 
 
 
