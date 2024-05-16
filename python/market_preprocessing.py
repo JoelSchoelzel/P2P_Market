@@ -78,12 +78,18 @@ def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, node
 
     weights = {}
 
+    if options["block_bids"] == True:
+        time_steps = par_rh["time_steps"][n_opt][0:options["block_length"]]
+    else:
+        time_steps = par_rh["time_steps"][n_opt]
+
     if options["stackelberg"] == True:
         for n in range(len(opti_res)):
             bid["bes_" + str(n)] = {}
             # get parameters for bidding at each time step
             # for t in par_rh["time_steps"][n_opt][0:4]:
             for t in par_rh["time_steps"][n_opt]:
+            # for t in time_steps:
                 p_imp = opti_res[n][4][t]
                 chp_sell = opti_res[n][8]["chp"][t]
                 pv_sell = opti_res[n][8]["pv"][t]
@@ -235,13 +241,19 @@ def sort_bids(bid, options, characs, n_opt):
 
 
 # New for Stackelberg: Sort the participants as buyers and sellers
-def sort_participants(bid, par_rh, n_opt):
+def sort_participants(bid, par_rh, n_opt, options):
     buy_list = {}
     sell_list = {}
 
+    if options["block_bids"] == True:
+        time_steps = par_rh["time_steps"][n_opt][0:options["block_length"]]
+    else:
+        time_steps = par_rh["time_steps"][n_opt]
+
     # sort by buy or sell
-    for t in par_rh["time_steps"][n_opt][0:4]:
+    #for t in par_rh["time_steps"][n_opt][0:4]:
     #for t in par_rh["time_steps"][n_opt]:
+    for t in time_steps:
         buy_list[t] = {}
         sell_list[t] = {}
         for n in range(len(bid)):

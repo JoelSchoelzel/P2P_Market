@@ -111,7 +111,8 @@ if __name__ == '__main__':
                "crit_prio": "alpha_el_flex_delayed", # criteria to assign priority for trading: price, alpha_el_flex_delayed
                "descending": True, # True: highest value of chosen has highest priority, False: lowest
                "flexible_demands": True,  # True: flexible demands aren't necessarily fulfilled every step
-                
+               "block_bids": True,  # True: Negotiation considers bids in a time block, False: Negotiation considers bids in every time step
+               "block_length": 4,  # length of block in hours
                "number_typeWeeks": 0, # set 0 in case no type weeks are investigated
                #"full_path_scenario": "C:\\Users\\miche\\districtgenerator_python\\data\\scenarios\\scenario4.csv", # scenario csv
                "full_path_scenario": ("C:/Users/cemca/PycharmProjects/MA/districtgenerator/data/scenarios/" + options_DG["scenario_name"] + ".csv"), # scenario csv, name set for DG is used
@@ -236,7 +237,7 @@ if __name__ == '__main__':
 
         # opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
 
-        # print('Opti results:', opti_results)
+        print('Opti results:', opti_results)
         # print('Mar dict:', mar_dict)
         # print('Trade res:', trade_res)
         # print('Characteristics:', characteristics)

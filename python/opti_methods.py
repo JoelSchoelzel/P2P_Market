@@ -234,7 +234,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                                                                    options, nodes, strategies)
 
                 # separate bids in buying and selling and store under "sorted_bids"
-                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_participants(mar_dict["bid"][n_opt], par_rh, n_opt)
+                mar_dict["sorted_bids"][n_opt] = mar_pre.sort_participants(mar_dict["bid"][n_opt], par_rh, n_opt, options)
 
                 buy_list_sorted, sell_list_sorted = mar_dict["sorted_bids"][n_opt]
 

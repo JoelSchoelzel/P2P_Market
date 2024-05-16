@@ -26,8 +26,10 @@ def take(n, iterable):
 def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param, init_val, n_opt, options):
 
     # Get the time step
-    time_steps = par_rh["time_steps"][n_opt][0:4]
-    #time_steps = par_rh["time_steps"][n_opt]
+    if options["block_bids"] == True:
+        time_steps = par_rh["time_steps"][n_opt][0:options["block_length"]]
+    else:
+        time_steps = par_rh["time_steps"][n_opt]
 
     # Dictionary to store results of stackelberg game
     stack_trans_res = {}
@@ -139,21 +141,21 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
         share_seller[t] = {seller["building"]: 1 / num_sellers for seller in sell_list[t].values()}
         opti_stack_res_buyer[t] = {buyer["building"]: {seller["building"]: {} for seller in sell_list[t].values()} for buyer in buy_list[t].values()}
         opti_stack_adj[t] = {buyer["building"]: {seller["building"]: {} for seller in sell_list[t].values()} for buyer in buy_list[t].values()}
-        p_transaction[t] = {buyer["building"]: {seller["building"]: {} for seller in sell_list[t].values()} for buyer in buy_list[t].values()}
+        p_transaction[t] = {buyer["building"]: {seller["building"]: 0.0 for seller in sell_list[t].values()} for buyer in buy_list[t].values()}
         obj_val_buyer[t] = {buyer["building"]: {seller["building"]: {} for seller in sell_list[t].values()} for buyer in buy_list[t].values()}
         obj_val_adj[t] = {buyer["building"]: {seller["building"]: {} for seller in sell_list[t].values()} for buyer in buy_list[t].values()}
-        net_cost_value[t] = {seller["building"]: {} for seller in sell_list[t].values()}
-        net_cost[t] = {seller["building"]: {} for seller in sell_list[t].values()}
-        total_demand_seller[t] = {seller["building"]: {} for seller in sell_list[t].values()}
-        actual_trade_seller[t] = {seller["building"]: {} for seller in sell_list[t].values()}
-        total_revenue_seller[t] = {seller["building"]: {} for seller in sell_list[t].values()}
-        total_trade_buyer[t] = {buyer["building"]: {} for buyer in buy_list[t].values()}
-        demand_buyer[t] = {buyer["building"]: {} for buyer in buy_list[t].values()}
-        total_cost_buyer[t] = {buyer["building"]: {} for buyer in buy_list[t].values()}
+        net_cost_value[t] = {seller["building"]: 0.0 for seller in sell_list[t].values()}
+        net_cost[t] = {seller["building"]: 0.0 for seller in sell_list[t].values()}
+        total_demand_seller[t] = {seller["building"]: 0.0 for seller in sell_list[t].values()}
+        actual_trade_seller[t] = {seller["building"]: 0.0 for seller in sell_list[t].values()}
+        total_revenue_seller[t] = {seller["building"]: 0.0 for seller in sell_list[t].values()}
+        total_trade_buyer[t] = {buyer["building"]: 0.0 for buyer in buy_list[t].values()}
+        demand_buyer[t] = {buyer["building"]: 0.0 for buyer in buy_list[t].values()}
+        total_cost_buyer[t] = {buyer["building"]: 0.0 for buyer in buy_list[t].values()}
         # power_from_grid[t] = {buyer["building"]: {} for buyer in buy_list[t].values()}
         # power_to_grid[t] = {seller["building"]: {} for seller in sell_list[t].values()}
-        previous_price_signal[t] = {seller["building"]: {} for seller in sell_list[t].values()}
-        new_price_signal[t] = {seller["building"]: {} for seller in sell_list[t].values()}
+        previous_price_signal[t] = {seller["building"]: 0.0 for seller in sell_list[t].values()}
+        new_price_signal[t] = {seller["building"]: 0.0 for seller in sell_list[t].values()}
         average_net_cost[t] = {}
         stack_trans_res[t] = {}
         step_cost_buyer[t] = {buyer["building"]: {seller["building"]: {} for seller in sell_list[t].values()} for buyer in buy_list[t].values()}
@@ -329,25 +331,50 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                     for seller in sell_list[t].values():
                         price_signal[t][seller["building"]] = previous_price_signal[t][seller["building"]]
 
+                    # print t and k[t]
+                    print("Time step: ", t)
+                    print("Number of iterations: ", k[t])
                     break
 
                 # Stopping criteria: price signal
                 # if all(abs(price_signal[t][seller["building"]] - previous_price_signal[t][seller["building"]]) <= epsilon
                 #        for seller in sell_list[t].values()) or k[t] == 10:
                 #     break
-    for t in time_steps:
-        resulting_trade_seller[t] = {seller["building"]: {} for seller in sell_list[t].values()}
-        resulting_rev_seller[t] = {seller["building"]: {} for seller in sell_list[t].values()}
-        resulting_trade_buyer[t] = {buyer["building"]: {} for buyer in buy_list[t].values()}
-        resulting_cost_buyer[t] = {buyer["building"]: {} for buyer in buy_list[t].values()}
-        tot_dem_sel[t] = {seller["building"]: {} for seller in sell_list[t].values()}
+    results = []
 
+    for t in time_steps:
+        resulting_trade_seller[t] = {seller["building"]: 0.0 for seller in sell_list[t].values()}
+        resulting_rev_seller[t] = {seller["building"]: 0.0 for seller in sell_list[t].values()}
+        resulting_trade_buyer[t] = {buyer["building"]: 0.0 for buyer in buy_list[t].values()}
+        resulting_cost_buyer[t] = {buyer["building"]: 0.0 for buyer in buy_list[t].values()}
+        tot_dem_sel[t] = {seller["building"]: 0.0 for seller in sell_list[t].values()}
+
+        print("Time step2: ", t)
+        if t == 4565:
+            print("Stop here")
         if not buy_list[t] or not sell_list[t]:
             pass
 
         else:
+
             for seller in sell_list[t].values():
-                tot_dem_sel[t][seller["building"]] = (share_seller[t][seller["building"]] * sum(end_trans_res[buyer["building"]][seller["building"]][t] for buyer in buy_list[t].values()))
+                # tot_dem_sel[t][seller["building"]] = (share_seller[t][seller["building"]] * sum(end_trans_res[buyer["building"]][seller["building"]][t] for buyer in buy_list[t].values()))
+                share_sel = share_seller[t][seller["building"]]
+                if not isinstance(share_sel, (int, float)):
+                    print(f"Share is not a number: {share_sel} (type: {type(share_sel)})")
+                    continue
+
+                trade_sum_seller = 0.0
+                for buyer in buy_list[t].values():
+                    end_val = end_trans_res[buyer["building"]][seller["building"]][t]
+                    if isinstance(end_val, (int, float)):
+                        trade_sum_seller += end_val
+
+                    else:
+                        results.append(f"Unexpected value encountered: {end_val} (type: {type(end_val)})")
+
+                tot_dem_sel[t][seller["building"]] = share_sel * trade_sum_seller
+
                 if available_supply[t][seller["building"]] < tot_dem_sel[t][seller["building"]]:
                     new_sdr[t][seller["building"]] = available_supply[t][seller["building"]] / tot_dem_sel[t][
                         seller["building"]]
