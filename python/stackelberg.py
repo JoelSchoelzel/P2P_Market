@@ -14,7 +14,7 @@ from itertools import islice
 def recursive_defaultdict(depth):
     # Create a recursive defaultdict
     if depth == 1:
-        return defaultdict(dict)
+        return defaultdict(float)
     else:
         return defaultdict(lambda: recursive_defaultdict(depth - 1))
 
@@ -477,7 +477,7 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                 total_sold_market += resulting_trade_seller[t][seller["building"]]
                 total_sold_grid += power_exported_grid[seller["building"]][t]
 
-
+                seller_price = price_signal[t][seller["building"]]
                 available_supply_seller = available_supply[t][seller["building"]]
                 possible_demand_seller = total_demand_seller[t][seller["building"]]
                 total_trans_seller = resulting_trade_seller[t][seller["building"]]
@@ -488,6 +488,7 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                 soc_tes_seller = res_soc[seller["building"]]["tes"][t]
 
                 seller_trans_info[t][seller["building"]] = {
+                    "seller_price": seller_price,
                     "available_supply_seller": available_supply_seller,
                     "possible_demand_seller": possible_demand_seller,
                     "total_demand_seller": total_trans_seller,

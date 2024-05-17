@@ -16,6 +16,7 @@ import python.auction as auction
 import python.characteristics as characs
 import python.stackelberg as stack
 import python.opti_bes_last as last_opti
+import python.calc_results as calc_results
 import python.parse_inputs as parse_inputs
 def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
     # Run rolling horizon
@@ -293,7 +294,13 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params):
                             opti_res_new[n_opt][i][n] = {}
                             opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]
 
-        return mar_dict, characteristics, opti_res, tot_dem_before, tot_dem_after  # for stackelberg
+        res_time_step, res_month = calc_results.calculate_results(buyer_info=mar_dict["stack_buyer_res"],
+                                                                  seller_info=mar_dict["stack_seller_res"],
+                                                                  market_info=mar_dict["stack_total_res"],
+                                                                  par_rh=par_rh, options=options, opti_res=opti_res,
+                                                                  init_val=init_val)
+
+        return mar_dict, characteristics, opti_res, res_time_step, res_month  # for stackelberg
         # return opti_res_new, mar_dict, trade_res, characteristics  #for auction
 
     elif options["optimization"] == "P2P_typeWeeks":
