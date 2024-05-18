@@ -224,14 +224,6 @@ def calculate_results (buyer_info, seller_info, market_info, par_rh, options, op
 
     return results_time_step, results_month
 
-def save_results(results_time_step, results_month, time_step_res='results_time_step.pkl', monthly_res='results_month.pkl'):
-    # Save results_time_step
-    with open(time_step_res, 'wb') as f:
-        pickle.dump(results_time_step, f)
-
-    # Save results_month
-    with open(monthly_res, 'wb') as f:
-        pickle.dump(results_month, f)
 
 
 

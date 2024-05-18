@@ -10,6 +10,7 @@ import python.load_net as net
 import python.plots as plots
 import python.calc_output as output
 import pickle
+import os
 
 
 import numpy as np
@@ -51,6 +52,39 @@ def get_inputs(par_rh, options, districtData):
     return nodes, building_params, params, devs, net_data, par_rh
 
 
+def save_results(mar_dict, opti_results, res_time_step, res_month, options, par_rh):
+    # Base path for results
+    base_path = options["path_results"]
+
+    # Scenario name
+    scenario_name = options["scenario_name"]
+
+    # Month
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    month = months[par_rh["month"] - 1] if par_rh["month"] != 0 else "Full_Year"
+
+    # Bids type
+    bids_type = "block_bids" if options["block_bids"] else "hourly_bids"
+
+    # Horizon type
+    horizon_type = "total_horizon" if options["total_horizon_stack"] else "block_horizon"
+
+    # Create the directory path
+    directory_path = os.path.join(base_path, scenario_name, month, bids_type, horizon_type)
+    os.makedirs(directory_path, exist_ok=True)
+
+    # Save the results
+    with open(os.path.join(directory_path, 'mar_dict.pkl'), 'wb') as f:
+        pickle.dump(mar_dict, f)
+
+    with open(os.path.join(directory_path, 'opti_results.pkl'), 'wb') as f:
+        pickle.dump(opti_results, f)
+
+    with open(os.path.join(directory_path, 'res_time_step.pkl'), 'wb') as f:
+        pickle.dump(res_time_step, f)
+
+    with open(os.path.join(directory_path, 'res_month.pkl'), 'wb') as f:
+        pickle.dump(res_month, f)
 
 if __name__ == '__main__':
     # Start time (time measurement)
@@ -113,6 +147,7 @@ if __name__ == '__main__':
                "flexible_demands": True,  # True: flexible demands aren't necessarily fulfilled every step
                "block_bids": True,  # True: Negotiation considers bids in a time block, False: Negotiation considers bids in every time step
                "block_length": 4,  # length of block in hours
+               "total_horizon_stack": True,  # True: total prediction horizon for stackelberg game optimization, False: block length
                "number_typeWeeks": 0, # set 0 in case no type weeks are investigated
                #"full_path_scenario": "C:\\Users\\miche\\districtgenerator_python\\data\\scenarios\\scenario4.csv", # scenario csv
                "full_path_scenario": ("C:/Users/cemca/PycharmProjects/MA/districtgenerator/data/scenarios/" + options_DG["scenario_name"] + ".csv"), # scenario csv, name set for DG is used
@@ -142,7 +177,7 @@ if __name__ == '__main__':
     par_rh = {
         # Parameters for operational optimization
         "n_hours": 36, # ----,      number of hours of prediction horizon for rolling horizon
-        "n_hours_ov": 32, # ----,      number of hours of overlap horizon for rolling horizon
+        "n_hours_ov": 36 - options["block_length"], # ----,      number of hours of overlap horizon for rolling horizon
         "n_opt_max": 8760 , #8760  # -----,       maximum number of optimizations
         "month": 7,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data
@@ -157,83 +192,15 @@ if __name__ == '__main__':
     # Get following inputs:
     nodes, building_params, params, devs_pre_opti, net_data, par_rh = get_inputs(par_rh, options, districtData)
 
-
-    '''
-    ### Master version:
-    # Run (rolling horizon) optimization
-    if options["optimization"] == "central_typeWeeks":
-        central_opti_results, typeweeks_indices = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
-
-        # Compute plots
-        criteria_typeweeks, criteria_year = output.compute_out(options, options_DG, par_rh, central_opti_results,
-                                                               districtData.weights, params, building_params)
-
-        # Safe results
-        with open(options["path_results"] + "/central_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-            pickle.dump(central_opti_results, fp)
-
-    if options["optimization"] == "decentral_typeWeeks":
-        decentral_opti_results, typeweeks_indices = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
-
-        # Compute plots
-        criteria_typeweeks, criteria_year = output.compute_out_decentral(options, options_DG, par_rh, decentral_opti_results,
-                                                               districtData.weights, params, building_params)
-
-        # Safe results
-        with open(options["path_results"] + "/decentral_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-            pickle.dump(decentral_opti_results, fp)
-
-    elif options["optimization"] == "central":
-        central_opti_results = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
-
-    elif options["optimization"] == "decentral": # neither adapted to 15min input data nor to clustered data yet
-        decentral_opti = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
-
-    elif options["optimization"] == "P2P":
-        opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
-                                                                                                building_params, params)
-
-
-        # Compute plots
-        criteria = output.compute_out_P2P(options, options_DG, par_rh, opti_results, params, building_params,
-                                               trade_res, mar_dict)
-
-        # Safe results
-        with open(options["path_results"] + "/P2P_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-            pickle.dump(opti_results, fp)
-        with open(options["path_results"] + "/P2P_characteristics/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-            pickle.dump(characteristics, fp)
-        with open(options["path_results"] + "/P2P_mar_dict/" + options_DG["scenario_name"] + "_" + options["crit_prio"] + ".p", 'wb') as fp:
-            pickle.dump(mar_dict, fp)
-
-    elif options["optimization"] == "P2P_typeWeeks":
-        opti_results, typeweeks_indices, mar_dict, trade_res = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
-                                                                                                building_params, params)
-
-        # Compute plots
-        criteria_typeweeks, criteria_year = output.compute_out_P2P_typeWeeks(options, options_DG, par_rh, opti_results,
-                                                    districtData.weights, params, building_params, trade_res, mar_dict)
-
-
-        # Safe results
-        with open(options["path_results"] + "/P2P_typeWeeks_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-            pickle.dump(opti_results, fp)
-
-    # Compute plots
-    #criteria_typeweeks, criteria_year = output.compute_out(options, options_DG, par_rh, central_opti_results, districtData.weights, params, building_params)
-
-    # Safe results
-    #with open(options["path_results"] + "/central_opti_output/" + options_DG["scenario_name"] + ".p", 'wb') as fp:
-    #    pickle.dump(central_opti_results, fp)
-
-    '''
-
     #Newly added from dev_Michel
     # Run (rolling horizon) optimization for whole year or month
     if options["optimization"] == "P2P":
         # run optimization incl. trading
-        mar_dict, characteristics, opti_results, tot_dem_bef, tot_dem_aft \
+        mar_dict, characteristics, opti_results, res_time_step, res_month \
             = opti_methods.rolling_horizon_opti(options, nodes, par_rh,building_params, params)
+
+        # Save results
+        save_results(mar_dict, opti_results, res_time_step, res_month, options, par_rh)
 
         # opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
 
