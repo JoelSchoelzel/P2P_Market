@@ -52,12 +52,15 @@ def get_inputs(par_rh, options, districtData):
     return nodes, building_params, params, devs, net_data, par_rh
 
 
-def save_results(mar_dict, opti_results, res_time_step, res_month, options, par_rh):
+def save_results(mar_dict, opti_results, res_time_step, res_month, options, par_rh, options_DG):
     # Base path for results
     base_path = options["path_results"]
 
+    # Folder for plotting
+    results_plotting = "results_for_plotting"
     # Scenario name
-    scenario_name = options["scenario_name"]
+
+    scenario_name = options_DG["scenario_name"]
 
     # Month
     months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -70,7 +73,7 @@ def save_results(mar_dict, opti_results, res_time_step, res_month, options, par_
     horizon_type = "total_horizon" if options["total_horizon_stack"] else "block_horizon"
 
     # Create the directory path
-    directory_path = os.path.join(base_path, scenario_name, month, bids_type, horizon_type)
+    directory_path = os.path.join(base_path, results_plotting, scenario_name, month, bids_type, horizon_type)
     os.makedirs(directory_path, exist_ok=True)
 
     # Save the results
@@ -179,7 +182,7 @@ if __name__ == '__main__':
         "n_hours": 36, # ----,      number of hours of prediction horizon for rolling horizon
         "n_hours_ov": 36 - options["block_length"], # ----,      number of hours of overlap horizon for rolling horizon
         "n_opt_max": 8760 , #8760  # -----,       maximum number of optimizations
-        "month": 7,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
+        "month": 1,  # -----,     optimize this month 1-12 (1: Jan, 2: Feb, ...), set to 0 to optimize entire year
         # set month to 0 for clustered input data
 
         # Parameters for rolling horizon with aggregated foresight
@@ -200,7 +203,7 @@ if __name__ == '__main__':
             = opti_methods.rolling_horizon_opti(options, nodes, par_rh,building_params, params)
 
         # Save results
-        save_results(mar_dict, opti_results, res_time_step, res_month, options, par_rh)
+        save_results(mar_dict, opti_results, res_time_step, res_month, options, par_rh, options_DG)
 
         # opti_results, mar_dict, trade_res, characteristics = opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params)
 

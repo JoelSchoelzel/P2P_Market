@@ -478,6 +478,7 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                 total_sold_grid += power_exported_grid[seller["building"]][t]
 
                 seller_price = price_signal[t][seller["building"]]
+                seller_share = share_seller[t][seller["building"]]
                 available_supply_seller = available_supply[t][seller["building"]]
                 possible_demand_seller = total_demand_seller[t][seller["building"]]
                 total_trans_seller = resulting_trade_seller[t][seller["building"]]
@@ -489,6 +490,7 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
 
                 seller_trans_info[t][seller["building"]] = {
                     "seller_price": seller_price,
+                    "seller_share": seller_share,
                     "available_supply_seller": available_supply_seller,
                     "possible_demand_seller": possible_demand_seller,
                     "total_demand_seller": total_trans_seller,
