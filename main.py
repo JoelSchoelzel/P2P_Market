@@ -24,6 +24,7 @@ from classes import Datahandler
 from data import *
 #from settings import *
 
+test = "hallo"
 def get_inputs(par_rh, options, districtData):
     ### Load Params
     # load rolling horizon parameters
