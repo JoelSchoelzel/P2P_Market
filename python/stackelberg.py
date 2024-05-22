@@ -95,9 +95,6 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
             # Update the last time step where this seller was seen
             last_time_seller[seller["building"]] = t
 
-
-
-
     k = {}
     total_initial_sdd = {}
     for t in time_steps:
@@ -513,7 +510,8 @@ def stackelberg_game(buy_list, sell_list, nodes, params, par_rh, building_param,
                 "stopping_crit": sigma[t],
                 "num_iter": k[t],
                 "init_kum_dem": init_kum_dem,
-                "res_kum_dem": res_kum_dem
+                "res_kum_dem": res_kum_dem,
+                "total_initial_dsd": total_initial_sdd[t]
             }
 
 

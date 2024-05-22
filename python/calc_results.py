@@ -116,8 +116,10 @@ def calculate_results (buyer_info, seller_info, market_info, par_rh, options, op
     purchased_amount_grid = {t: 0.0 for t in time_steps}
     sold_amount_grid = {t: 0.0 for t in time_steps}
     trade_amount_grid = {t: 0.0 for t in time_steps}
-    demand_before_stack = {t: 0.0 for t in time_steps}
-    demand_after_stack = {t: 0.0 for t in time_steps}
+    demand_before_stack = {t: 0.0 for t in time_steps}  # initial demand before Stackelberg game
+    demand_after_stack = {t: 0.0 for t in time_steps}  # final demand after Stackelberg game
+    num_iter = {t: 0 for t in time_steps}  # number of iterations for each time step
+    init_dsd = {t: 0.0 for t in time_steps}  # initial demand supply difference for each time step
     for opt in range(par_rh["n_opt"]):
         start_time = par_rh["hour_start"][opt]
         end_time = start_time + options["block_length"]
@@ -129,6 +131,8 @@ def calculate_results (buyer_info, seller_info, market_info, par_rh, options, op
                 trade_amount_grid[t] = 0.0
                 demand_before_stack[t] = 0.0
                 demand_after_stack[t] = 0.0
+                num_iter[t] = 0
+                init_dsd[t] = 0.0
             else:
                 trade_amount_market[t] = market_info[opt][t]["total_purchase_market"] / 1000
                 purchased_amount_grid[t] = market_info[opt][t]["total_purchase_grid"] / 1000
@@ -136,6 +140,8 @@ def calculate_results (buyer_info, seller_info, market_info, par_rh, options, op
                 trade_amount_grid[t] = purchased_amount_grid[t] + sold_amount_grid[t]
                 demand_before_stack[t] = market_info[opt][t]["init_kum_dem"] / 1000
                 demand_after_stack[t] = market_info[opt][t]["res_kum_dem"] / 1000
+                num_iter[t] = market_info[opt][t]["num_iter"]
+                init_dsd[t] = market_info[opt][t]["total_initial_dsd"] / 1000
 
     # --------------------- Whole month ---------------------
     # initialize the total saved cost, additional revenue and gain for each time step
@@ -253,8 +259,9 @@ def calculate_results (buyer_info, seller_info, market_info, par_rh, options, op
                          "tot_pv_gen": tot_pv_gen,
                          "tot_chp_gen": tot_chp_gen,
                          "initial_demand": demand_before_stack,
-                         "final_demand": demand_after_stack
-
+                         "final_demand": demand_after_stack,
+                         "num_iter": num_iter,
+                         "init_dsd": init_dsd
                          }
 
     results_month = {"total_demand_month": market_demand_month,
@@ -566,7 +573,7 @@ def mock_data():
             }
         }
     }
-    market_info = {0: {4344: 0, 4345: 0, 4346: 0, 4347: 0}, 1:{4348: 0, 4349: {'total_purchase_market': 373.2085641875997, 'total_purchase_grid': 1759.4514358124004, 'total_sold_market': 373.2085641875997, 'total_sold_grid': 2.4215296434704214e-11, 'price_update_step_size': 0.05, 'stopping_crit': 500, 'num_iter': 1, 'init_kum_dem': 2132.66, 'res_kum_dem': 2132.66}, 4350: {'total_purchase_market': 2694.8642379213406, 'total_purchase_grid': 343.2557620786593, 'total_sold_market': 2694.8642379213406, 'total_sold_grid': 2.2737367544323206e-13, 'price_update_step_size': 0.05, 'stopping_crit': 500, 'num_iter': 1, 'init_kum_dem': 5170.779999999999, 'res_kum_dem': 5170.779999999999}, 4351: {'total_purchase_market': 6163.998379286083, 'total_purchase_grid': 492.25218526497775, 'total_sold_market': 6163.998379286083, 'total_sold_grid': 1018.5019037262755, 'price_update_step_size': 0.05, 'stopping_crit': 500, 'num_iter': 1, 'init_kum_dem': 11827.030564551062, 'res_kum_dem': 11827.030564551062}}}
+    market_info = {0: {4344: 0, 4345: 0, 4346: 0, 4347: 0}, 1:{4348: 0, 4349: {'total_purchase_market': 373.2085641875997, 'total_purchase_grid': 1759.4514358124004, 'total_sold_market': 373.2085641875997, 'total_sold_grid': 2.4215296434704214e-11, 'price_update_step_size': 0.05, 'stopping_crit': 500, 'num_iter': 1, 'init_kum_dem': 2132.66, 'res_kum_dem': 2132.66, 'total_initial_dsd':1000}, 4350: {'total_purchase_market': 2694.8642379213406, 'total_purchase_grid': 343.2557620786593, 'total_sold_market': 2694.8642379213406, 'total_sold_grid': 2.2737367544323206e-13, 'price_update_step_size': 0.05, 'stopping_crit': 500, 'num_iter': 1, 'init_kum_dem': 5170.779999999999, 'res_kum_dem': 5170.779999999999, 'total_initial_dsd':1000}, 4351: {'total_purchase_market': 6163.998379286083, 'total_purchase_grid': 492.25218526497775, 'total_sold_market': 6163.998379286083, 'total_sold_grid': 1018.5019037262755, 'price_update_step_size': 0.05, 'stopping_crit': 500, 'num_iter': 1, 'init_kum_dem': 11827.030564551062, 'res_kum_dem': 11827.030564551062, 'total_initial_dsd':1000}}}
 
     par_rh = {
         "n_opt": 2,
@@ -636,50 +643,4 @@ def test_calculate_results():
 test_calculate_results()
 
 
-
-
-
-
-
-'''
-    for t in time_steps:
-        resulting_trade_seller[t] = {seller["building"]: {} for seller in sell_list[t].values()}
-        resulting_rev_seller[t] = {seller["building"]: {} for seller in sell_list[t].values()}
-        resulting_trade_buyer[t] = {buyer["building"]: {} for buyer in buy_list[t].values()}
-        resulting_cost_buyer[t] = {buyer["building"]: {} for buyer in buy_list[t].values()}
-        tot_dem_sel[t] = {seller["building"]: {} for seller in sell_list[t].values()}
-
-        print("Time step2: ", t)
-        if t == 4565:
-            print("Stop here")
-        if not buy_list[t] or not sell_list[t]:
-            pass
-
-        else:
-            for seller in sell_list[t].values():
-                tot_dem_sel[t][seller["building"]] = (share_seller[t][seller["building"]] * sum(end_trans_res[buyer["building"]][seller["building"]][t] for buyer in buy_list[t].values()))
-                if available_supply[t][seller["building"]] < tot_dem_sel[t][seller["building"]]:
-                    new_sdr[t][seller["building"]] = available_supply[t][seller["building"]] / tot_dem_sel[t][
-                        seller["building"]]
-                else:
-                    new_sdr[t][seller["building"]] = 1
-
-                resulting_trade_seller[t][seller["building"]] = \
-                    sum(end_trans_res[buyer["building"]][seller["building"]][t] *
-                        share_seller[t][seller["building"]] * new_sdr[t][seller["building"]] for buyer in buy_list[t].values())
-
-                resulting_rev_seller[t][seller["building"]] = (price_signal[t][seller["building"]] *
-                                                               min(available_supply[t][seller["building"]],
-                                                                   resulting_trade_seller[t][seller["building"]]))
-
-            for buyer in buy_list[t].values():
-                resulting_trade_buyer[t][buyer["building"]] = sum(
-                    end_trans_res[buyer["building"]][seller["building"]][t] * new_sdr[t][seller["building"]] *
-                    share_seller[t][seller["building"]] for seller in sell_list[t].values())
-
-                resulting_cost_buyer[t][buyer["building"]] = sum(
-                    end_trans_res[buyer["building"]][seller["building"]][t] *
-                    new_sdr[t][seller["building"]] * share_seller[t][seller["building"]] * price_signal[t][
-                        seller["building"]] for seller in sell_list[t].values())
-'''
 

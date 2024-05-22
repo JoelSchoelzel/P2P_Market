@@ -129,7 +129,9 @@ if horizon == 'block_horizon':
         mscf_jan = list(Jan_bh_time_step['mscf'].values())
         mdcf_jan = list(Jan_bh_time_step['mdcf'].values())
         soc_bat_jan = Jan_bh_time_step['soc_bat'][11]
-        soc_tes_jan = Jan_bh_time_step['soc_tes'][18]
+        soc_tes_jan_0 = Jan_bh_time_step['soc_tes'][0]
+        soc_tes_jan_5 = Jan_bh_time_step['soc_tes'][5]
+        soc_tes_jan_7 = Jan_bh_time_step['soc_tes'][7]
 else:
     if Jan_th_time_step:
         time_steps_jan = list(Jan_th_time_step['traded_power_market'].keys())
@@ -146,7 +148,9 @@ else:
         mscf_jan = list(Jan_th_time_step['mscf'].values())
         mdcf_jan = list(Jan_th_time_step['mdcf'].values())
         soc_bat_jan = Jan_th_time_step['soc_bat'][11]
-        soc_tes_jan = Jan_th_time_step['soc_tes'][18]
+        soc_tes_jan_0 = Jan_th_time_step['soc_tes'][0]
+        soc_tes_jan_5 = Jan_th_time_step['soc_tes'][5]
+        soc_tes_jan_7 = Jan_th_time_step['soc_tes'][7]
 
 # Extracting data for time steps for April
 if horizon == 'block_horizon':
@@ -165,7 +169,17 @@ if horizon == 'block_horizon':
         mscf_apr = list(Apr_bh_time_step['mscf'].values())
         mdcf_apr = list(Apr_bh_time_step['mdcf'].values())
         soc_bat_apr = Apr_bh_time_step['soc_bat'][11]
-        soc_tes_apr = Apr_bh_time_step['soc_tes'][18]
+        soc_tes_apr_0 = Apr_bh_time_step['soc_tes'][0]
+        soc_tes_apr_5 = Apr_bh_time_step['soc_tes'][5]
+        soc_tes_apr_7 = Apr_bh_time_step['soc_tes'][7]
+        share_seller_8_apr = list(Apr_bh_time_step['seller_share']["bes_8"].values())
+        share_seller_9_apr = list(Apr_bh_time_step['seller_share']["bes_9"].values())
+        share_seller_10_apr = list(Apr_bh_time_step['seller_share']["bes_10"].values())
+        share_seller_11_apr = list(Apr_bh_time_step['seller_share']["bes_11"].values())
+        price_seller_8_apr = list(Apr_bh_time_step['seller_price']["bes_8"].values())
+        price_seller_9_apr = list(Apr_bh_time_step['seller_price']["bes_9"].values())
+        price_seller_10_apr = list(Apr_bh_time_step['seller_price']["bes_10"].values())
+        price_seller_11_apr = list(Apr_bh_time_step['seller_price']["bes_11"].values())
 else:
     if Apr_th_time_step:
         time_steps_apr = list(Apr_th_time_step['traded_power_market'].keys())
@@ -182,7 +196,18 @@ else:
         mscf_apr = list(Apr_th_time_step['mscf'].values())
         mdcf_apr = list(Apr_th_time_step['mdcf'].values())
         soc_bat_apr = Apr_th_time_step['soc_bat'][11]
-        soc_tes_apr = Apr_th_time_step['soc_tes'][18]
+        soc_tes_apr_0 = Apr_th_time_step['soc_tes'][0]
+        soc_tes_apr_5 = Apr_th_time_step['soc_tes'][5]
+        soc_tes_apr_7 = Apr_th_time_step['soc_tes'][7]
+        share_seller_8_apr = list(Apr_th_time_step['seller_share']["bes_8"].values())
+        share_seller_9_apr = list(Apr_th_time_step['seller_share']["bes_9"].values())
+        share_seller_10_apr = list(Apr_th_time_step['seller_share']["bes_10"].values())
+        share_seller_11_apr = list(Apr_th_time_step['seller_share']["bes_11"].values())
+        price_seller_8_apr = list(Apr_th_time_step['seller_price']["bes_8"].values())
+        price_seller_9_apr = list(Apr_th_time_step['seller_price']["bes_9"].values())
+        price_seller_10_apr = list(Apr_th_time_step['seller_price']["bes_10"].values())
+        price_seller_11_apr = list(Apr_th_time_step['seller_price']["bes_11"].values())
+
 
 # Extracting data for time steps for July
 if horizon == 'block_horizon':
@@ -200,7 +225,9 @@ if horizon == 'block_horizon':
     mscf_jul = list(Jul_bh_time_step['mscf'].values())
     mdcf_jul = list(Jul_bh_time_step['mdcf'].values())
     soc_bat_jul = Jul_bh_time_step['soc_bat'][11]
-    soc_tes_jul = Jul_bh_time_step['soc_tes'][18]
+    soc_tes_jul_0 = Jul_bh_time_step['soc_tes'][0]
+    soc_tes_jul_5 = Jul_bh_time_step['soc_tes'][5]
+    soc_tes_jul_7 = Jul_bh_time_step['soc_tes'][7]
 else:
     time_steps_jul = list(Jul_th_time_step['traded_power_market'].keys())
     traded_power_market_jul = list(Jul_th_time_step['traded_power_market'].values())
@@ -216,7 +243,9 @@ else:
     mscf_jul = list(Jul_th_time_step['mscf'].values())
     mdcf_jul = list(Jul_th_time_step['mdcf'].values())
     soc_bat_jul = Jul_th_time_step['soc_bat'][11]
-    soc_tes_jul = Jul_th_time_step['soc_tes'][18]
+    soc_tes_jul_0 = Jul_th_time_step['soc_tes'][0]
+    soc_tes_jul_5 = Jul_th_time_step['soc_tes'][5]
+    soc_tes_jul_7 = Jul_th_time_step['soc_tes'][7]
 
 # ------------ Extracting data for the whole month ------------
 # Extracting data for month in January
@@ -244,24 +273,24 @@ else:
 # Extracting data for month in April
 if horizon == 'block_horizon':
     if Apr_bh_month:
-        trade_power_month_apr = list(Apr_bh_month['traded_power_month'])
-        power_from_grid_month_apr = list(Apr_bh_month['power_from_grid_month'])
-        power_to_grid_month_apr = list(Apr_bh_month['power_to_grid_month'])
-        gain_month_apr = list(Apr_bh_month['gain_month'])
-        scf_month_apr = list(Apr_bh_month['scf_month'])
-        dcf_month_apr = list(Apr_bh_month['dcf_month'])
-        mscf_month_apr = list(Apr_bh_month['mscf_month'])
-        mdcf_month_apr = list(Apr_bh_month['mdcf_month'])
+        trade_power_month_apr = Apr_bh_month['traded_power_month']
+        power_from_grid_month_apr = Apr_bh_month['power_from_grid_month']
+        power_to_grid_month_apr = Apr_bh_month['power_to_grid_month']
+        gain_month_apr = Apr_bh_month['gain_month']
+        scf_month_apr = Apr_bh_month['scf_month']
+        dcf_month_apr = Apr_bh_month['dcf_month']
+        mscf_month_apr = Apr_bh_month['mscf_month']
+        mdcf_month_apr = Apr_bh_month['mdcf_month']
 else:
     if Apr_th_month:
-        trade_power_month_apr = list(Apr_th_month['traded_power_month'])
-        power_from_grid_month_apr = list(Apr_th_month['power_from_grid_month'])
-        power_to_grid_month_apr = list(Apr_th_month['power_to_grid_month'])
-        gain_month_apr = list(Apr_th_month['gain_month'])
-        scf_month_apr = list(Apr_th_month['scf_month'])
-        dcf_month_apr = list(Apr_th_month['dcf_month'])
-        mscf_month_apr = list(Apr_th_month['mscf_month'])
-        mdcf_month_apr = list(Apr_th_month['mdcf_month'])
+        trade_power_month_apr = Apr_th_month['traded_power_month']
+        power_from_grid_month_apr = Apr_th_month['power_from_grid_month']
+        power_to_grid_month_apr = Apr_th_month['power_to_grid_month']
+        gain_month_apr = Apr_th_month['gain_month']
+        scf_month_apr = Apr_th_month['scf_month']
+        dcf_month_apr = Apr_th_month['dcf_month']
+        mscf_month_apr = Apr_th_month['mscf_month']
+        mdcf_month_apr = Apr_th_month['mdcf_month']
 
 # Extracting data for month in July
 if horizon == 'block_horizon':
@@ -293,6 +322,7 @@ os.makedirs(plot_save_path, exist_ok=True)
 # Convert time steps to days for better readability
 time_steps_days_jan = [t / 24 for t in time_steps_jan]
 time_steps_days_jul = [t / 24 for t in time_steps_jul]
+time_steps_days_apr = [t / 24 for t in time_steps_apr]
 
 
 
@@ -345,7 +375,7 @@ plt.show()
 
 # Plot 4: Economic gain
 plt.plot(time_steps_days_jan, gain_jan, label='Economic Gain', color=green_ebc[2])
-plt.xlabel('Time [h]]')
+plt.xlabel('Time [Days]')
 plt.ylabel('Gain [€]')
 plt.title('Economic Gain for District 3 in January')
 plt.legend(fontsize=12)
@@ -393,13 +423,152 @@ plt.savefig(plot_name_png)
 plt.savefig(plot_name_svg)
 plt.show()
 
+#------------ Time step plots for April ------------
+# Plot 1: Total traded power inside the district
+plt.plot(time_steps_days_apr, total_supply_apr, label='Total Supply', color=green_ebc[0])
+plt.plot(time_steps_days_apr, total_demand_apr, label='Total Demand', color=red_ebc[0])
+plt.plot(time_steps_days_apr, traded_power_market_apr, label='Traded Power', color=blue_ebc[0])
+plt.xlabel('Days', fontsize=14)
+plt.ylabel('Energy in kWh', fontsize=14)
+plt.title('Total supply, demand and traded energy inside the district 3 in April')
+plt.legend(fontsize=12)
+plt.grid(True)
+plot_name_png = os.path.join(plot_save_path, "Total_Traded_Power_April.png")
+plot_name_svg = os.path.join(plot_save_path, "Total_Traded_Power_April.svg")
+plt.savefig(plot_name_png)
+plt.savefig(plot_name_svg)
+plt.show()
+
+# Plot 2: Power import/export to the grid
+plt.plot(time_steps_apr, power_from_grid_apr, label='Energy from Grid', color=orange_ebc[0])
+plt.plot(time_steps_apr, power_to_grid_apr, label='Energy to Grid', color=blue_ebc[0])
+plt.xlabel('Hours')
+plt.ylabel('Energy in kWh')
+plt.title('Energy Import/Export to the Grid for District 3 in April')
+plt.legend(fontsize=12)
+plt.grid(True)
+plot_name_png = os.path.join(plot_save_path, "Power_Import_Export_April.png")
+plot_name_svg = os.path.join(plot_save_path, "Power_Import_Export_April.svg")
+plt.savefig(plot_name_png)
+plt.savefig(plot_name_svg)
+plt.show()
+
+# Plot 3: Initial demand, resulting demand, and available supply
+plt.plot(time_steps_days_apr, initial_demand_apr, label='Initial Demand', color=red_ebc[2])
+plt.plot(time_steps_days_apr, final_demand_apr, label='Resulting Demand', color=green_ebc[2])
+plt.plot(time_steps_days_apr, total_supply_apr, label='Available Supply', color=black_ebc[0])
+plt.xlabel('Days')
+plt.ylabel('Energy in kWh')
+plt.title('Change in Demand and Available Supply for District 3 in April')
+plt.legend(fontsize=12)
+plt.grid(True)
+plot_name_png = os.path.join(plot_save_path, "Demand_Supply_April.png")
+plot_name_svg = os.path.join(plot_save_path, "Demand_Supply_April.svg")
+plt.savefig(plot_name_png)
+plt.savefig(plot_name_svg)
+plt.show()
+
+# Plot 4: Price and share for sellers
+hours_to_display = 36
+time_steps_days_apr_section = time_steps_days_apr[:hours_to_display]
+share_seller_8_apr_section = share_seller_8_apr[:hours_to_display]
+share_seller_9_apr_section = share_seller_9_apr[:hours_to_display]
+share_seller_10_apr_section = share_seller_10_apr[:hours_to_display]
+share_seller_11_apr_section = share_seller_11_apr[:hours_to_display]
+plt.plot(time_steps_days_apr_section, share_seller_8_apr_section, label='Share Seller 8', color=red_ebc[2])
+plt.plot(time_steps_days_apr_section, share_seller_9_apr_section, label='Share Seller 9', color=green_ebc[2])
+plt.plot(time_steps_days_apr_section, share_seller_10_apr_section, label='Share Seller 10', color=blue_ebc[2])
+plt.plot(time_steps_days_apr_section, share_seller_11_apr_section, label='Share Seller 11', color=black_ebc[2])
+plt.xlabel('Hours')
+plt.ylabel('Share')
+plt.title('Share of Sellers in the Market for District 3 in April')
+plt.legend(fontsize=12)
+plt.grid(True)
+plot_name_png = os.path.join(plot_save_path, "Share_Sellers_April.png")
+plot_name_svg = os.path.join(plot_save_path, "Share_Sellers_April.svg")
+plt.savefig(plot_name_png)
+plt.savefig(plot_name_svg)
+plt.show()
+
+price_seller_8_apr_section = price_seller_8_apr[:hours_to_display]
+price_seller_9_apr_section = price_seller_9_apr[:hours_to_display]
+price_seller_10_apr_section = price_seller_10_apr[:hours_to_display]
+price_seller_11_apr_section = price_seller_11_apr[:hours_to_display]
+plt.plot(time_steps_days_apr_section, price_seller_8_apr_section, label='Price Seller 8', color=red_ebc[2])
+plt.plot(time_steps_days_apr_section, price_seller_9_apr_section, label='Price Seller 9', color=green_ebc[2])
+plt.plot(time_steps_days_apr_section, price_seller_10_apr_section, label='Price Seller 10', color=blue_ebc[2])
+plt.plot(time_steps_days_apr_section, price_seller_11_apr_section, label='Price Seller 11', color=black_ebc[2])
+plt.xlabel('Time [h]')
+plt.ylabel('Price [€/kWh]')
+plt.title('Price of Sellers in the Market for District 3 in April')
+plt.legend(fontsize=12)
+plt.grid(True)
+plot_name_png = os.path.join(plot_save_path, "Price_Sellers_April.png")
+plot_name_svg = os.path.join(plot_save_path, "Price_Sellers_April.svg")
+plt.savefig(plot_name_png)
+plt.savefig(plot_name_svg)
+plt.show()
+
+
+
+
+# Plot 4: Economic gain
+plt.plot(time_steps_days_apr, gain_apr, label='Economic Gain', color=green_ebc[2])
+plt.xlabel('Time [Days]')
+plt.ylabel('Gain [€]')
+plt.title('Economic Gain')
+plt.legend(fontsize=12)
+plt.grid(True)
+plot_name_png = os.path.join(plot_save_path, "Economic_Gain_April.png")
+plot_name_svg = os.path.join(plot_save_path, "Economic_Gain_April.svg")
+plt.savefig(plot_name_png)
+plt.savefig(plot_name_svg)
+plt.show()
+
+# Define how many hours you want to display (120 for the first 5 days)
+hours_to_display = 24   # 24 hours per day * 5 days
+
+# Adjust the time steps and the corresponding values for the first 5 days
+time_steps_days_apr_section = time_steps_days_apr[:hours_to_display]
+scf_apr_section = scf_apr[:hours_to_display]
+dcf_apr_section = dcf_apr[:hours_to_display]
+mscf_apr_section = mscf_apr[:hours_to_display]
+mdcf_apr_section = mdcf_apr[:hours_to_display]
+# Plot 5: Supply Coverage Factor (SCF) and Demand Coverage Factor (DCF)
+plt.scatter(time_steps_days_apr_section, scf_apr_section, label='SCF', color=blue_ebc[2], marker='^')
+plt.scatter(time_steps_days_apr_section, dcf_apr_section, label='DCF', color=red_ebc[2], marker='s')
+plt.xlabel('Time [Days]')
+plt.ylabel('Factor [%]')
+plt.title('Supply Coverage Factor (SCF) and Demand Coverage Factor (DCF)')
+plt.legend(fontsize=12)
+plt.grid(True)
+plot_name_png = os.path.join(plot_save_path, "SCF_DCF_April.png")
+plot_name_svg = os.path.join(plot_save_path, "SCF_DCF_April.svg")
+plt.savefig(plot_name_png)
+plt.savefig(plot_name_svg)
+plt.show()
+
+# Plot 6: Market Supply Coverage Factor (MSCF) and Market Demand Coverage Factor (MDCF)
+plt.scatter(time_steps_days_apr_section, mscf_apr_section, label='MSCF', color=green_ebc[2], marker='^')
+plt.scatter(time_steps_days_apr_section, mdcf_apr_section, label='MDCF', color=black_ebc[2], marker='s')
+plt.xlabel('Time [Days]')
+plt.ylabel('Factor [%]')
+plt.title('Market Supply Coverage Factor (MSCF) and Market Demand Coverage Factor (MDCF)')
+plt.legend(fontsize=12)
+plt.grid(True)
+plot_name_png = os.path.join(plot_save_path, "MSCF_MDCF_April.png")
+plot_name_svg = os.path.join(plot_save_path, "MSCF_MDCF_April.svg")
+plt.savefig(plot_name_png)
+plt.savefig(plot_name_svg)
+plt.show()
+
 # ------------ Time step plots for July ------------
 # Plot 1: Total traded power inside the district
 plt.plot(time_steps_days_jul, total_supply_jul, label='Total Supply', color=green_ebc[0])
 plt.plot(time_steps_days_jul, total_demand_jul, label='Total Demand', color=red_ebc[0])
 plt.plot(time_steps_days_jul, traded_power_market_jul, label='Traded Power', color=blue_ebc[0])
 plt.xlabel('Time [Days]', fontsize=14)
-plt.ylabel('Power [kWh]', fontsize=14)
+plt.ylabel('Energy [kWh]', fontsize=14)
 plt.title('Total supply, demand and traded power inside the district 3 in July')
 plt.legend(fontsize=12)
 plt.grid(True)
@@ -427,7 +596,7 @@ plt.show()
 plt.plot(time_steps_days_jul, initial_demand_jul, label='Initial Demand', color=red_ebc[2])
 plt.plot(time_steps_days_jul, final_demand_jul, label='Resulting Demand', color=green_ebc[2])
 plt.plot(time_steps_days_jul, total_supply_jul, label='Available Supply', color=black_ebc[0])
-plt.xlabel('Time [h]')
+plt.xlabel('Time [Days]')
 plt.ylabel('Amount [kWh]')
 plt.title('Demand Change and Available Supply for District 3 in July')
 plt.legend(fontsize=12)
@@ -440,7 +609,7 @@ plt.show()
 
 # Plot 4: Economic gain
 plt.plot(time_steps_days_jul, gain_jul, label='Economic Gain', color=green_ebc[2])
-plt.xlabel('Time [h]]')
+plt.xlabel('Time [Days]')
 plt.ylabel('Gain [€*1000]')
 plt.title('Economic Gain')
 plt.legend(fontsize=12)
@@ -490,8 +659,9 @@ plt.show()
 
 # Plot 7: SOC of battery for building 11 in District 3 in July and January
 plt.plot(soc_bat_jul, label='SoC Battery Jul', color=blue_ebc[0])
+plt.plot(soc_bat_apr, label='SoC Battery Apr', color=green_ebc[0])
 plt.plot(soc_bat_jan, label='SoC Battery Jan', color=red_ebc[0])
-plt.xlabel('Time [Days]')
+plt.xlabel('Time [Opt]')
 plt.ylabel('SoC [kWh]')
 plt.title('SoC of Battery for Building 11 in District 3')
 plt.legend(fontsize=12)
@@ -502,21 +672,48 @@ plt.savefig(plot_name_png)
 plt.savefig(plot_name_svg)
 plt.show()
 
-# Plot 8: SOC of TES for building 18 in District 3 in July and January
-plt.plot(soc_tes_jul, label='SoC TES Jul', color=green_ebc[0])
-plt.plot(soc_tes_jan, label='SoC TES Jan', color=orange_ebc[0])
-plt.xlabel('Time [Days]')
-plt.ylabel('SoC [kWh]')
-plt.title('SoC of TES for Building 18 in District 3')
+# Plot 8: SOC of TES for buildings in District 3 in Jan, Apr, Jul
+plt.plot(soc_tes_jul_0, label='SoC TES Jul', color=red_ebc[0])
+plt.plot(soc_tes_apr_0, label='SoC TES Apr', color=green_ebc[0])
+plt.plot(soc_tes_jan_0, label='SoC TES Jan', color=blue_ebc[0])
+plt.xlabel('Optimization step')
+plt.ylabel('SoC in kWh')
+plt.title('SoC of TES for Building 0 in District 3')
 plt.legend(fontsize=12)
 plt.grid(True)
-plot_name_png = os.path.join(plot_save_path, "SOC_TES_18.png")
-plot_name_svg = os.path.join(plot_save_path, "SOC_TES_18.svg")
+plot_name_png = os.path.join(plot_save_path, "SOC_TES_0.png")
+plot_name_svg = os.path.join(plot_save_path, "SOC_TES_0.svg")
 plt.savefig(plot_name_png)
 plt.savefig(plot_name_svg)
 plt.show()
 
+plt.plot(soc_tes_jul_5, label='SoC TES Jul', color=red_ebc[0])
+plt.plot(soc_tes_apr_5, label='SoC TES Apr', color=green_ebc[0])
+plt.plot(soc_tes_jan_5, label='SoC TES Jan', color=blue_ebc[0])
+plt.xlabel('Optimization step')
+plt.ylabel('SoC in kWh')
+plt.title('SoC of TES for Building 5 in District 3')
+plt.legend(fontsize=12)
+plt.grid(True)
+plot_name_png = os.path.join(plot_save_path, "SOC_TES_5.png")
+plot_name_svg = os.path.join(plot_save_path, "SOC_TES_5.svg")
+plt.savefig(plot_name_png)
+plt.savefig(plot_name_svg)
+plt.show()
 
+plt.plot(soc_tes_jul_7, label='SoC TES Jul', color=red_ebc[0])
+plt.plot(soc_tes_apr_7, label='SoC TES Apr', color=green_ebc[0])
+plt.plot(soc_tes_jan_7, label='SoC TES Jan', color=blue_ebc[0])
+plt.xlabel('Optimization step')
+plt.ylabel('SoC in kWh')
+plt.title('SoC of TES for Building 7 in District 3')
+plt.legend(fontsize=12)
+plt.grid(True)
+plot_name_png = os.path.join(plot_save_path, "SOC_TES_7.png")
+plot_name_svg = os.path.join(plot_save_path, "SOC_TES_7.svg")
+plt.savefig(plot_name_png)
+plt.savefig(plot_name_svg)
+plt.show()
 # ------------ Monthly plots ------------
 months_full = ['January', 'April', 'July']
 
@@ -539,7 +736,7 @@ else:
 
 # Plot 1: Total trade inside the district
 total_traded_power = [trade_power_month_jan,
-                      trade_power_month_apr if Apr_bh_month else 0,
+                      trade_power_month_apr,
                       trade_power_month_jul]
 plt.figure(figsize=(10, 5))
 plt.bar(months_full, total_traded_power, color=blue_ebc[0])
@@ -555,10 +752,10 @@ plt.show()
 
 # Plot 2: Monthly power import/export
 power_from_grid_month = [power_from_grid_month_jan,
-                         power_from_grid_month_apr if Apr_bh_month else 0,
+                         power_from_grid_month_apr,
                          power_from_grid_month_jul]
 power_to_grid_month = [power_to_grid_month_jan,
-                       power_to_grid_month_apr if Apr_bh_month else 0,
+                       power_to_grid_month_apr,
                        power_to_grid_month_jul]
 plt.figure(figsize=(10, 5))
 width = 0.35
@@ -579,7 +776,7 @@ plt.show()
 
 # Plot 3: Monthly economic gain
 economic_gain_month = [gain_month_jan,
-                       gain_month_apr if Apr_bh_month else 0,
+                       gain_month_apr,
                        gain_month_jul]
 plt.figure(figsize=(10, 6))
 plt.bar(months_full, economic_gain_month, color=green_ebc[0])
@@ -595,10 +792,10 @@ plt.show()
 
 # Plot 4: Monthly SCF/DCF
 scf_month = [scf_month_jan * 100,
-             scf_month_apr * 100 if Apr_bh_month else 0,
+             scf_month_apr * 100,
              scf_month_jul * 100]
 dcf_month = [dcf_month_jan * 100,
-             dcf_month_apr * 100 if Apr_bh_month else 0,
+             dcf_month_apr * 100,
              dcf_month_jul * 100]
 plt.figure(figsize=(10, 6))
 width = 0.35
@@ -619,10 +816,10 @@ plt.show()
 
 # Plot 5: Monthly MSCF/MDCF
 mscf_month = [mscf_month_jan * 100,
-              mscf_month_apr * 100 if Apr_bh_month else 0,
+              mscf_month_apr * 100,
               mscf_month_jul * 100]
 mdcf_month = [mdcf_month_jan * 100,
-              mdcf_month_apr * 100 if Apr_bh_month else 0,
+              mdcf_month_apr * 100,
               mdcf_month_jul * 100]
 plt.figure(figsize=(10, 6))
 width = 0.35
