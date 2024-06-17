@@ -9,15 +9,15 @@ Created on Mon Dec 21 15:38:47 2015
 from __future__ import division
 import numpy as np
 import python.opti_bes as decentral_opti
-import python.opti_bes_negotiation as opti_bes_nego
+import python.opti_bes_negotiation as opti_bes_nego # MA Lena
 import python.opti_city as central_opti
 import python.market_preprocessing as mar_pre
-import python.market_preprocessing_nego as mar_pre_nego
+import python.market_preprocessing_nego as mar_pre_nego # MA Lena
 import python.bidding_strategies as bd
 import python.auction as auction
-import python.characteristics as characs
+import python.characteristics as characs # MA Lena
 import python.parse_inputs as parse_inputs
-import python.matching_negotiation as mat_neg
+import python.matching_negotiation as mat_neg # MA Lena
 import python.calc_results as calc_results
 
 
@@ -118,7 +118,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 # separate bids in buying & selling, sort by crit (mean price/quantity or flexibility characteristic)
                 mar_dict["sorted_bids"][n_opt], mar_dict["sell_list"][n_opt], mar_dict["buy_list"][n_opt] = \
                     mar_pre_nego.sort_block_bids(block_bid=mar_dict["block_bids"][n_opt], options=options,
-                                                 new_characs=characteristics[n_opt], n_opt=n_opt, par_rh=par_rh)
+                                                 characs=characteristics[n_opt], n_opt=n_opt, par_rh=par_rh)
 
                 # match the block bids to each other according to crit
                 mar_dict["matched_bids_info"][n_opt] \

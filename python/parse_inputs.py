@@ -307,93 +307,10 @@ def aggregate_foresight(nodes, param, n_opt):
 
     return nodes, param
 
-def read_demands(options, districtData,par_rh): # rea
-        
-    # Define path for use case input data
-    #path_file = options["path_file"]
-    #path_input = path_file + "/raw_inputs/demands_" + options["neighborhood"] + "/"
-    #path_nodes = path_input + name_nodefile
-    #path_demands = path_input + "demands\\"
+def read_demands(options, districtData, par_rh):
 
-    #datapoints = options["times"]
-    #time_hor = options["time_hor"]
-    #tweeks = options["tweeks"]
-
-
-    # todo: in options wird ein Netz ausgewählt, damit werden Netz- (Grenzen des ONS, Stränge, etc.) und Gebäudeinformationen gebündelt eingelesen --> z.B. number_bes
-    # Possible selection of typical grids
-    #if options["Dorfnetz"]:
-        #grid = "dorfnetz"
-    #else:
-        #grid = "vorstadtnetz"
-
-    # Building parameters
-    #building_params = pd.read_csv(path_input + "buildings_" + options["neighborhood"] + ".csv",delimiter=";")
-
-    options["nb_bes"] = districtData.district.__len__() # number of building energy systems
-    #datapoints = par_rh["datapoints"]
-
-
-    # Get heatloads of building categories
-    #heatloads = {}
-   # for cat in range(1,7):
-   #     heatloads[cat] = np.loadtxt(
-   #         open(path_input + "cat_" + str(cat) + ".csv","rb"), delimiter=";", skiprows=1) / 1000  # kW, heat demand
-
-    #building_list = ["EFH_1860_adv", "EFH_1860_retr", "EFH_1861_1918_adv", "EFH_1861_1918_retr", "EFH_1919_1948_adv",
-    #                 "EFH_1919_1948_def",
-    #                 "EFH_1919_1948_retr", "EFH_1949_1957_adv", "EFH_1949_1957_def", "EFH_1949_1957_retr",
-    #                 "EFH_1949_1957_adv",
-    #                 "EFH_1958_1968_adv", "EFH_1958_1968_retr", "EFH_1958_1968_def", "EFH_1969_1978_adv",
-    #                 "EFH_1969_1978_retr",
-    #                 "EFH_1969_1978_def", "EFH_1979_1983_adv", "EFH_1979_1983_retr", "EFH_1979_1983_def",
-    #                 "EFH_1984_1994_adv",
-    #                 "EFH_1984_1994_retr", "EFH_1984_1994_def", "EFH_1995_2001_adv", "EFH_1995_2001_def",
-    #                 "EFH_2002_2009_adv",
-    #                 "EFH_2002_2009_def", "EFH_2010_2019_def",
-    #                 "MFH_1860_adv", "MFH_1860_def", "MFH_1861_1918_adv", "MFH_1861_1918_retr", "MFH_1919_1948_adv",
-    #                 "MFH_1919_1948_def",
-    #                 "MFH_1919_1948_retr", "MFH_1949_1957_adv", "MFH_1949_1957_def", "MFH_1949_1957_retr",
-    #                 "MFH_1949_1957_adv",
-    #                 "MFH_1958_1968_adv", "MFH_1958_1968_retr", "MFH_1958_1968_def", "MFH_1969_1978_adv",
-    #                 "MFH_1969_1978_retr", "MFH_1969_1978_def", "MFH_1979_1983_adv", "MFH_1979_1983_retr",
-    #                 "MFH_1979_1983_def", "MFH_1984_1994_adv", "MFH_1984_1994_retr", "MFH_1984_1994_def",
-    #                 "MFH_1995_2001_adv", "MFH_1995_2001_def", "MFH_2002_2009_adv", "MFH_2002_2009_def",
-    #                 "MFH_2010_2019_def"
-    #                 ]
-
-    #for cat in building_list:
-    #    heatloads[cat] = np.loadtxt(
-    #        open(path_input + "/" + str(cat) + ".csv","rb"), delimiter=";", skiprows=1) / 1000  # kW, heat demand
-
-    # Fill nodes dictionairy with demands (electricity, drinking hot water, heat load)
-    #demands = {}
-    #for i in range(options["nb_bes"]):
-    #    demands[i] = {
-    #        "elec": np.loadtxt(
-    #            open(path_input + "/elec_" + str(i) + ".csv", "rb"),
-    #            delimiter=",", skiprows=1, usecols=1) / 1000,  # kW, electricity demand
-    #        "dhw": np.loadtxt(
-    #            open(path_input + "/dhw_" + str(i) + ".csv","rb"),
-    #            skiprows=1) / 1000,  # kW, domestic hot water demand
-    #    }
-
-       # for cat in range(1,7):
-       #     if cat == building_params["cat"][i]:
-       #         demands[i]["heat"] = heatloads[cat][:,1]
-       #     else:
-       #         pass
-
-     #   for cat in building_list:
-     #    if cat == building_params["type"][i]:
-     #       demands[i]["heat"] = heatloads[cat]
-     #    else:
-     #       pass
-
-    # Electric Vehicles # todo: read EV data from district generator
-    ev_share = options["ev_share"]
-    ev_data = ev_param.ev_load(options, options["nb_bes"])
-    ev_exists = ev_param.ev_share(ev_share, options["nb_bes"])
+    # number of building energy systems
+    options["nb_bes"] = districtData.district.__len__()
 
     building_params = {}
     nodes = {}
@@ -407,9 +324,10 @@ def read_demands(options, districtData,par_rh): # rea
                 "dhw": districtData.district[n]['user'].dhw,
                 "T_air": districtData.site['T_e'],
                 "type": districtData.district[n]['user'].building,
-                "ev_avail": ev_exists[n] * ev_data["avail"][:, n],
-                "ev_dem_arrive": ev_exists[n] * ev_data["dem_arrive"][:, n],
-                "ev_dem_leave": ev_exists[n] * ev_data["dem_leave"][:, n],
+                "ev_dem_arrive": districtData.district[n]['user'].car,
+                # Todo: im QG ergänzen
+                #"ev_avail": ev_exists[n] * ev_data["avail"][:, n],
+                #"ev_dem_leave": ev_exists[n] * ev_data["dem_leave"][:, n],
                 "pv_power": districtData.district[n]['generationPV'],
                 "devs": {}
             }
@@ -446,9 +364,9 @@ def read_demands(options, districtData,par_rh): # rea
                     "dhw": districtData.district[n]['user'].dhw_cluster[k],
                     "T_air": districtData.site['T_e_cluster'][k],
                     "type": districtData.district[n]['user'].building,
-                    "ev_avail": ev_exists[n] * ev_data["avail"][:, n],
-                    "ev_dem_arrive": ev_exists[n] * ev_data["dem_arrive"][:, n],
-                    "ev_dem_leave": ev_exists[n] * ev_data["dem_leave"][:, n],
+                    #"ev_avail": ev_exists[n] * ev_data["avail"][:, n],
+                    #"ev_dem_arrive": ev_exists[n] * ev_data["dem_arrive"][:, n],
+                    #"ev_dem_leave": ev_exists[n] * ev_data["dem_leave"][:, n],
                     #"pv_power": districtData.district[n]['generation_cluster'][k],
                     "devs": {}
                 }
@@ -486,53 +404,22 @@ def read_demands(options, districtData,par_rh): # rea
         building_params["ev_exists"] = np.zeros(shape=(options["nb_bes"], 1))
         building_params["pv_exists"] = pv_exists
 
-    #for n in nodes:
-    #    nodes["building_" + str(n)]["ev_avail"] = np.zeros(shape=(time_hor, tweeks))
-    #    nodes["building_" + str(n)]["ev_dem_arrive"] = np.zeros(shape=(time_hor, tweeks))
-    #    nodes["building_" + str(n)]["ev_dem_leave"] = np.zeros(shape=(time_hor, tweeks))
-    #    for m in range(tweeks):
-    #        for t in range(time_hor):
-
-    #building_params["ev_exists"] = ev_exists
-
     return nodes, building_params, options
 
 
 
 
     
-def map_devices(options, nodes, building_params, par_rh, districtData): # maps devices from district generator to nodes
-
-
-
-    devs = {}
-
-
-    #devs["bat"] = {}
-    #devs["boiler"] = {}
-    #devs["hp35"] = {}
-    #devs["hp55"] = {}
-    #devs["chp"] = {}
-    #devs["bz"] = {}
-    #devs["eh"] = {}
-    #devs["tes"] = {}
-    #devs["ev"] = {}
-
-    # get Sunfire fuel cell distribution in district from file
-    district = pd.read_csv(options["full_path_scenario"],
-        header=0, delimiter=";")  # todo: path has to be adjusted
+def map_devices(options, nodes, building_params, par_rh, districtData):
 
     T_e_mean = [] # mean of outdoor temperature
-
     for k in range(options["number_typeWeeks"]):
         T_e_mean.append(np.mean(nodes[k][0]["T_air"]))
 
+    devs = {}
     for n in range(options["nb_bes"]):
+
         devs[n] = {}
-        """
-            - eta = Q/P
-            - omega = (Q+P) / E
-        """
         # BATTERY
         # TODO: k_loss
         devs[n]["bat"] = dict(cap=0.0, min_soc=0.05, max_ch=0.6, max_dch=0.6, max_soc=0.95, eta_bat=0.97, k_loss=0)
@@ -555,9 +442,7 @@ def map_devices(options, nodes, building_params, par_rh, districtData): # maps d
         devs[n]["ev"] = dict(cap=0.0, eta_ch_ev=0.97, eta_dch_ev=0.97, min_soc=0.05, max_soc=0.95, max_ch_ev=45,
                           max_dch_ev=40)
 
-        #nodes[n]["devs"] = {}
-
-
+        ###  maps devices from district generator to nodes
         devs[n]["tes"]["cap"] = districtData.district[n]['capacities']['TES']
 
         if districtData.district[n]['capacities']['BAT']:
@@ -589,8 +474,6 @@ def map_devices(options, nodes, building_params, par_rh, districtData): # maps d
 
         else:
             pass
-
-
 
         if options["number_typeWeeks"] == 0:
             nodes[n]["devs"]["bat"] = devs[n]["bat"]

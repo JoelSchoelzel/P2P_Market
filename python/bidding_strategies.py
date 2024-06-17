@@ -186,3 +186,19 @@ class mar_agent_bes(object):
         buying = str("False")
 
         return [p, q, buying, n], unflex
+
+    def one_price(self, bid, par_rh, n_opt, block_length):
+
+        price_list = []
+        for t in par_rh["time_steps"][n_opt][0:block_length]:
+            if bid[t][0] > 0:
+                price_list.append(bid[t][0])
+        #try:
+        #    mean_price = sum(price_list) / len(price_list)
+        #except ZeroDivisionError:
+        #    mean_price = 0
+        for t in par_rh["time_steps"][n_opt][0:block_length]:
+            if bid[t][0] > 0:
+                bid[t][0] = price_list[0]
+
+        return bid

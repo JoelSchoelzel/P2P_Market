@@ -11,7 +11,9 @@ import gurobipy as gp
 import numpy as np
 import datetime
 
-def compute(node, params, par_rh, building_param, init_val, n_opt, options): # computes the optimal operation of the BES for the given prediction horizon
+# computes the optimal operation of the BES for the given prediction horizon
+def compute(node, params, par_rh, building_param, init_val, n_opt, options):
+
     # Define subsets
 
     heater = ("boiler", "chp", "eh", "hp35", "hp55")
@@ -37,8 +39,8 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
     COP35 = {}
     COP55 = {}
     PV_GEN = {}
-    EV_AVAIL = {}
-    EV_DEM_LEAVE = {}
+    #EV_AVAIL = {}
+    #EV_DEM_LEAVE = {}
 
     for i in range(len(time_steps)):
         param00 = time_steps[i]
@@ -53,8 +55,8 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
             COP35[param00] = np.mean([node["devs"]["COP_sh35"][param02], node["devs"]["COP_sh35"][param02 + param01 - 1]])
             COP55[param00] = np.mean([node["devs"]["COP_sh55"][param02], node["devs"]["COP_sh55"][param02 + param01 - 1]])
             PV_GEN[param00] = np.mean([node["pv_power"][param02], node["pv_power"][param02 + param01 - 1]])
-            EV_AVAIL[param00] = np.mean([node["ev_avail"][param02], node["ev_avail"][param02 + param01 - 1]])
-            EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave"][param02], node["ev_dem_leave"][param02 + param01 - 1]])
+            #EV_AVAIL[param00] = np.mean([node["ev_avail"][param02], node["ev_avail"][param02 + param01 - 1]])
+            #EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave"][param02], node["ev_dem_leave"][param02 + param01 - 1]])
         else:
             elec[param00] = np.mean([node["elec_appended"][param02], node["elec_appended"][param02 + param01 - 1]])
             heat[param00] = np.mean([node["heat_appended"][param02], node["heat_appended"][param02 + param01 - 1]])
@@ -62,8 +64,8 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
             COP35[param00] = np.mean([node["devs"]["COP_sh35_appended"][param02], node["devs"]["COP_sh35_appended"][param02 + param01 - 1]])
             COP55[param00] = np.mean([node["devs"]["COP_sh55_appended"][param02], node["devs"]["COP_sh55_appended"][param02 + param01 - 1]])
             PV_GEN[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
-            EV_AVAIL[param00] = np.mean([node["ev_avail_appended"][param02], node["ev_avail_appended"][param02 + param01 - 1]])
-            EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave_appended"][param02], node["ev_dem_leave_appended"][param02 + param01 - 1]])
+            #EV_AVAIL[param00] = np.mean([node["ev_avail_appended"][param02], node["ev_avail_appended"][param02 + param01 - 1]])
+            #EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave_appended"][param02], node["ev_dem_leave_appended"][param02 + param01 - 1]])
 
         demands = {
         "elec": elec,
@@ -72,8 +74,8 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
         "COP35": COP35,
         "COP55": COP55,
         "PV_GEN": PV_GEN,
-        "EV_AVAIL": EV_AVAIL,
-        "EV_DEM_LEAVE": EV_DEM_LEAVE,
+        #"EV_AVAIL": EV_AVAIL,
+        #"EV_DEM_LEAVE": EV_DEM_LEAVE,
         }
 
     model = gp.Model("Operation computation")
@@ -165,11 +167,6 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
         for t in time_steps:
             gas[dev][t] = model.addVar(vtype="C", name="gas" + dev + "_" + str(t))
 
-    # mapping PV areas
-    #area = {}
-    #for dev in solar:
-    #    area[dev] = building_param["modules"] * node["devs"]["pv"]["area_real"]
-
     # Activation decision variables
     # binary variable for each house to avoid simultaneous feed-in and purchase of electric energy
     y = {}
@@ -192,12 +189,10 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
 
     # Demand related costs (gas)
     for dev in ("boiler", "chp"):
-        #model.addConstr(c_dem[dev] == params["eco"]["gas", dev] * sum(gas[dev][t] for t in time_steps),
-        #                name="Demand_costs_" + dev)
         model.addConstr(c_dem[dev] == params["eco"]["gas"] * sum(gas[dev][t] for t in time_steps),
                         name="Demand_costs_" + dev)
 
-    # Demand related costs (electricity)    # eco["b"]["el"] * eco["crf"]
+    # Demand related costs (electricity)
     dev = "grid"
     model.addConstr(c_dem[dev] == sum(p_imp[t] * params["eco"]["pr", "el"] for t in time_steps),
                     name="Demand_costs_" + dev)
@@ -279,11 +274,6 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
             model.addConstr(power[dev][t] == demands["PV_GEN"][t],
                             name="Solar_electrical_" + dev + "_" + str(t))
 
-
-
-    #set solar to 0
-    #for t in time_steps:
-        #model.addConstr(power["pv"][t] == 0, name="Solar_electrical_pv_" + str(t))
     # %% BUILDING STORAGES # %% DOMESTIC FLEXIBILITIES
 
     ## Nominal storage content (SOC)
@@ -361,6 +351,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
                         name="Storage_balance_" + dev + "_" + str(t))
 
     # %% EV CONSTRAINTS CONSTRAINTS
+    """
     dev = "ev"
     # Energy balance
     for t in time_steps:
@@ -391,21 +382,17 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
 
         model.addConstr(soc[dev][t] >= node["devs"][dev]["min_soc"] * node["devs"][dev]["cap"])
         model.addConstr(soc[dev][t] <= node["devs"][dev]["max_soc"] * node["devs"][dev]["cap"])
+    """
 
     # Electricity balance (house)
     for t in time_steps:
-        model.addConstr(demands["elec"][t] + p_ch["bat"][t] - p_dch["bat"][t] + p_ch["ev"][t] - p_dch["ev"][t]
+        model.addConstr(demands["elec"][t] + p_ch["bat"][t] - p_dch["bat"][t]
                         + power["hp35"][t] + power["hp55"][t] + power["eh"][t] - p_use["chp"][t] - p_use["pv"][t]
                         == p_imp[t],
                         name="Electricity_balance_" + str(t))
 
 
-    # Guarantee that just feed-in OR load is possible
-    #for t in time_steps:
-    #    # TODO: net params
-    #    model.addConstr(y["house_load"][t] * 43.5 >= p_imp[t])  # Big M Methode --> Methodik
-    #    model.addConstr(p_imp[t] >= 0)
-    #    model.addConstr((1 - y["house_load"][t]) * 43.5 >= p_sell["pv"][t] + p_sell["chp"][t])  # 43.5: max Leistung am Hausanschluss
+
 
     p_rated = {}  # rated power of the house connection (elec)
     p_rated["MFH"] = 69282  # Kleinwandlermessung bis 100A
@@ -415,9 +402,8 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
         ratedPower = p_rated["MFH"]
     else:
         ratedPower = p_rated["SFH/TH"]
-
+    # Guarantee that just feed-in OR load is possible
     for t in time_steps:
-        # TODO: net params
         model.addConstr(y["house_load"][t] * ratedPower >= p_imp[t])  # Big M Methode --> Methodik
         model.addConstr(p_imp[t] >= 0)
         model.addConstr((1 - y["house_load"][t]) * ratedPower >= p_sell["pv"][t] + p_sell["chp"][t])
@@ -454,7 +440,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options): # c
     res_heat = {}
     res_soc = {}
 
-    for dev in ["bat", "ev", "house_load"]:
+    for dev in ["bat", "house_load"]:
         res_y[dev] = {(t): y[dev][t].X for t in time_steps}
 
     for dev in ["hp35", "hp55", "chp", "boiler", "eh"]:
