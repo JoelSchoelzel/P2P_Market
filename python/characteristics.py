@@ -118,20 +118,6 @@ def calc_characs(nodes, options, par_rh, block_length, opti_res: dict = None, st
                 # set to None if optimization results are not provided
                 soc_opti[dev] = None
 
-        ## Check if the heater is a boiler and set all characteristics to zero since there is no flexibility
-        # todo boiler + BAT
-        #if nodes[n]["devs"]["boiler"]["cap"] > 0:
-        #    for key in ["alpha_th", "beta_th"]:
-        #        characs[n][key] = 0
-        #    for key in ["tau_forced", "tau_delayed", "power_flex_forced", "power_flex_delayed", "power_avg_forced",
-        #                "power_avg_delayed", "power_cycle_forced", "power_cycle_delayed", "energy_forced",
-        #                "energy_delayed", "alpha_el_flex_forced", "alpha_el_flex_delayed", "beta_el_forced", "beta_el_delayed"]:
-        #        for time_step in block_bids_steps:
-        #                characs[n][key][time_step] = 0
-
-        #    continue  # Skip further calculations for this heater
-
-
         ### --------------------- heat --------------------- ###
 
         # alpha_th
@@ -177,7 +163,6 @@ def calc_characs(nodes, options, par_rh, block_length, opti_res: dict = None, st
                 else:
                     # TES assumed to be fully discharged at beginning if no SOC is provided
                     soc[dev] = 0
-            print(soc)
 
             ### -------------- tes -------------- ###
             # tau_forced: time it takes to charge
@@ -217,19 +202,16 @@ def calc_characs(nodes, options, par_rh, block_length, opti_res: dict = None, st
             while soc["bat"] < nodes[n]["devs"]["bat"]["cap"]:
                 # check whether there is a battery, break otherwise
                 if nodes[n]["devs"]["bat"]["cap"] == 0:
-                    print("check1")
                     break
                 # maximal charging of bat
                 max_charging = nodes[n]["devs"]["bat"]["cap"] * nodes[n]["devs"]["bat"]["max_ch"]
                 # check whether the BAT can be charged by maximal charging without exceeding the capacity
                 if soc["bat"] + max_charging <= nodes[n]["devs"]["bat"]["cap"]:
-                    print("check2")
                     # max_charging is added and tau_forced incremented by an hour
                     soc["bat"] += max_charging
                     tau_forced_bat += 1
                 # in case maximal charging would exceed the capacity:
                 else:
-                    print("check3")
                     # tau_forced is incremented by the fraction of the hour that charging is still possible
                     # constant rate of charging is assumed during the hour
                     tau_forced_bat += (nodes[n]["devs"]["bat"]["cap"] - soc["bat"]) / max_charging
@@ -238,11 +220,9 @@ def calc_characs(nodes, options, par_rh, block_length, opti_res: dict = None, st
                     soc["bat"] = nodes[n]["devs"]["bat"]["cap"]
                 # check whether end of data is reached
                 if t + tau_forced_bat >= max_step:
-                    print("check4")
                     break
 
             characs[n]["tau_forced_bat"][t] = tau_forced_bat
-            print("check5")
 
         for t in data_steps:
 
@@ -383,11 +363,11 @@ def calc_characs(nodes, options, par_rh, block_length, opti_res: dict = None, st
             elif opti_res[start_step][n][6]["bat"][t] > 0:
                 power_ref_bat[t] = opti_res[start_step][n][6]["bat"][t]
 
-            # maximum power that can be used/generated
+            # maximum electrical power that can be used/generated
             if nodes[n]["devs"]["hp35"]["cap"] > 0:
-                power_max_heat = nodes[n]["devs"]["hp35"]["cap"] * nodes[n]["devs"]["COP_sh35"][t] + (60 - 35) / (60 - 25) * nodes[n]["dhw"][t]
+                power_max_heat = nodes[n]["devs"]["hp35"]["cap"] / nodes[n]["devs"]["COP_sh35"][t] + nodes[n]["devs"]["eh"]["cap"]
             elif nodes[n]["devs"]["hp55"]["cap"] > 0:
-                power_max_heat = nodes[n]["devs"]["hp55"]["cap"] * nodes[n]["devs"]["COP_sh55"][t] + (60 - 55) / (60 - 25) * nodes[n]["dhw"][t]
+                power_max_heat = nodes[n]["devs"]["hp55"]["cap"] / nodes[n]["devs"]["COP_sh55"][t] + nodes[n]["devs"]["eh"]["cap"]
             else:
                 power_max_heat = nodes[n]["devs"]["chp"]["cap"] / nodes[n]["devs"]["chp"]["eta_th"] * nodes[n]["devs"]["chp"]["eta_el"]
 
@@ -421,8 +401,6 @@ def calc_characs(nodes, options, par_rh, block_length, opti_res: dict = None, st
             #characs[n]["alpha_el_flex_delayed"][n_opt] = alpha_el_flex_delayed
 
             ### -------------- power flexibility -------------- ###
-
-        print("Part 1 finished.")
 
         # ---- for heat ---- #
         power_avg_forced_heat = {}
@@ -531,8 +509,8 @@ def calc_characs(nodes, options, par_rh, block_length, opti_res: dict = None, st
 
         #characs[n]["power_bid_avg_forced_heat"] = np.mean(np.array(list(characs[n]["power_avg_forced_heat"].values())))
         #characs[n]["power_bid_avg_delayed_heat"] = np.mean(np.array(list(characs[n]["power_avg_delayed_heat"].values())))
-        characs[n]["energy_bid_avg_forced_heat"] = np.mean(np.array(list(characs[n]["energy_forced_heat"].values())))
-        characs[n]["energy_bid_avg_delayed_heat"] = np.mean(np.array(list(characs[n]["energy_delayed_heat"].values())))
+        characs[n]["energy_bid_avg_forced_heat"] = np.mean(np.array(list(characs[n]["power_flex_forced_heat"].values())[:5]))
+        characs[n]["energy_bid_avg_delayed_heat"] = np.mean(np.array(list(characs[n]["power_flex_delayed_heat"].values())[:5]))
 
             #beta_el_forced = energy_forced * par_rh["n_opt"] / (Q_SH + Q_DHW)
             #beta_el_delayed = energy_delayed * par_rh["n_opt"] / (Q_SH + Q_DHW)
@@ -649,10 +627,15 @@ def calc_characs(nodes, options, par_rh, block_length, opti_res: dict = None, st
 
         #characs[n]["power_bid_avg_forced_bat"] = np.mean(np.array(list(characs[n]["power_avg_forced_bat"].values())))
         #characs[n]["power_bid_avg_delayed_bat"] = np.mean(np.array(list(characs[n]["power_avg_delayed_bat"].values())))
-        characs[n]["energy_bid_avg_forced_bat"] = np.mean(np.array(list(characs[n]["energy_forced_bat"].values())))
-        characs[n]["energy_bid_avg_delayed_bat"] = np.mean(np.array(list(characs[n]["energy_delayed_bat"].values())))
+        characs[n]["energy_bid_avg_forced_bat"] = np.mean(np.array(list(characs[n]["power_flex_forced_bat"].values())[:5]))
+        characs[n]["energy_bid_avg_delayed_bat"] = np.mean(np.array(list(characs[n]["power_flex_delayed_bat"].values())[:5]))
 
-            #print("Calculating flexibility. Finished building: " + str(n) + ", n_opt: " + str(t_bid) + ".")
+        print("Calculating flexibility. Finished building: " + str(n) + ", n_opt: " + str(t_bid) + ".")
+
+        ## Check if the heater is a boiler and set all characteristics to zero since there is no flexibility
+        if nodes[n]["devs"]["boiler"]["cap"] > 0:
+            characs[n]["energy_bid_avg_forced_heat"] = 0
+            characs[n]["energy_bid_avg_delayed_heat"] = 0
 
         print("Calculating flexibility. Finished building " + str(n) + " finished.")
 

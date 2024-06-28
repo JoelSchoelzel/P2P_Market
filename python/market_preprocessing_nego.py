@@ -149,10 +149,14 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
             # add flexible energy forced & delayed to buy_list (only first timestep, since it is calculated for 36h)
             buy_block_bid_info = {"bes_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
                                   "mean_quantity": mean_quantity,
-                                  "energy_bid_avg_forced_heat": characs[bes_id]["energy_bid_avg_forced_heat"],
-                                  "energy_bid_avg_delayed_heat": characs[bes_id]["energy_bid_avg_delayed_heat"],
-                                  "energy_bid_avg_forced_bat": characs[bes_id]["energy_bid_avg_forced_bat"],
-                                  "energy_bid_avg_delayed_bat": characs[bes_id]["energy_bid_avg_delayed_bat"],
+                                  "flexibility": min(characs[bes_id]["energy_bid_avg_forced_heat"]
+                                                     + characs[bes_id]["energy_bid_avg_forced_bat"],
+                                                     characs[bes_id]["energy_bid_avg_delayed_heat"]
+                                                     + characs[bes_id]["energy_bid_avg_delayed_bat"])
+                                  #"energy_bid_avg_forced_heat": characs[bes_id]["energy_bid_avg_forced_heat"],
+                                  #"energy_bid_avg_delayed_heat": characs[bes_id]["energy_bid_avg_delayed_heat"],
+                                  #"energy_bid_avg_forced_bat": characs[bes_id]["energy_bid_avg_forced_bat"],
+                                  #"energy_bid_avg_delayed_bat": characs[bes_id]["energy_bid_avg_delayed_bat"],
                                   #"power_bid_avg_forced_heat": characs[bes_id]["power_bid_avg_forced_heat"],
                                   #"power_bid_avg_delayed_heat": characs[bes_id]["power_bid_avg_delayed_heat"],
                                   #"power_bid_avg_forced_bat": characs[bes_id]["power_bid_avg_forced_bat"],
@@ -185,10 +189,14 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
             # add flexible energy forced & delayed to sell_list (only first timestep, since it is calculated for 36h)
             sell_block_bid_info = {"bes_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
                                    "mean_quantity": mean_quantity,
-                                   "energy_bid_avg_forced_heat": characs[bes_id]["energy_bid_avg_forced_heat"],
-                                   "energy_bid_avg_delayed_heat": characs[bes_id]["energy_bid_avg_delayed_heat"],
-                                   "energy_bid_avg_forced_bat": characs[bes_id]["energy_bid_avg_forced_bat"],
-                                   "energy_bid_avg_delayed_bat": characs[bes_id]["energy_bid_avg_delayed_bat"],
+                                   "flexibility": min(characs[bes_id]["energy_bid_avg_delayed_heat"]
+                                                      + characs[bes_id]["energy_bid_avg_forced_bat"],
+                                                      characs[bes_id]["energy_bid_avg_forced_heat"]
+                                                      + characs[bes_id]["energy_bid_avg_delayed_bat"]),
+                                   #"energy_bid_avg_forced_heat": characs[bes_id]["energy_bid_avg_forced_heat"],
+                                   #"energy_bid_avg_delayed_heat": characs[bes_id]["energy_bid_avg_delayed_heat"],
+                                   #"energy_bid_avg_forced_bat": characs[bes_id]["energy_bid_avg_forced_bat"],
+                                   #"energy_bid_avg_delayed_bat": characs[bes_id]["energy_bid_avg_delayed_bat"],
                                    #"power_bid_avg_forced_heat": characs[bes_id]["power_bid_avg_forced_heat"],
                                    #"power_bid_avg_delayed_heat": characs[bes_id]["power_bid_avg_delayed_heat"],
                                    #"power_bid_avg_forced_bat": characs[bes_id]["power_bid_avg_forced_bat"],
@@ -221,8 +229,7 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
             sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_quantity"])
 
     # sort buy_list and sell_list by flexible mean energy if mean energy has been specified as criteria in options
-    # TODO: Verhältnis Angebot/Nachfrage berücksichten
-    # Todo: Unterschiedliche Bedeutung der Flexikennwerte für chp und hp berücksichtigen
+
     elif options["crit_prio"] == "flex_energy":
         # highest energy flexibility of seller (lowest flexibility of buyer) first if descending has been set True in options
         if options["descending"]:
@@ -235,8 +242,6 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
         else:
             sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"] + "_delayed"])
             sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_delayed"], reverse=True)
-
-    # TODO: elif options["crit_prio"] == "flex_power":
 
     elif options["crit_prio"] == "random":
         sorted_buy_list = buy_list

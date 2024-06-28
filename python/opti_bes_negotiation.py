@@ -12,8 +12,8 @@ import numpy as np
 import datetime
 import python.matching_negotiation as mat_neg
 
-def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_info,
-                 is_buying, delta_price, block_length, delta_price_seller=0):
+def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_info, transactions, r,
+                 is_buying, delta_price, block_length, buyer_id):
 
     """Optimization model for the buyers and sellers participating in the negotiation. It is the same as the initial
     optimization model run in opti_bes, but with the difference that there are additional constraints and variables
@@ -107,7 +107,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
              for dev in ("boiler", "chp", "grid")}
 
     revenue = {dev: model.addVar(vtype="C", name="revenue_" + dev)
-               for dev in ("chp", "pv")}
+               for dev in ("grid", "chp", "pv")}
 
     cost_trade = model.addVar(vtype="C", name="cost_trade")
 
@@ -164,6 +164,8 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     p_use = {}
     p_sell = {}
     y_imp = {}
+    p_grid_buy = {}
+    p_grid_sell = {}
 
     # Dicts for the variables of traded power and trading price
     power_trade = {}
@@ -187,6 +189,11 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     price_bid_buyer = {}
     price_bid_seller = {}
     #average_bid_price = {}
+    prev_quantity = {}
+    prev_price = {}
+    for t in time_steps[0:block_length]:
+        prev_quantity[t] = 0
+        prev_price[t] = (params["eco"]["sell_pv"] + params["eco"]["pr", "el"]) / 2
 
     # quantity and price of the buyer and seller is only set for block length
     if options["enhanced_horizon"]:
@@ -195,6 +202,15 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
             quantity_bid_buyer[t] = matched_bids_info[0][t][1]
             price_bid_seller[t] = matched_bids_info[1][t][0]
             quantity_bid_seller[t] = matched_bids_info[1][t][1]
+
+            if r > 0:
+                # considering traded quantities already in previous rounds
+                for round in range(r):
+                    if is_buying:
+                        prev_quantity[t] += transactions[matched_bids_info[0]["bes_id"]]["quantity"][round][t]
+                    else:
+                        prev_quantity[t] += transactions[matched_bids_info[1]["bes_id"]]["quantity"][round][t]
+
             #average_bid_price[t] = (price_bid_buyer[t] + price_bid_seller[t])/2
         for t in time_steps[block_length:]:
             price_bid_buyer[t] = 0
@@ -202,7 +218,6 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
             price_bid_seller[t] = 0
             quantity_bid_seller[t] = 0
             #average_bid_price[t] = 0
-
     else:
         for t in time_steps:
             price_bid_buyer[t] = matched_bids_info[0][t][0]
@@ -210,9 +225,30 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
             price_bid_seller[t] = matched_bids_info[1][t][0]
             quantity_bid_seller[t] = matched_bids_info[1][t][1]
             #average_bid_price[t] = (price_bid_buyer[t] + price_bid_seller[t])/2
+            #bid_price[t] = matched_bids_info[t][0]
+            #bid_quantity[t] = matched_bids_info[t][1]
+
+            if r > 0:
+                if is_buying:
+                    for round in range(1, len(transactions[matched_bids_info[0]["bes_id"]]["quantity"])):
+                        try:
+                    # p_imp in nachfolgenden Runden immer noch wie in erster Runde,
+                    # Prev quantity direkt p_imp zuordnen (>=) oder abziehen? oder
+                            prev_quantity[t] += transactions[matched_bids_info[0]["bes_id"]]["quantity"][round][t]
+                        except KeyError:
+                            prev_quantity[t] += 0
+                else:
+                    for round in range(1, len(transactions[matched_bids_info[1]["bes_id"]]["quantity"])):
+                        try:
+                            prev_quantity[t] += transactions[matched_bids_info[1]["bes_id"]]["quantity"][round][t]
+                        except KeyError:
+                            prev_quantity[t] += 0
+
 
     for t in time_steps:
         p_imp[t] = model.addVar(vtype="C", name="P_imp_" + str(t))
+        p_grid_buy[t] = model.addVar(vtype="C", name="P_grid_buy" + str(t))
+        p_grid_sell[t] = model.addVar(vtype="C", name="P_grid_sell" + str(t))
         y_imp[t] = model.addVar(vtype="B", lb=0.0, ub=1.0, name="y_imp_exp_" + str(t))
 
     for dev in ("chp", "pv"):
@@ -243,15 +279,18 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # Objective
     if is_buying:
-        model.setObjective(c_dem["grid"] - revenue["pv"] - revenue["chp"] + c_dem["boiler"]
+        model.setObjective(c_dem["grid"] - revenue["grid"] + c_dem["boiler"]
                        + c_dem["chp"] + cost_trade, gp.GRB.MINIMIZE)
     else:
-        model.setObjective(c_dem["grid"] - revenue["pv"] - revenue["chp"] + c_dem["boiler"]
+        model.setObjective(c_dem["grid"] - revenue["grid"] + c_dem["boiler"]
                        + c_dem["chp"] - revenue_trade, gp.GRB.MINIMIZE)
 
     ####### Define constraints
 
     # --------------- ECONOMIC CONSTRAINTS ---------------
+    if is_buying:
+        model.addConstr(sum(p_imp[t] for t in time_steps) >= sum(quantity_bid_buyer.values()),
+                        name = "Sum_p_imp")
 
     # Demand related costs (gas)
     for dev in ("boiler", "chp"):
@@ -260,12 +299,13 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # Demand related costs (electricity)
     dev = "grid"
-    model.addConstr(c_dem[dev] == sum(p_imp[t] * params["eco"]["pr", "el"] for t in time_steps),
+    model.addConstr(c_dem[dev] == sum(p_grid_buy[t] * params["eco"]["pr", "el"] for t in time_steps),
                     name="Demand_costs_" + dev)
 
     # Revenues for selling electricity to the grid / neighborhood
-    for dev in ("chp", "pv"):
-        model.addConstr(revenue[dev] == sum(p_sell[dev][t] * params["eco"]["sell" + "_" + dev] for t in time_steps),
+    #for dev in ("chp", "pv"):
+    dev = "grid"
+    model.addConstr(revenue[dev] == sum(p_grid_sell[t] * params["eco"]["sell" + "_pv"] for t in time_steps),
                         name="Feed_in_rev_" + dev)
 
     # Costs and revenues of trade
@@ -328,6 +368,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # --------------- TECHNICAL CONSTRAINTS ---------------
     # Constraints for trading power
+
     for t in time_steps:
         if is_buying:
             # power the buyer can trade is limited by the quantity the seller is willing to sell
@@ -346,7 +387,8 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     for t in time_steps:
         for dev in heater:
             if dev == "eh":
-                model.addConstr(power[dev][t] <= node["devs"][dev]["cap"])
+                model.addConstr(power[dev][t] <= node["devs"][dev]["cap"],
+                                name="Max_heat_operation_" + dev)
             else:
                 model.addConstr(heat[dev][t] <= node["devs"][dev]["cap"],
                                 name="Max_heat_operation_" + dev)
@@ -359,14 +401,14 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         dev = "hp35"
         model.addConstr(heat[dev][t] == power[dev][t] * demands["COP35"][t],
                         name="Power_equation_" + dev + "_" + str(t))
-        # TODO: Check need of mod_lvl
+
         model.addConstr(heat[dev][t] >= power[dev][t] * demands["COP35"][t] * node["devs"][dev]["mod_lvl"],
                         name="Min_pow_operation_" + dev + "_" + str(t))
 
         dev = "hp55"
         model.addConstr(heat[dev][t] == power[dev][t] * demands["COP55"][t],
                         name="Power_equation_" + dev + "_" + str(t))
-        # TODO: Check need of mod_lvl
+
         model.addConstr(heat[dev][t] >= power[dev][t] * demands["COP55"][t] * node["devs"][dev]["mod_lvl"],
                         name="Min_pow_operation_" + dev + "_" + str(t))
 
@@ -376,7 +418,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
         model.addConstr(power["chp"][t] == node["devs"]["chp"]["eta_el"] * gas["chp"][t],
                         name="Power_equation_" + dev + "_" + str(t))
-        # TODO: Check need of mod_lvl
+
         # model.addConstr(power["chp"][t] == node["devs"]["chp"]["eta_el"] * gas["chp"][t] * node["devs"]["chp"]["mod_lvl"],
         #                name="Min_power_equation_chp_" + str(t))
 
@@ -452,10 +494,8 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         model.addConstr(soc[dev][t] == soc_prev * eta_tes + dt[t] * (p_ch[dev][t] - p_dch[dev][t]),
                         name="Storage_bal_" + dev + "_" + str(t))
 
-
-
-
-        # TODO: soc at the end is the same like at the beginning
+        # soc at the end is the same like at the beginning: in this opti not needed
+        # since constraint for block bid quantity is added
         # if t == last_time_step:
         #    model.addConstr(soc[device][t] == soc_init[device],
         #                    name="End_TES_Storage_" + str(t))
@@ -509,10 +549,6 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
                         - p_dch[dev][t] / node["devs"][dev]["eta_dch_ev"] * dt[t]
                         - demands["EV_DEM_LEAVE"][t])
 
-        # TODO:
-        # if t == last_time_step:
-        #    model.addConstr(soc_dom[device][n][t] == soc_init[device][n])
-
         model.addConstr(p_dch[dev][t] <= demands["EV_AVAIL"][t] * node["devs"][dev]["max_dch_ev"])
         model.addConstr(p_ch[dev][t] <= demands["EV_AVAIL"][t] * node["devs"][dev]["max_ch_ev"])
 
@@ -528,16 +564,30 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     # Electricity balance (house)
     for t in time_steps:
         if is_buying:
-            model.addConstr(demands["elec"][t] + p_ch["bat"][t] - p_dch["bat"][t] + p_ch["ev"][t] - p_dch["ev"][t]
+            model.addConstr(demands["elec"][t] + p_ch["bat"][t] - p_dch["bat"][t]
                             + power["hp35"][t] + power["hp55"][t] + power["eh"][t] - p_use["chp"][t] - p_use["pv"][t]
-                            == p_imp[t] + power_trade["buyer"][t],
+                            == p_imp[t],
                             name="Electricity_balance_" + str(t))
+            model.addConstr(p_imp[t] == p_grid_buy[t] + power_trade["buyer"][t],# + prev_quantity[t],
+                            name="import=grid+trade+prev_" + str(t))
+            model.addConstr(0 == p_grid_sell[t], name="p_grid_sell==0_" + str(t))
+            # Split CHP and PV generation into self-consumed and sold powers
+            for dev in ("chp", "pv"):
+                model.addConstr(p_sell[dev][t] + p_use[dev][t] == power[dev][t],
+                                name="power=sell+use_" + dev + "_" + str(t))
         else:
             model.addConstr(demands["elec"][t] + p_ch["bat"][t] - p_dch["bat"][t]
                             + power["hp35"][t] + power["hp55"][t] + power["eh"][t] - p_use["chp"][t] - p_use["pv"][t]
-                            + power_trade["seller"][t]
                             == p_imp[t],
                             name="Electricity_balance_" + str(t))
+            #model.addConstr(p_imp[t] == p_grid[t])
+            # Split CHP and PV generation into self-consumed and sold powers
+            for dev in ("chp", "pv"):
+                model.addConstr(p_sell[dev][t] + p_use[dev][t] == power[dev][t],
+                                name="power=sell+use_" + dev + "_" + str(t))
+            model.addConstr(p_sell["chp"][t] + p_sell["pv"][t] == p_grid_sell[t] + power_trade["seller"][t],# + prev_quantity[t],
+                                name="sold=grid+trade+prev_" + str(t))
+            model.addConstr(0 == p_grid_buy[t], name="p_grid_buy==0_" + str(t))
 
     p_rated = {}  # rated power of the house connection (elec)
     p_rated["MFH"] = 69282  # Kleinwandlermessung bis 100A
@@ -549,15 +599,12 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         ratedPower = p_rated["SFH/TH"]
     # Guarantee that just feed-in OR load is possible
     for t in time_steps:
-        model.addConstr(y["house_load"][t] * ratedPower >= p_imp[t])  #  + power_trade["buyer"][t]
-        model.addConstr(p_imp[t] >= 0)
-        model.addConstr((1 - y["house_load"][t]) * ratedPower >= p_sell["pv"][t] + p_sell["chp"][t] )  #+ power_trade["seller"][t]
+        model.addConstr(y["house_load"][t] * ratedPower >= p_imp[t], name="binary_import_" + str(t))  #  + power_trade["buyer"][t]
+        model.addConstr(p_imp[t] >= 0, name="p_imp>=0_" + str(t))
+        model.addConstr((1 - y["house_load"][t]) * ratedPower >= p_sell["pv"][t] + p_sell["chp"][t],
+                        name="binary_export_" + str(t))  #+ power_trade["seller"][t]
 
-    # Split CHP and PV generation into self-consumed and sold powers
-    for dev in ("chp", "pv"):
-        for t in time_steps:
-            model.addConstr(p_sell[dev][t] + p_use[dev][t] == power[dev][t],
-                            name="power=sell+use_" + dev + "_" + str(t))
+
 
     # Set solver parameters
     model.Params.TimeLimit = params["gp"]["time_limit"]
@@ -571,9 +618,11 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # Write errorfile if optimization problem is infeasible or unbounded
     if model.status == gp.GRB.Status.INFEASIBLE or model.status == gp.GRB.Status.INF_OR_UNBD:
+        print(str(buyer_id))
+        print(prev_quantity)
         model.computeIIS()
         model.write("model.ilp")
-        f = open('errorfile_hp.txt', 'w')
+        f = open('errorfile.txt', 'w')
         f.write(str(datetime.datetime.now()) + '\nThe following constraint(s) cannot be satisfied:\n')
         for c in model.getConstrs():
             if c.IISConstr:
@@ -601,6 +650,8 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
                         for t in time_steps}
 
     res_p_imp = {(t): p_imp[t].X for t in time_steps}
+    res_p_grid_buy = {(t): p_grid_buy[t].X for t in time_steps}
+    res_p_grid_sell = {(t): p_grid_sell[t].X for t in time_steps}
     res_p_ch = {}
     res_p_dch = {}
     for dev in storage:
@@ -617,7 +668,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     res_c_dem = {}
     for dev in ["boiler", "chp"]:
         res_c_dem[dev] = {(t): params["eco"]["gas"] * gas[dev][t].X for t in time_steps}
-    res_c_dem["grid"] = {(t): p_imp[t].X * params["eco"]["pr", "el"] for t in time_steps}
+    res_c_dem["grid"] = {(t): p_grid_buy[t].X * params["eco"]["pr", "el"] for t in time_steps}
 
     res_rev = {}
     for dev in ["pv", "chp"]:
@@ -682,6 +733,9 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         "res_gas_sum": res_gas_sum,
         "res_power_trade": res_power_trade,
         "res_price_trade": res_price_trade,
+        "res_p_grid_buy": res_p_grid_buy,
+        "res_p_grid_sell": res_p_grid_sell,
+        "prev_quantity": prev_quantity,
     }
 
     return opti_bes_res

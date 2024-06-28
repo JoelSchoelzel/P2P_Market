@@ -1,0 +1,22 @@
+\ Model Operation computation_copy
+\ LP format - for model browsing. Use MPS format to capture full model detail.
+Minimize
+ 
+Subject To
+ Max_heat_operation_chp: Q_chp_2167 <= 0
+ heat_operation_chp_2167: Q_chp_2167 - 0.62 gaschp_2167 = 0
+ Power_equation_hp55_2167: P_chp_2167 - 0.3 gaschp_2167 = 0
+ Solar_electrical_pv_2167: P_pv_2167 = 90.69699165852201
+ power=sell+use_chp_2167: - P_chp_2167 + P_use_chp_2167 + P_sell_chp_2167
+   = 0
+ power=sell+use_pv_2167: - P_pv_2167 + P_use_pv_2167 + P_sell_pv_2167 = 0
+ sold=grid+trade+prev_2167: - Power_trade_seller_2167 - P_grid_sell2167
+   + P_sell_chp_2167 + P_sell_pv_2167 >= 181.3939833170443
+Bounds
+ P_chp_2167 free
+ Q_chp_2167 free
+ P_pv_2167 free
+ P_sell_chp_2167 free
+ P_sell_pv_2167 free
+ gaschp_2167 free
+End

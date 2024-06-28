@@ -199,7 +199,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 
 
 if __name__ == '__main__':
-    for scenario_name in ["Quartier_3"]:  # , "Quartier_2", "Quartier_3"]:
+    for scenario_name in ["AppliedEnergy"]:  # , "Quartier_2", "Quartier_3"]:
         first_run = True
         for month in [4]:  # , 7]:
             for block_length in [5]:  # , 3, 5]:

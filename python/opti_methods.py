@@ -66,7 +66,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             strategies = {}
 
         # START OPTIMIZATION (Start optimizations for the first time step of the block bids)
-        for n_opt in range(0, par_rh["n_opt"]):
+        for n_opt in range(0, 10):#par_rh["n_opt"]):
             opti_res[n_opt] = {}
             init_val[0] = {}
             init_val[n_opt+1] = {}
@@ -102,7 +102,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) +
                   "% of optimizations processed.")
 
-            # calculate new flexibility characteristics for 3 steps using the SOC from optimization results
+            # calculate new flexibility characteristics for length of block bids using the SOC from optimization results
             characteristics[n_opt] = characs.calc_characs(nodes=nodes, options=options, par_rh=par_rh,
                                                           block_length=block_length, opti_res=opti_res,
                                                           start_step=n_opt)
@@ -126,7 +126,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
 
                 # run negotiation optimization (with constraints adapted to matched peer) and save results
                 (mar_dict["negotiation_results"][n_opt], participating_buyers[n_opt], participating_sellers[n_opt],
-                 mar_dict["sorted_bids_nego"][n_opt], last_time_step[n_opt], mar_dict["matched_bids_info_nego"][n_opt])\
+                 mar_dict["sorted_bids_nego"][n_opt], last_time_step[n_opt], mar_dict["matched_bids_info_nego"][n_opt], mar_dict["transactions"][n_opt])\
                     = mat_neg.negotiation(nodes=nodes, params=params, par_rh=par_rh,
                                           init_val=init_val[n_opt], n_opt=n_opt, options=options,
                                           matched_bids_info=mar_dict["matched_bids_info"][n_opt],
@@ -218,13 +218,13 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                             opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]
 
         # ------------------ CALCULATE RESULTS ------------------
-        res_time, res_val = calc_results.calc_results_p2p(par_rh=par_rh, block_bids=mar_dict["block_bids"],
-                                                          options=options, block_length=block_length,
-                                                          nego_results=mar_dict["negotiation_results"],
-                                                          transactions_grid=mar_dict["transactions_with_grid"],
-                                                          init_val=init_val, last_time_step=last_time_step,
-                                                          opti_res=opti_res)
-
+        #res_time, res_val = calc_results.calc_results_p2p(par_rh=par_rh, block_bids=mar_dict["block_bids"],
+        #                                                  options=options, block_length=block_length,
+        #                                                  nego_results=mar_dict["negotiation_results"],
+        #                                                  transactions_grid=mar_dict["transactions_with_grid"],
+        #                                                  init_val=init_val, last_time_step=last_time_step,
+        #                                                  opti_res=opti_res)
+        res_time, res_val = 1,2
         # return opti_res_new, mar_dict, trade_res, characteristics  #opti_res,
         return mar_dict, characteristics, init_val, res_time, res_val, opti_res
 

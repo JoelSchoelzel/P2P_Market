@@ -25,6 +25,9 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     dt = par_rh["duration"][n_opt]
     # Create list of time steps per optimization horizon (dt --> hourly resolution)
     time_steps = par_rh["time_steps"][n_opt]
+    # last time step for soc_end
+    first_time_step = time_steps[0]
+    last_time_step = time_steps[-1]
     # Durations of time steps # for aggregated RH
     #duration = par_rh["duration"][n_opt]
 
@@ -311,13 +314,10 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         model.addConstr(soc[dev][t] == soc_prev * eta_tes + dt[t] * (p_ch[dev][t] - p_dch[dev][t]),
                         name="Storage_bal_" + dev + "_" + str(t))
 
-
-
-
-        # TODO: soc at the end is the same like at the beginning
-        # if t == last_time_step:
-        #    model.addConstr(soc[device][t] == soc_init[device],
-        #                    name="End_TES_Storage_" + str(t))
+        # soc at the end is the same like at the beginning
+        if t == last_time_step:
+           model.addConstr(soc["tes"][t] == soc["tes"][first_time_step],
+                            name="End_TES_Storage_" + str(t))
 
 
     dev = "bat"
