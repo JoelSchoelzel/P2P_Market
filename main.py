@@ -14,10 +14,12 @@ import datetime
 
 import sys
 # Define the path to the 'classes' directory
-classes_path = os.path.join('C:', 'Users', 'jsc', 'Python', 'districtgenerator', 'classes')
+#classes_path = os.path.join('C:', 'Users', 'jsc', 'Python', 'districtgenerator', 'classes')
+classes_path = 'C:/Users/jsc-tma/Masterarbeit_tma/Optimierung/districtgenerator'
+sys.path.append(classes_path)
 
 # Append the absolute path to sys.path
-sys.path.append(os.path.abspath(classes_path))
+#sys.path.append(os.path.abspath(classes_path))
 
 import classes
 
@@ -199,10 +201,10 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 
 
 if __name__ == '__main__':
-    for scenario_name in ["AppliedEnergy"]:  # , "Quartier_2", "Quartier_3"]:
+    for scenario_name in ["Small_District_test_MA"]:  # , "Quartier_2", "Quartier_3"]:
         first_run = True
         for month in [4]:  # , 7]:
-            for block_length in [5]:  # , 3, 5]:
+            for block_length in [1]:  # , 3, 5]:
                 for enhanced_horizon in [False]: #, True]:
                     for crit_prio in ["mean_quantity"]: #"mean_price", "mean_quantity",
                         mar_dict, characteristics, init_val, res_time, res_val, opti_res, par_rh, districtData = \
