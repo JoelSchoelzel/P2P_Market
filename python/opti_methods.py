@@ -20,12 +20,25 @@ import python.parse_inputs as parse_inputs
 import python.matching_negotiation as mat_neg # MA Lena
 import python.calc_results as calc_results
 
+import fmpy
+from fmpy import read_model_description, extract
+from fmpy.fmi2 import FMU2Slave
+from fmpy.util import plot_result, download_test_file
+from fmpy import *
+
 
 
 def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_length):
     # Run rolling horizon
-    init_val = {}  # not needed for first optimization, thus empty dictionary
-    opti_res = {}  # to store the results of the first bes optimization of each optimization step
+    init_val = {}       # not needed for first optimization, thus empty dictionary
+    init_val_opti = {}  # used for SOC comparisons in case of an MPC
+    opti_res = {}       # to store the results of the first bes optimization of each optimization step
+    tra_vol = {}        # to hand over the total bought/sold electricity of one time step
+    soc_bat_fmu = {}    # SOC of the battery retrieved from the Modelica simulation
+    soc_tes_fmu = {}    # SOC of the TES retrieved from the Modelica simulation
+    soc_bat_opti = {}   # SOC from init_val, but percentual, not in kWh
+    soc_diff_bat = {}       # difference between the simulation and optimization SOC
+    soc_diff_tes = {}       # difference between the simulation and optimization SOC
 
     if options["optimization"] == "P2P":
 
@@ -65,12 +78,54 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         else:
             strategies = {}
 
+
+        # FMU IMPORT AND INITIALIZATION
+        fmu_filename = 'FMU/Small_District_6houses_Boi.fmu'
+
+        start_time = 0
+        stop_time = 3600*24 # 1h in Sekunden
+        step_size = 3600  # Auflösung dyn. Sim; Communication Step size
+
+        # read the model description
+        model_description = read_model_description(fmu_filename)
+
+        # collect the value references (vr) for each variable
+        vr = {}
+        for variable in model_description.modelVariables:
+            vr[variable.name] = variable.valueReference
+
+        vr_traded_elec = []
+        vr_soc_bat = []
+        vr_soc_tes = []
+
+        # get the value references (vr) for the variables we want to get/set
+        for house in range(1, options["nb_bes"]+1): # different index, as house enumeration in Modelica model start with "1"
+            vr_traded_elec.append(vr['tra_vol_input' + str(house)])  # defines value reference for variable name
+            vr_soc_bat.append(vr['House'+ str(house) + '.electrical.distribution.batterySimple.SOC']) # defines value reference for variable name
+            vr_soc_tes.append(vr['House'+ str(house) + '.hydraulic.distribution.soc_sto']) # defines value reference for variable name
+
+        # extract the FMU
+        unzipdir = extract(fmu_filename)
+
+        fmu = FMU2Slave(guid=model_description.guid,
+                        unzipDirectory=unzipdir,
+                        modelIdentifier=model_description.coSimulation.modelIdentifier,
+                        instanceName='instance1')
+
+        # initialize
+        fmu.instantiate()
+        fmu.setupExperiment(startTime=start_time)
+        fmu.enterInitializationMode()
+        fmu.exitInitializationMode()
+
+
         # START OPTIMIZATION (Start optimizations for the first time step of the block bids)
         for n_opt in range(0, par_rh["n_opt"]):
             opti_res[n_opt] = {}
             init_val[0] = {}
             init_val[n_opt+1] = {}
             trade_res[n_opt] = {}
+            tra_vol[n_opt] = {}
 
             if n_opt == 0:
                 for n in range(options["nb_bes"]):
@@ -141,15 +196,112 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                             participating_sellers=participating_sellers[n_opt],
                                             params=params, par_rh=par_rh, n_opt=n_opt, block_length=block_length,
                                             opti_res=opti_res[n_opt])
+                
+                if options["mpc"]: 
+                    # Sum up the bought and sold energy quantities over the number of market rounds for every house using tra_vol
+                    # As tra_vol is the direct control variable for the simulation de/increasing the BESMod electrical generation, it has to be negative for sellers
+                    for house in range(0, options["nb_bes"]):
+                        vol_sum = 0 # intermediate variable, as dicts cannot use the += method
+                        tra_vol[n_opt][house] = {}
+                        if house in participating_buyers[n_opt]:
+                            l = list(mar_dict["transactions"][n_opt][house]["quantity"].values())
+                            for i in range(len(l)): # number of rounds, the house participated in (the last round is mostly started without successful negotiations)
+                                vol_sum += l[i][par_rh["month_start"][par_rh["month"]] + n_opt] # sum of the total energy quantitiy of the current house
+                            tra_vol[n_opt][house] = vol_sum
+                        elif house in participating_sellers[n_opt]:
+                            l = list(mar_dict["transactions"][n_opt][house]["quantity"].values())
+                            for i in range(len(l)):
+                                vol_sum += l[i][par_rh["month_start"][par_rh["month"]] + n_opt]
+                            tra_vol[n_opt][house] = -1 * vol_sum
+                        else:
+                            tra_vol[n_opt][house] = float(0)
+                        #set the control variable for the simulation
+                        fmu.setReal([vr_traded_elec[house]], [tra_vol[n_opt][house]]) 
 
-                # create initial SoC values for next optimization step
-                init_val[n_opt + 1] \
-                    = opti_bes_nego.compute_initial_values_block(nb_buildings=options["nb_bes"],
-                                                                 opti_res=opti_res[n_opt],
-                                                                 nego_transactions=mar_dict["negotiation_results"][n_opt],
-                                                                 last_time_step=last_time_step[n_opt],
-                                                                 participating_buyers=participating_buyers[n_opt],
-                                                                 participating_sellers=participating_sellers[n_opt])
+                    # simulate one time step
+                    fmu.doStep(currentCommunicationPoint=n_opt * 3600, communicationStepSize=step_size) #TODO checken, ob das richtig ist als "time"-Ersatz
+                    
+                    # create initial SoC values for next optimization step
+                    # in the case of Co-Simulation, the SOC is retrieved from the Modelica simulation
+                    # the standard method for the SOC initial_values is still used for a comparison of both values
+                    soc_diff_bat[n_opt] = {}
+                    soc_diff_tes[n_opt] = {}
+                    soc_bat_fmu[n_opt] = {}
+                    soc_tes_fmu[n_opt] = {}
+                    init_val_opti[n_opt + 1] \
+                        = opti_bes_nego.compute_initial_values_block(nb_buildings=options["nb_bes"],
+                                                                    opti_res=opti_res[n_opt],
+                                                                    nego_transactions=mar_dict["negotiation_results"][n_opt],
+                                                                    last_time_step=last_time_step[n_opt],
+                                                                    participating_buyers=participating_buyers[n_opt],
+                                                                    participating_sellers=participating_sellers[n_opt])
+                    for n in range(options["nb_bes"]):
+                        init_val[n_opt + 1]["building_" + str(n)] = {}
+                        init_val[n_opt + 1]["building_" + str(n)]["soc"] = {}
+                        soc_bat_fmu[n_opt][n] = fmu.getReal([vr_soc_bat[n]])
+                        #if soc_bat_fmu[n_opt][n][0] > 0.95:
+                            #soc_bat_fmu[n_opt][n][0] = 0.95
+                        init_val[n_opt + 1]["building_" + str(n)]["soc"]["bat"] \
+                            = soc_bat_fmu[n_opt][n][0] * opti_res[n_opt][n][12]["bat"] #SOC from simulation is percentual, optimization needs kWh
+                        #for boiler systems, dont use the Modelica SOC_TES
+                        #TODO nochmal klären!
+                        if nodes[n]["devs"]["boiler"]["cap"] != 0.0:
+                            init_val[n_opt + 1]["building_" + str(n)]["soc"]["tes"] \
+                            = init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["tes"]
+                        else:
+                            soc_tes_fmu[n_opt][n] = fmu.getReal([vr_soc_tes[house]])
+                            init_val[n_opt + 1]["building_" + str(n)]["soc"]["tes"] \
+                            = soc_tes_fmu[n_opt][n][0] * opti_res[n_opt][n][12]["tes"] #SOC from simulation is percentual, optimization needs kWh
+                        init_val[n_opt + 1]["building_" + str(n)]["soc"]["ev"] = 0 # no EVs examined
+                        
+                        if n_opt != 0:
+                            soc_diff_bat[n_opt][n] \
+                                = abs(soc_bat_fmu[n_opt][n] - init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["bat"]/opti_res[n_opt][n][12]["bat"])
+                            if nodes[n]["devs"]["boiler"]["cap"] == 0.0:
+                                soc_diff_tes[n_opt][n] \
+                                    = abs(soc_tes_fmu[n_opt][n] - init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["tes"]/opti_res[n_opt][n][12]["tes"])
+                else: 
+                    # create initial SoC values for next optimization step
+                    init_val[n_opt + 1] \
+                        = opti_bes_nego.compute_initial_values_block(nb_buildings=options["nb_bes"],
+                                                                    opti_res=opti_res[n_opt],
+                                                                    nego_transactions=mar_dict["negotiation_results"][n_opt],
+                                                                    last_time_step=last_time_step[n_opt],
+                                                                    participating_buyers=participating_buyers[n_opt],
+                                                                    participating_sellers=participating_sellers[n_opt])
+
+                """
+                output = {}
+                soc_bat_fmu[n_opt] = {}
+                soc_tes_fmu[n_opt] = {}
+                soc_bat_opti[n_opt] = {}
+                soc_diff[n_opt] = {}
+                for house in range(0, options["nb_bes"]):
+                    #TODO dies an den nächsten Schritt übergeben wie init_val; mit init_val vergleichen
+                    output[house] = fmu.getReal([vr_traded_elec[house]])
+                    soc_bat_fmu[n_opt][house] = fmu.getReal([vr_soc_bat[house]])
+                    if n_opt != 0:
+                        soc_bat_opti[n_opt][house] = init_val[n_opt]["building_" + str(house)]["soc"]["bat"]/opti_res[n_opt][house][12]["bat"]
+                        soc_diff[n_opt][house] = abs(soc_bat_fmu[n_opt][house] - soc_bat_opti[n_opt][house])
+                """
+                """                
+                # Sum up the bought and sold energy quantities over the number of market rounds for every house using tra_vol
+                # As tra_vol is the direct control variable for the simulation de/increasing the BESMod electrical generation, it has to be negative for sellers
+                for house in range(0, options["nb_bes"]):
+                    tra_vol[n_opt][house] = {}
+                    for r in range(1, len(mar_dict["transactions"][n_opt][house]["quantity"]) + 1):
+                        for match in range(1, len(mar_dict["negotiation_results"][n_opt][r])):
+                            if house == mar_dict["negotiation_results"][n_opt][r][match]["buyer"]:
+                                tra_vol[n_opt][house] = mar_dict["transactions"][n_opt][house]["quantity"][r][par_rh["month_start"][par_rh["month"]] + n_opt]
+                            elif house == mar_dict["negotiation_results"][n_opt][r][match]["seller"]: #TODO check, whether one house could theoretically be seller and buyer in the same round r
+                            #TODO check, whether one house could theoretically be seller and buyer in the same round r
+                                tra_vol[n_opt][house] = -1 * mar_dict["transactions"][n_opt][house]["quantity"][r][par_rh["month_start"][par_rh["month"]] + n_opt]
+                    #set the control variable for the simulation
+                    #fmu.setReal([vr_traded_elec[house+1]], tra_vol[n_opt][house]) # different index, as house enumeration in Modelica model start with "1"
+                """
+
+            
+
 
             # ----------------- P2P TRADING WITH AUCTION AND SINGLE BIDS -----------------
             elif not options["negotiation"]:

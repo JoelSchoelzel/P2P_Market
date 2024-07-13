@@ -418,21 +418,28 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     model.Params.TimeLimit = params["gp"]["time_limit"]
     model.Params.MIPGap = params["gp"]["mip_gap"]
     model.Params.MIPFocus = params["gp"]["numeric_focus"]
+    model.Params.DualReductions = 0
 
     # Execute calculation
     model.optimize()
     #        model.write("model.ilp")
 
+    if n_opt == 61:
+        print("HI")
+    optimstatus = model.Status
+    print(str(optimstatus))
     # Write errorfile if optimization problem is infeasible or unbounded
     if model.status == gp.GRB.Status.INFEASIBLE or model.status == gp.GRB.Status.INF_OR_UNBD:
         model.computeIIS()
         f = open('errorfile_hp.txt', 'w')
+        model.write("model.ilp")
         f.write(str(datetime.datetime.now()) + '\nThe following constraint(s) cannot be satisfied:\n')
         for c in model.getConstrs():
             if c.IISConstr:
                 f.write('%s' % c.constrName)
                 f.write('\n')
         f.close()
+    
 
     # Retrieve results
     res_y = {}

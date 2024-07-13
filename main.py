@@ -80,6 +80,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 
     # Set options for energy trading
     options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
+               "mpc": True, #True: use of model predictive control with simulation, False: sole optimizationegotiation
                "bid_strategy": "zero",  # zero for zero-intelligence, learning, devices
                "crit_prio": crit_prio,  # "flex_energy",
                # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
@@ -201,7 +202,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 
 
 if __name__ == '__main__':
-    for scenario_name in ["Small_District_test_MA"]:  # , "Quartier_2", "Quartier_3"]:
+    for scenario_name in ["Small_District_BOI"]:  # , "Quartier_2", "Quartier_3"]:
         first_run = True
         for month in [4]:  # , 7]:
             for block_length in [1]:  # , 3, 5]:
