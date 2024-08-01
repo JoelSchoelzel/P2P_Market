@@ -48,8 +48,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         # create trade_res to store results
         trade_res = {}
         last_time_step = {}
-        participating_buyers = {}
-        participating_sellers = {}
+        #participating_buyers = {}
+        #participating_sellers = {}
 
         # create characteristics to store flexibility characteristics of each building
         characteristics = {}
@@ -66,7 +66,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             strategies = {}
 
         # START OPTIMIZATION (Start optimizations for the first time step of the block bids)
-        for n_opt in range(0, 10):#par_rh["n_opt"]):
+        for n_opt in range(0, par_rh["n_opt"] - int(36/block_length)-1):
             opti_res[n_opt] = {}
             init_val[0] = {}
             init_val[n_opt+1] = {}
@@ -125,8 +125,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     = mat_neg.matching(sorted_block_bids=mar_dict["sorted_bids"][n_opt])
 
                 # run negotiation optimization (with constraints adapted to matched peer) and save results
-                (mar_dict["negotiation_results"][n_opt], participating_buyers[n_opt], participating_sellers[n_opt],
-                 mar_dict["sorted_bids_nego"][n_opt], last_time_step[n_opt], mar_dict["matched_bids_info_nego"][n_opt], mar_dict["transactions"][n_opt])\
+                (mar_dict["negotiation_results"][n_opt], mar_dict["sorted_bids_nego"][n_opt], last_time_step[n_opt],
+                 mar_dict["matched_bids_info_nego"][n_opt]), opti_res[n_opt] \
                     = mat_neg.negotiation(nodes=nodes, params=params, par_rh=par_rh,
                                           init_val=init_val[n_opt], n_opt=n_opt, options=options,
                                           matched_bids_info=mar_dict["matched_bids_info"][n_opt],
@@ -135,21 +135,14 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
 
                 # trade the remaining power with the grid
                 mar_dict["transactions_with_grid"][n_opt] = \
-                    mat_neg.trade_with_grid(sorted_bids=mar_dict["sorted_bids"][n_opt],
-                                            sorted_bids_nego=mar_dict["sorted_bids_nego"][n_opt],
-                                            participating_buyers=participating_buyers[n_opt],
-                                            participating_sellers=participating_sellers[n_opt],
-                                            params=params, par_rh=par_rh, n_opt=n_opt, block_length=block_length,
-                                            opti_res=opti_res[n_opt])
+                    mat_neg.trade_with_grid(sorted_bids=mar_dict["sorted_bids"][n_opt], params=params, par_rh=par_rh,
+                                            n_opt=n_opt, block_length=block_length, opti_res=opti_res[n_opt])
 
                 # create initial SoC values for next optimization step
                 init_val[n_opt + 1] \
-                    = opti_bes_nego.compute_initial_values_block(nb_buildings=options["nb_bes"],
-                                                                 opti_res=opti_res[n_opt],
-                                                                 nego_transactions=mar_dict["negotiation_results"][n_opt],
+                    = opti_bes_nego.compute_initial_values_block(nb_buildings=options["nb_bes"], opti_res=opti_res[n_opt],
                                                                  last_time_step=last_time_step[n_opt],
-                                                                 participating_buyers=participating_buyers[n_opt],
-                                                                 participating_sellers=participating_sellers[n_opt])
+                                                                 length_block_bid=block_length)
 
             # ----------------- P2P TRADING WITH AUCTION AND SINGLE BIDS -----------------
             elif not options["negotiation"]:
@@ -198,35 +191,22 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 trade_res[n_opt]["dem_total"], trade_res[n_opt]["sup_total"] \
                     = mar_pre.total_sup_and_dem(opti_res[n_opt], par_rh, n_opt, options["nb_bes"])
 
-                # if there's next step:
-                if n_opt < par_rh["n_opt"] - 1:
-                    # update propensities
-                    if options["bid_strategy"] == "learning":
-                        mar_dict["propensities"][n_opt + 1] = mar_pre.update_prop(mar_dict, par_rh, n_opt, bes, options,
-                                                                                  pars_li, trade_res[n_opt], strategies)
+                ## if there's next step:
+                #if n_opt < par_rh["n_opt"] - 1:
+                #    # update propensities
+                #    if options["bid_strategy"] == "learning":
+                #        mar_dict["propensities"][n_opt + 1] = mar_pre.update_prop(mar_dict, par_rh, n_opt, bes, options,
+                #                                                                  pars_li, trade_res[n_opt], strategies)
 
-                # change structure of results to be sorted by res instead of building
-                # from opti_res[n_opt][building][result category] to new_opti_res[n_opt][result category][building]
-                opti_res_new = {}
-                for n_opt in range(par_rh["n_opt"]):
-                    opti_res_new[n_opt] = {}
-                    for i in range(18):  # 18 is the number of result categories in opti_bes
-                        # if number of result categories changes, this needs to be changed as well!!!
-                        opti_res_new[n_opt][i] = {}
-                        for n in range(options["nb_bes"]):
-                            opti_res_new[n_opt][i][n] = {}
-                            opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]
 
         # ------------------ CALCULATE RESULTS ------------------
-        #res_time, res_val = calc_results.calc_results_p2p(par_rh=par_rh, block_bids=mar_dict["block_bids"],
-        #                                                  options=options, block_length=block_length,
-        #                                                  nego_results=mar_dict["negotiation_results"],
-        #                                                  transactions_grid=mar_dict["transactions_with_grid"],
-        #                                                  init_val=init_val, last_time_step=last_time_step,
-        #                                                  opti_res=opti_res)
-        res_time, res_val = 1,2
-        # return opti_res_new, mar_dict, trade_res, characteristics  #opti_res,
-        return mar_dict, characteristics, init_val, res_time, res_val, opti_res
+        results = calc_results.calc_results_p2p(par_rh=par_rh, block_length=block_length,
+                                                nego_results=mar_dict["negotiation_results"],
+                                                opti_res=opti_res, grid_transaction=mar_dict["transactions_with_grid"],
+                                                params = params)
+        #res_time, res_val = 1,2
+
+        return mar_dict, characteristics, init_val, results, opti_res
 
     elif options["optimization"] == "P2P_typeWeeks":
         # runs optimization for type weeks instead of whole month/year

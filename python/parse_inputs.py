@@ -14,9 +14,6 @@ import pandas as pd
 import copy
 import pickle
 
-import python.pv_buildings as pv
-import python.ev_param as ev_param
-import python.solar as solar
 
 def read_economics():
     """

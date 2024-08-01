@@ -7,7 +7,6 @@ from pathlib import Path
 
 import python.opti_methods as opti_methods
 import python.parse_inputs as parse_inputs
-import python.load_net as net
 import pickle
 import os
 import datetime
@@ -82,7 +81,8 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
                "crit_prio": crit_prio,  # "flex_energy",
                # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
                "block_length": block_length,  # length of block bid in hours
-               "negotiation": True,  # True: negotiation, False: auction
+               "max_trading_rounds": 5,
+                "negotiation": True,  # True: negotiation, False: auction
                "enhanced_horizon": enhanced_horizon,  # False: only block bid length, True: all 36hours
                "flex_price_delta": True,  # True: flex price delta, False: identical delta
                "descending": True,  # True: highest value of chosen has highest priority, False: lowest
@@ -132,7 +132,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     # Run (rolling horizon) optimization for whole year or month
     if options["optimization"] == "P2P":
         # run optimization incl. trading
-        mar_dict, characteristics, init_val, res_time, res_val, opti_res = (
+        mar_dict, characteristics, init_val, results, opti_res = (
             opti_methods.rolling_horizon_opti(options=options, nodes=nodes, par_rh=par_rh,
                                               building_params=building_params,
                                               params=params, block_length=options["block_length"]))
@@ -149,6 +149,12 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
         elif month == 7:
             month_folder = "3_Jul"
             month_suffix = "_jul"
+        elif month == 12:
+            month_folder = "Dec"
+            month_suffix = "_dec"
+        elif month == 0:
+            month_folder = "Year_r_" + str(options["max_trading_rounds"])
+            month_suffix = "_year_r_" + str(options["max_trading_rounds"])
         block_length_folder = "nB=" + str(block_length)
         enhanced_folder = "nCH=36" if enhanced_horizon else "nCH=nB"
         crit_prio_folder = crit_prio
@@ -168,13 +174,13 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
         with open(complete_path + "/init_val_P2P_" + options_DG["scenario_name"] + ".p", 'wb') as file_init:
             pickle.dump(par_rh, file_init)
 
-        with open(complete_path + "/res_time_P2P_" + options_DG["scenario_name"] + month_suffix + ".p",
+        with open(complete_path + "/results_P2P_" + options_DG["scenario_name"] + month_suffix + ".p",
                   'wb') as file_res_list:
-            pickle.dump(res_time, file_res_list)
-        with open(complete_path + "/res_val_P2P_" + options_DG["scenario_name"] + month_suffix + ".p",
-                  'wb') as file_res_val:
-            pickle.dump(res_val, file_res_val)
+            pickle.dump(results, file_res_list)
 
+        #with open("C:/Users/jsc/Python/Results/AppliedEnergy/Year_r_1/nB=1/nCH=nB/random/opti_res.p",
+        #          'wb') as file_res_list:
+        #    pickle.dump(opti_res, file_res_list)
 
 
     # Run (rolling horizon) optimization for type weeks
@@ -195,17 +201,16 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     time["end"] = datetime.datetime.now()
     print("Finished rolling horizon. " + str(datetime.datetime.now()))
 
-    return mar_dict, characteristics, init_val, res_time, res_val, opti_res, par_rh, districtData
-
+    return mar_dict, characteristics, init_val, results, opti_res, par_rh, districtData, options
 
 if __name__ == '__main__':
-    for scenario_name in ["AppliedEnergy"]:  # , "Quartier_2", "Quartier_3"]:
+    for scenario_name in ["AppliedEnergy"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
         first_run = True
-        for month in [4]:  # , 7]:
-            for block_length in [5]:  # , 3, 5]:
+        for month in [0]:  # , 7]:
+            for block_length in [1]:  #1, 3, 5]:
                 for enhanced_horizon in [False]: #, True]:
-                    for crit_prio in ["mean_quantity"]: #"mean_price", "mean_quantity",
-                        mar_dict, characteristics, init_val, res_time, res_val, opti_res, par_rh, districtData = \
+                    for crit_prio in ["flex_quantity"]: #"flex_energy", "quantity", "random", "flex_quantity"
+                        mar_dict, characteristics, init_val, results, opti_res, par_rh, districtData, options = \
                             run_optimization(scenario_name, calcUserProfiles=first_run, crit_prio=crit_prio,
                                          block_length=block_length,
                                          enhanced_horizon=enhanced_horizon, month=month)

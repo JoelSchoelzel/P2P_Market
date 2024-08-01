@@ -24,7 +24,7 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
         # GET PARAMETERS AT EACH TIMESTEP T FOR BIDDING
         for t in par_rh["time_steps"][n_opt][0:block_length]:
             # t = par_rh["time_steps"][n_opt][0]
-            p_imp = opti_res[n][4][t]
+            p_imp = opti_res[n][4]["p_imp"][t]
             chp_sell = opti_res[n][8]["chp"][t]
             pv_sell = opti_res[n][8]["pv"][t]
             bid_strategy = options["bid_strategy"]
@@ -140,7 +140,8 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
 
         # Check if str is True or None and not False
         # and append block bid to buy_list
-        if ("True" in bool_list or "None" in bool_list) and "False" not in bool_list:
+        #if ("True" in bool_list or "None" in bool_list) and "False" not in bool_list:
+        if ("True" in bool_list) and "False" not in bool_list:
             buy_list.append(block_bid["bes_" + str(n)])
             i = len(buy_list) - 1
             # append block_bid_info to buy_list
@@ -148,20 +149,13 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
                 = mean_all(block_bid=block_bid["bes_" + str(n)])
             # add flexible energy forced & delayed to buy_list (only first timestep, since it is calculated for 36h)
             buy_block_bid_info = {"bes_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
-                                  "mean_quantity": mean_quantity,
-                                  "flexibility": min(characs[bes_id]["energy_bid_avg_forced_heat"]
+                                  "quantity": mean_quantity,
+                                  "flex_energy": min(characs[bes_id]["energy_bid_avg_forced_heat"]
                                                      + characs[bes_id]["energy_bid_avg_forced_bat"],
                                                      characs[bes_id]["energy_bid_avg_delayed_heat"]
                                                      + characs[bes_id]["energy_bid_avg_delayed_bat"])
-                                  #"energy_bid_avg_forced_heat": characs[bes_id]["energy_bid_avg_forced_heat"],
-                                  #"energy_bid_avg_delayed_heat": characs[bes_id]["energy_bid_avg_delayed_heat"],
-                                  #"energy_bid_avg_forced_bat": characs[bes_id]["energy_bid_avg_forced_bat"],
-                                  #"energy_bid_avg_delayed_bat": characs[bes_id]["energy_bid_avg_delayed_bat"],
-                                  #"power_bid_avg_forced_heat": characs[bes_id]["power_bid_avg_forced_heat"],
-                                  #"power_bid_avg_delayed_heat": characs[bes_id]["power_bid_avg_delayed_heat"],
-                                  #"power_bid_avg_forced_bat": characs[bes_id]["power_bid_avg_forced_bat"],
-                                  #"power_bid_avg_delayed_bat": characs[bes_id]["power_bid_avg_delayed_bat"]
                                   }
+            #  if buy_block_bid_info["mean_quantity"] > 0:
             buy_list[i].update(buy_block_bid_info)
 
         # Check if at least one value is False
@@ -188,19 +182,11 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
                 = mean_all(block_bid=sell_list[i])
             # add flexible energy forced & delayed to sell_list (only first timestep, since it is calculated for 36h)
             sell_block_bid_info = {"bes_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
-                                   "mean_quantity": mean_quantity,
-                                   "flexibility": min(characs[bes_id]["energy_bid_avg_delayed_heat"]
+                                   "quantity": mean_quantity,
+                                   "flex_energy": min(characs[bes_id]["energy_bid_avg_delayed_heat"]
                                                       + characs[bes_id]["energy_bid_avg_forced_bat"],
                                                       characs[bes_id]["energy_bid_avg_forced_heat"]
                                                       + characs[bes_id]["energy_bid_avg_delayed_bat"]),
-                                   #"energy_bid_avg_forced_heat": characs[bes_id]["energy_bid_avg_forced_heat"],
-                                   #"energy_bid_avg_delayed_heat": characs[bes_id]["energy_bid_avg_delayed_heat"],
-                                   #"energy_bid_avg_forced_bat": characs[bes_id]["energy_bid_avg_forced_bat"],
-                                   #"energy_bid_avg_delayed_bat": characs[bes_id]["energy_bid_avg_delayed_bat"],
-                                   #"power_bid_avg_forced_heat": characs[bes_id]["power_bid_avg_forced_heat"],
-                                   #"power_bid_avg_delayed_heat": characs[bes_id]["power_bid_avg_delayed_heat"],
-                                   #"power_bid_avg_forced_bat": characs[bes_id]["power_bid_avg_forced_bat"],
-                                   #"power_bid_avg_delayed_bat": characs[bes_id]["power_bid_avg_delayed_bat"],
                                    "ignored_demand": ignored_demand}
             sell_list[i].update(sell_block_bid_info)
 
@@ -212,45 +198,34 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
         if options["descending"]:
             sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_price"], reverse=True)
             sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_price"], reverse=True)
-        # otherwise lowest mean price first
-        else:
-            sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_price"])
-            sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_price"])
 
     # sort buy_list and sell_list by mean quantity if mean quantity has been specified as criteria in options
-    elif options["crit_prio"] == "mean_quantity":
+    elif options["crit_prio"] == "quantity":
         # highest quantity first if descending has been set True in options
         if options["descending"]:
-            sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_quantity"], reverse=True)
-            sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_quantity"], reverse=True)
-        # otherwise lowest quantity first
-        else:
-            sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_quantity"])
-            sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_quantity"])
+            sorted_buy_list = sorted(buy_list, key=lambda x: x["quantity"], reverse=True)
+            sorted_sell_list = sorted(sell_list, key=lambda x: x["quantity"], reverse=True)
+
+    elif options["crit_prio"] == "flex_quantity":
+        if options["descending"]:
+            sorted_sell_list = sorted(sell_list, key=lambda x: x["quantity"], reverse=True)
+            sorted_buy_list = sorted(buy_list, key=lambda x: x["flex_energy"], reverse=True)
 
     # sort buy_list and sell_list by flexible mean energy if mean energy has been specified as criteria in options
-
     elif options["crit_prio"] == "flex_energy":
         # highest energy flexibility of seller (lowest flexibility of buyer) first if descending has been set True in options
         if options["descending"]:
             # most flexible seller is the one, that can sell less than given in sell quantity (soc of tes is low -> energy_forced high)
-            sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_delayed"], reverse=True)  # delayed
+            sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"]], reverse=True)  # delayed
             # least flexible buyer is the one, that can not buy less than given buy quantity (soc of tes is low -> energy_delayed low)
-            sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"] + "_delayed"])
-
-        # otherwise lowest energy flexibility first
-        else:
-            sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"] + "_delayed"])
-            sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"] + "_delayed"], reverse=True)
+            sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"]])
 
     elif options["crit_prio"] == "random":
         sorted_buy_list = buy_list
-        if not sorted_buy_list:
-            random.shuffle(sorted_buy_list)
+        random.shuffle(sorted_buy_list)
 
         sorted_sell_list = sell_list
-        if not sorted_sell_list:
-            random.shuffle(sorted_sell_list)
+        random.shuffle(sorted_sell_list)
 
     # STORE SORTED BUY AND SELL LISTS IN ONE DICTIONARY TO RETURN
     sorted_block_bids = {"buy_blocks": sorted_buy_list,

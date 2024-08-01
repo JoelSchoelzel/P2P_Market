@@ -5,8 +5,8 @@ class mar_agent_bes(object):
     """Market agent for each building energy system (BES) that creates the bids."""
 
     def __init__(self, options, par_rh, node):
-        self.p_min = options["p_min"]
-        self.p_max = options["p_max"]
+        self.p_min = options["p_min"] + 0.001
+        self.p_max = options["p_max"] - 0.001
         self.p = {}
         self.q = {}
         # self.dt = par_rh["duration"][0][0]
@@ -55,7 +55,7 @@ class mar_agent_bes(object):
         # compute bids with ZERO-INTELLIGENCE
         if bid_strategy == "zero":
             # create random price between p_min and p_max
-            p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100
+            p = np.random.randint(self.p_min * 1000, self.p_max * 1000) / 1000
             q = p_imp
         # compute bids with LEARNING
         elif bid_strategy == "learning":
@@ -109,7 +109,7 @@ class mar_agent_bes(object):
         # compute bids with zero-intelligence
         if bid_strategy == "zero":
             # create random price between p_min and p_max
-            p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100
+            p = np.random.randint(self.p_min * 1000, self.p_max * 1000) / 1000
         # compute bids with learning
         elif bid_strategy == "learning":
             p = np.random.choice(strategies, p=weights["bes_" + str(n) + "_sell"])
@@ -132,7 +132,7 @@ class mar_agent_bes(object):
 
     def compute_empty_bids(self, n):
         """Create an empty bid when no electricity needs to be bought or sold."""
-        p = 0
+        p = self.p_min # has to be p_min because of usage in block bid calculation and opti model
         q = 0
         buying = str("None")
         # buying = str("True")
@@ -167,7 +167,7 @@ class mar_agent_bes(object):
         # compute bids with zero-intelligence
         if bid_strategy == "zero":
             # create random price between p_min and p_max
-            p = np.random.randint(self.p_min * 100, self.p_max * 100) / 100
+            p = np.random.randint(self.p_min * 1000, self.p_max * 1000) / 1000
         # compute bids with learning
         elif bid_strategy == "learning":
             p = np.random.choice(strategies, p=weights["bes_" + str(n) + "_sell"])

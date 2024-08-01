@@ -144,18 +144,33 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
 
     # Storage initial SOC's
     soc_init = {}
-    soc_init["tes"] = soc_nom["tes"] * 0.5  # kWh   Initial SOC TES
-    soc_init["bat"] = soc_nom["bat"] * 0.5  # kWh   Initial SOC Battery
+    soc_init["tes"] = soc_nom["tes"] * 0.1  # kWh   Initial SOC TES
+    soc_init["bat"] = soc_nom["bat"] * 0.1  # kWh   Initial SOC Battery
     soc_init["ev"] = soc_nom["ev"] * 0.75
+
+    # Dicts for the variables of traded power and trading price
+    power_trade = {}
+    prev_trade = {}
+    # VARIABLE FOR TRADING POWER
+    for peer in ["buyer", "seller"]:
+        power_trade[peer] = {}
+        prev_trade[peer] = {}
+        for t in time_steps:
+            power_trade[peer][t] = model.addVar(vtype="C", name="Power_trade_" + peer + "_" + str(t))
+            prev_trade[peer][t] = model.addVar(vtype="C", name="Previous_power_trade_" + peer + "_" + str(t))
 
     # Electricity imports, sold and self-used electricity
     p_imp = {}
     p_use = {}
     p_sell = {}
     y_imp = {}
+    p_grid_buy = {}
+    p_grid_sell = {}
     for t in time_steps:
         p_imp[t] = model.addVar(vtype="C", name="P_imp_" + str(t))
         y_imp[t] = model.addVar(vtype="B", lb=0.0, ub=1.0, name="y_imp_exp_" + str(t))
+        p_grid_buy[t] = model.addVar(vtype="C", name="P_grid_buy" + str(t))
+        p_grid_sell[t] = model.addVar(vtype="C", name="P_grid_sell" + str(t))
     for dev in ("chp", "pv"):
         p_use[dev] = {}
         p_sell[dev] = {}
@@ -315,9 +330,9 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
                         name="Storage_bal_" + dev + "_" + str(t))
 
         # soc at the end is the same like at the beginning
-        if t == last_time_step:
-           model.addConstr(soc["tes"][t] == soc["tes"][first_time_step],
-                            name="End_TES_Storage_" + str(t))
+        #if t == last_time_step:
+        #   model.addConstr(soc["tes"][t] == soc["tes"][first_time_step],
+        #                    name="End_TES_Storage_" + str(t))
 
 
     dev = "bat"
@@ -349,6 +364,11 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
                         dt[t] * (node["devs"][dev]["eta_bat"] * p_ch[dev][t] - 1 / node["devs"][dev]["eta_bat"] *
                               p_dch[dev][t]),
                         name="Storage_balance_" + dev + "_" + str(t))
+
+        # soc at the end is the same like at the beginning
+        #if t == last_time_step:
+        #   model.addConstr(soc["bat"][t] == soc["bat"][first_time_step],
+        #                    name="End_bat_Storage_" + str(t))
 
     # %% EV CONSTRAINTS CONSTRAINTS
     """
@@ -390,14 +410,13 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
                         + power["hp35"][t] + power["hp55"][t] + power["eh"][t] - p_use["chp"][t] - p_use["pv"][t]
                         == p_imp[t],
                         name="Electricity_balance_" + str(t))
-
-
-
+        model.addConstr(p_grid_buy[t] + power_trade["buyer"][t] + prev_trade["buyer"][t] == p_imp[t])
+        model.addConstr(power_trade["buyer"][t] == 0)
+        model.addConstr(prev_trade["buyer"][t] == 0)
 
     p_rated = {}  # rated power of the house connection (elec)
     p_rated["MFH"] = 69282  # Kleinwandlermessung bis 100A
     p_rated["SFH/TH"] = 30484  # Direktmessung bis 44A
-
     if node["type"] == "MFH":
         ratedPower = p_rated["MFH"]
     else:
@@ -413,6 +432,11 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         for t in time_steps:
             model.addConstr(p_sell[dev][t] + p_use[dev][t] == power[dev][t],
                             name="power=sell+use_" + dev + "_" + str(t))
+    for t in time_steps:
+        model.addConstr(p_grid_sell[t] + power_trade["seller"][t] + prev_trade["seller"][t]
+                        == p_sell["chp"][t] + p_sell["pv"][t])
+        model.addConstr(power_trade["seller"][t] == 0)
+        model.addConstr(prev_trade["seller"][t] == 0)
 
     # Set solver parameters
     model.Params.TimeLimit = params["gp"]["time_limit"]
@@ -440,8 +464,8 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     res_heat = {}
     res_soc = {}
 
-    for dev in ["bat", "house_load"]:
-        res_y[dev] = {(t): y[dev][t].X for t in time_steps}
+    #for dev in ["bat", "house_load"]:
+    #    res_y[dev] = {(t): y[dev][t].X for t in time_steps}
 
     for dev in ["hp35", "hp55", "chp", "boiler", "eh"]:
         res_power[dev] = {(t): power[dev][t].X for t in time_steps}
@@ -450,31 +474,31 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         res_power[dev] = {(t): power[dev][t].X for t in time_steps}
 
     for dev in storage:
-        res_soc[dev] = {(t): soc[dev][t].X
-                        for t in time_steps}
+        res_soc[dev] = {(t): soc[dev][t].X for t in time_steps}
 
-    res_p_imp = {(t): p_imp[t].X for t in time_steps}
+    res_p_imp = {}
+    res_p_imp["p_imp"] = {(t): p_imp[t].X for t in time_steps}
     res_p_ch = {}
     res_p_dch = {}
     for dev in storage:
         res_p_ch[dev] = {(t): p_ch[dev][t].X for t in time_steps}
         res_p_dch[dev] = {(t): p_dch[dev][t].X for t in time_steps}
 
-    res_gas = {}
-    for dev in ["boiler", "chp"]:
-        res_gas[dev] = {(t): gas[dev][t].X for t in time_steps}
+    #res_gas = {}
+    #for dev in ["boiler", "chp"]:
+    #    res_gas[dev] = {(t): gas[dev][t].X for t in control_horizon}
     res_gas_sum = {}
     res_gas_sum = {(t): sum(gas[dev][t].X for dev in ["boiler", "chp"]) for t in time_steps}
 
 
     res_c_dem = {}
-    for dev in ["boiler", "chp"]:
-        res_c_dem[dev] = {(t): params["eco"]["gas"] * gas[dev][t].X for t in time_steps}
-    res_c_dem["grid"] = {(t): p_imp[t].X * params["eco"]["pr", "el"] for t in time_steps}
+    #for dev in ["boiler", "chp"]:
+    #    res_c_dem[dev] = {(t): params["eco"]["gas"] * gas[dev][t].X for t in time_steps}
+    #res_c_dem["grid"] = {(t): p_imp[t].X * params["eco"]["pr", "el"] for t in time_steps}
 
     res_rev = {}
-    for dev in ["pv", "chp"]:
-        res_rev = {(t): p_sell[dev][t].X * params["eco"]["sell" + "_" + dev] for t in time_steps}
+    #for dev in ["pv", "chp"]:
+    #    res_rev = {(t): p_sell[dev][t].X * params["eco"]["sell" + "_" + dev] for t in time_steps}
 
     res_soc_nom = {dev: soc_nom[dev] for dev in storage}
 
@@ -484,6 +508,12 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         res_p_use[dev] = {(t): p_use[dev][t].X for t in time_steps}
         #res_p_sell[dev] = {(t): p_sell[dev][t].X for t in time_steps}
         res_p_sell[dev] = {t: round(p_sell[dev][t].X, 15) for t in time_steps}
+
+    res_p_grid_buy = {(t): p_grid_buy[t].X for t in time_steps}
+    res_p_grid_sell = {(t): p_grid_sell[t].X for t in time_steps}
+    res_p_trade = {(t): power_trade["buyer"][t].X + power_trade["seller"][t].X for t in time_steps}
+    res_prev_trade =  {(t): prev_trade["buyer"][t].X + prev_trade["seller"][t].X for t in time_steps}
+
 
     obj = model.ObjVal
     print("Obj: " + str(model.ObjVal))
@@ -507,96 +537,6 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     # Return results
     return (res_y, res_power, res_heat, res_soc,
             res_p_imp, res_p_ch, res_p_dch, res_p_use, res_p_sell,
-            obj, res_c_dem, res_rev, res_soc_nom, node,
-            objVal, runtime, soc_init_rh, res_gas_sum)
-
-
-def compute_initial_values(opti_bes, par_rh, n_opt): # computes the initial values of the BES for the given prediction horizon
-
-    init_val = {}
-    init_val["soc"] = {}
-    # initial SOCs
-    for dev in ["tes", "bat", "ev"]:
-        init_val["soc"][dev] = opti_bes[3][dev][par_rh["hour_start"][n_opt] + par_rh["n_hours"] - par_rh["n_hours_ov"]]
-
-    return init_val
-
-
-def initial_values_flex(opti_res, par_rh, n_opt, nodes, options, trade_res, prev_init_val): # comp
-
-    t = par_rh["hour_start"][n_opt]
-
-    # create list of all heaters, also those with capacity of 0
-    heaters = list(opti_res[0][2].keys())
-
-    init_val = {}
-
-    for n in range(options["nb_bes"]):
-
-        init_val["building_" + str(n)] = {"soc": {"tes": {}, "bat": {}, "ev": {}}}
-
-        # if it's the first timestep, storages are set to initial values of 50%/75%
-        if t == par_rh["month_start"][par_rh["month"]]:
-            soc_prev = {
-                "tes": nodes[n]["devs"]["tes"]["cap"] * 0.5,
-                "bat": nodes[n]["devs"]["bat"]["cap"] * 0.5,
-                "ev": nodes[n]["devs"]["ev"]["cap"] * 0.75
-            }
-
-        # otherwise use initial values calculated in previous step
-        else:
-            soc_prev = prev_init_val["building_" + str(n)]["soc"]
-
-        # TES
-
-        eta_tes = nodes[n]["devs"]["tes"]["eta_tes"]
-        eta_ch = nodes[n]["devs"]["tes"]["eta_ch"]
-        eta_dch = nodes[n]["devs"]["tes"]["eta_dch"]
-
-        # demand/surplus which hasn't been fulfilled during trading and hasn't been sold/bought from grid
-        # this is the difference between the result of optimization and the real result after trading etc.
-        unfulfilled_dem = opti_res[n][4][t] - trade_res["el_from_distr"][n] - trade_res["el_from_grid"][n]
-        unfulfilled_plus = (opti_res[n][8]["chp"][t] + opti_res[n][8]["pv"][t] - trade_res["el_to_distr"][n] -
-                            trade_res["el_to_grid"][n])
-
-        # if heat pumps exist: if demand isn't fully fulfilled, less heat is produce because of missing electricity
-        # therefore the TES is charged less
-        if nodes[n]["devs"]["hp35"]["exists"] + nodes[n]["devs"]["hp55"]["exists"] > 0:
-            charge_tes = eta_ch * (sum(opti_res[n][2][dev][t] for dev in heaters) - unfulfilled_dem *
-                                   (nodes[n]["devs"]["hp35"]["exists"] * nodes[n]["devs"]["COP_sh35"][n_opt] +
-                                    nodes[n]["devs"]["hp55"]["exists"] * nodes[n]["devs"]["COP_sh55"][n_opt]))
-
-        # if CHP exists: if surplus wasn't fully sold, less electricity and therefore less heat is produced
-        # therefore the TES is charged less
-        elif nodes[n]["devs"]["chp"]["cap"] > 0:
-            charge_tes = eta_ch * (sum(opti_res[n][2][dev][t] for dev in heaters) - unfulfilled_plus *
-                                   nodes[n]["devs"]["chp"]["eta_th"] / nodes[n]["devs"]["chp"]["eta_el"])
-
-        else:
-            charge_tes = eta_ch * sum(opti_res[n][2][dev][t] for dev in heaters)
-
-        # TES is discharged by required heat and dhw
-        discharge_tes = (1 / eta_dch) * (nodes[n]["heat"][n_opt] + nodes[n]["dhw"][n_opt])
-
-        # new initial value is previous minus the losses (eta_tes) plus difference between charge and discharge
-        init_val["building_" + str(n)]["soc"]["tes"] = soc_prev["tes"] * eta_tes + (
-                                                       par_rh["duration"][n_opt][t] * (charge_tes - discharge_tes))
-
-
-        # BAT
-        # if pv exists
-        #if nodes[n]["devs"]["pv"]["cap"] > 0:
-         #   charge_bat = opti_res[n][8]["pv"][t] - trade_res["el_to_distr"][n] - trade_res["el_to_grid"][n]
-
-
-
-
-
-
-        # BAT & EV
-
-        # TODO
-        init_val["building_" + str(n)]["soc"]["bat"] = 0
-        init_val["building_" + str(n)]["soc"]["ev"] = 0
-
-    return init_val
+            obj, res_c_dem, res_rev, res_soc_nom,
+            objVal, runtime, soc_init_rh, res_gas_sum, res_p_grid_buy,
+            res_p_grid_sell, res_p_trade, res_prev_trade)

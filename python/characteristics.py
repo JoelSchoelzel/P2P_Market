@@ -348,11 +348,10 @@ def calc_characs(nodes, options, par_rh, block_length, opti_res: dict = None, st
             # reference case: power required without use of flexibility
             # elec + power used by heatpumps
             # Todo: elec und pv nicht rein!? sind ja nicht flexibel
-            # todo: chp ref case für chp + eh rein
             if nodes[n]["devs"]["hp35"]["cap"] > 0:
-                power_ref_heat[t] = opti_res[start_step][n][1]["hp35"][t]
+                power_ref_heat[t] = opti_res[start_step][n][1]["hp35"][t] + opti_res[start_step][n][1]["eh"][t]
             elif nodes[n]["devs"]["hp55"]["cap"] > 0:
-                power_ref_heat[t] = opti_res[start_step][n][1]["hp55"][t]
+                power_ref_heat[t] = opti_res[start_step][n][1]["hp55"][t] + opti_res[start_step][n][1]["eh"][t]
             else:
                 power_ref_heat[t] = opti_res[start_step][n][1]["chp"][t]
 
@@ -640,9 +639,583 @@ def calc_characs(nodes, options, par_rh, block_length, opti_res: dict = None, st
         print("Calculating flexibility. Finished building " + str(n) + " finished.")
 
     # only save when calculated for a large amount of steps or all steps
-    if start_step is None or block_length > 700:
-        with open(options["path_results"] + "/P2P_characteristics/" + datetime.datetime.now().strftime("%m-%d-%H-%M") +
-                  ".p", 'wb') as fp:
-            pickle.dump(characs, fp)
+    #if start_step is None or block_length > 700:
+    #    with open(options["path_results"] + "/P2P_characteristics/" + datetime.datetime.now().strftime("%m-%d-%H-%M") +
+    #              ".p", 'wb') as fp:
+    #        pickle.dump(characs, fp)
 
     return characs
+
+
+def calc_characs_single(nodes, block_length, bes_id, soc_state, opti_res, buyer):
+
+
+    # list of all heaters that use/produce electricity
+    EHG = ["hp35", "hp55", "chp", "bz"]
+
+    # list of all heaters
+    heaters = ["hp35", "hp55", "chp", "bz", "boiler"]
+
+    # list of energy storages
+    storages = ["tes", "bat"]
+    soc_opti = {}
+    soc = {}
+    for dev in storages:
+        if soc_state[dev] is not None:
+            # use the SOC from optimization results if provided
+            # soc_opti = {step: soc_state[step] for step in data_steps}
+            soc_opti[dev] = soc_state[dev]
+        else:
+            # set to None if optimization results are not provided
+            soc_opti[dev] = None
+
+    start_hour = list(soc_state["tes"].keys())[0]
+    max_step = start_hour + block_length
+    data_steps = list(range(start_hour, max_step))
+
+    n = bes_id
+
+    # create dict to store the characs in
+    characs = {
+        "alpha_th": {},
+        "beta_th": {},
+        "alpha_el_flex_forced": {},
+        "alpha_el_flex_delayed": {},
+        "beta_el_forced": {},
+        "beta_el_delayed": {},
+        "tau_forced_heat": {},
+        "tau_delayed_heat": {},
+        "tau_forced_bat": {start_hour + i: elem for i, elem in enumerate(range(36))},
+        "tau_delayed_bat": {start_hour + i: elem for i, elem in enumerate(range(36))},
+        "power_flex_forced_heat": {start_hour + i: elem for i, elem in enumerate(range(36))},
+        "power_flex_delayed_heat": {start_hour + i: elem for i, elem in enumerate(range(36))},
+        "power_flex_forced_bat": {start_hour + i: elem for i, elem in enumerate(range(36))},
+        "power_flex_delayed_bat": {start_hour + i: elem for i, elem in enumerate(range(36))},
+        "power_avg_forced_heat": {start_hour + i: elem for i, elem in enumerate(range(block_length))},
+        "power_avg_delayed_heat": {start_hour + i: elem for i, elem in enumerate(range(block_length))},
+        "power_cycle_forced_heat": {start_hour + i: elem for i, elem in enumerate(range(block_length))},
+        "power_cycle_delayed_heat": {start_hour + i: elem for i, elem in enumerate(range(block_length))},
+        "energy_forced_heat": {start_hour + i: elem for i, elem in enumerate(range(block_length))},
+        "energy_delayed_heat": {start_hour + i: elem for i, elem in enumerate(range(block_length))},
+        "power_avg_forced_bat": {start_hour + i: elem for i, elem in enumerate(range(block_length))},
+        "power_avg_delayed_bat": {start_hour + i: elem for i, elem in enumerate(range(block_length))},
+        "power_cycle_forced_bat": {start_hour + i: elem for i, elem in enumerate(range(block_length))},
+        "power_cycle_delayed_bat": {start_hour + i: elem for i, elem in enumerate(range(block_length))},
+        "energy_forced_bat": {start_hour + i: elem for i, elem in enumerate(range(block_length))},
+        "energy_delayed_bat": {start_hour + i: elem for i, elem in enumerate(range(block_length))},
+
+        "power_bid_avg_forced_heat": {},
+        "power_bid_avg_delayed_heat": {},
+        "energy_bid_avg_forced_heat": {},
+        "energy_bid_avg_delayed_heat": {},
+        "power_bid_avg_forced_bat": {},
+        "power_bid_avg_delayed_bat": {},
+        "energy_bid_avg_forced_bat": {},
+        "energy_bid_avg_delayed_bat": {},
+
+    }
+
+    ### --------------------- elec --------------------- ###
+
+    # calculate temporal and power flexibility for all data steps
+    for t in data_steps:
+
+        ### -------------- temporal flexibility -------------- ###
+        # forced flexibility, time until TES is fully charged with maximum charging
+        for dev in storages:
+            if soc_opti[dev] is not None:
+                # use SOC from optimization results when provided
+                soc[dev] = soc_opti[dev][t]
+            else:
+                # TES assumed to be fully discharged at beginning if no SOC is provided
+                soc[dev] = 0
+
+        ### -------------- tes -------------- ###
+        # tau_forced: time it takes to charge
+        tau_forced_heat = 0
+        # loop until the TES is fully charged
+        while soc["tes"] < nodes[n]["devs"]["tes"]["cap"]:
+            # check whether there are any heaters, break otherwise
+            if sum(nodes[n]["devs"][dev]["cap"] for dev in EHG) == 0:
+                break
+            # maximal charging is difference between capacity of heaters and heat demand at (n_opt + tau_forced)
+            max_charging = sum(nodes[n]["devs"][dev]["cap"] for dev in EHG) \
+                           - nodes[n]["heat"][t + tau_forced_heat] \
+                           - (0.5 * nodes[n]["dhw"][t + tau_forced_heat])
+            # check whether the TES can be charged by maximal charging without exceeding the capacity
+            if soc["tes"] + max_charging <= nodes[n]["devs"]["tes"]["cap"]:
+                # max_charging is added and tau_forced incremented by an hour
+                soc["tes"] += max_charging
+                tau_forced_heat += 1
+            # in case maximal charging would exceed the capacity:
+            else:
+                # tau_forced is incremented by the fraction of the hour that charging is still possible
+                # constant rate of charging is assumed during the hour
+                tau_forced_heat += (nodes[n]["devs"]["tes"]["cap"] - soc["tes"]) / max_charging
+                # soc is set to the capacity
+                # TODO: why?
+                soc["tes"] = nodes[n]["devs"]["tes"]["cap"]
+            # check whether end of data is reached
+            if t + tau_forced_heat >= max_step:
+                break
+
+        characs["tau_forced_heat"][t] = tau_forced_heat
+
+        ### -------------- BAT -------------- ###
+        # tau_forced: time it takes to charge
+        tau_forced_bat = 0
+        # loop until the BAT is fully charged
+        while soc["bat"] < nodes[n]["devs"]["bat"]["cap"]:
+            # check whether there is a battery, break otherwise
+            if nodes[n]["devs"]["bat"]["cap"] == 0:
+                break
+            # maximal charging of bat
+            max_charging = nodes[n]["devs"]["bat"]["cap"] * nodes[n]["devs"]["bat"]["max_ch"]
+            # check whether the BAT can be charged by maximal charging without exceeding the capacity
+            if soc["bat"] + max_charging <= nodes[n]["devs"]["bat"]["cap"]:
+                # max_charging is added and tau_forced incremented by an hour
+                soc["bat"] += max_charging
+                tau_forced_bat += 1
+            # in case maximal charging would exceed the capacity:
+            else:
+                # tau_forced is incremented by the fraction of the hour that charging is still possible
+                # constant rate of charging is assumed during the hour
+                tau_forced_bat += (nodes[n]["devs"]["bat"]["cap"] - soc["bat"]) / max_charging
+                # soc is set to the capacity
+                # TODO: why?
+                soc["bat"] = nodes[n]["devs"]["bat"]["cap"]
+            # check whether end of data is reached
+            if t + tau_forced_bat >= max_step:
+                break
+
+        characs["tau_forced_bat"][t] = tau_forced_bat
+
+    for t in data_steps:
+
+        # delayed flexibility, time until ### -------------- tes -------------- ### is fully discharged with no charging
+
+        if soc_opti["tes"] is not None:
+            # use SOC from optimization results when provided
+            soc["tes"] = soc_opti["tes"][t]
+        else:
+            # todo: why?
+            # when SOC is not provided
+            # check whether TES can be fully charged during preceding time steps
+            # max heat production must be greater than heat demand in every considered timestep to be sure
+            fully_charged = True
+            # iterate through last few hours
+            for i in range(24):
+                # set fully_charged to False if demand was greater the capacity of heaters
+                if (sum(nodes[n]["devs"][dev]["cap"] for dev in heaters) - nodes[n]["heat"][t - i] - (0.5 * nodes[n]["dhw"][t - i])) < 0:
+                    fully_charged = False
+            soc["tes"] = nodes[n]["devs"]["tes"]["cap"]
+            # determine the maximum possible charge when demand was greater than max production at any point
+            if not fully_charged:
+                # iterate through last few hours
+                for i in range(24):
+                    # add maximum charging (difference between capacity of heaters and heat demand) to charge
+                    soc["tes"] += sum(nodes[n]["devs"][dev]["cap"] for dev in heaters) - nodes[n]["heat"][t - i] - (0.5 * nodes[n]["dhw"][t - i])
+                    # make sure soc stays between the maximum and minimum value (between capacity and 0)
+                    if soc["tes"] >= nodes[n]["devs"]["tes"]["cap"]:
+                        soc["tes"] = nodes[n]["devs"]["tes"]["cap"]
+                    elif soc["tes"] < 0:
+                        soc["tes"] = 0
+        """
+        for dev in storages:
+            if soc_opti[dev] is not None:
+                # use SOC from optimization results when provided
+                soc2[dev] = soc_opti[dev][n_opt]
+        """
+
+        # tau_delayed: time it takes to discharge
+        tau_delayed_heat = 0
+        # loop until the storage is fully discharged
+        while soc["tes"] > 0:
+            # maximum discharging is the heat demand at (n_opt + tau_delayed)
+            discharging = nodes[n]["heat"][t + tau_delayed_heat] + (0.5 * nodes[n]["dhw"][t + tau_delayed_heat])
+            # check whether there's enough soc remaining for maximum discharging
+            if soc["tes"] - discharging > 0:
+                # discharge is subtracted and tau_delayed incremented by an hour
+                soc["tes"] -= discharging
+                tau_delayed_heat += 1
+            # in case not enough charge is remaining:
+            else:
+                # tau_delayed is incremented by the fraction of the hour that discharging is still possible
+                # constant rate of discharging is assumed during the hour
+                tau_delayed_heat += soc["tes"] / discharging
+                soc["tes"] = 0
+            # check whether end of data is reached
+            if t + tau_delayed_heat >= max_step:
+                break
+
+        characs["tau_delayed_heat"][t] = tau_delayed_heat
+
+        # delayed flexibility, time until ### -------------- BAT -------------- ### is fully discharged with no charging
+
+        if soc_opti["bat"] is not None:
+            # use SOC from optimization results when provided
+            soc["bat"] = soc_opti["bat"][t]
+        else:
+            # todo: why?
+            # when SOC is not provided
+            # check whether TES can be fully charged during preceding time steps
+            # max heat production must be greater than heat demand in every considered timestep to be sure
+            fully_charged = True
+            # iterate through last few hours
+            for i in range(24):
+                # set fully_charged to False if demand was greater the capacity of heaters
+                if (sum(nodes[n]["devs"][dev]["cap"] for dev in heaters) - nodes[n]["heat"][t - i] - (0.5 * nodes[n]["dhw"][t - i])) < 0:
+                    fully_charged = False
+            soc["bat"] = nodes[n]["devs"]["bat"]["cap"]
+            # determine the maximum possible charge when demand was greater than max production at any point
+            if not fully_charged:
+                # iterate through last few hours
+                for i in range(24):
+                    # add maximum charging (difference between capacity of heaters and heat demand) to charge
+                    soc["bat"] += sum(nodes[n]["devs"][dev]["cap"] for dev in heaters) - nodes[n]["heat"][t - i] - (0.5 * nodes[n]["dhw"][t - i])
+                    # make sure soc stays between the maximum and minimum value (between capacity and 0)
+                    if soc["bat"] >= nodes[n]["devs"]["bat"]["cap"]:
+                        soc["bat"] = nodes[n]["devs"]["bat"]["cap"]
+                    elif soc["bat"] < 0:
+                        soc["bat"] = 0
+
+        # tau_delayed: time it takes to discharge
+        tau_delayed_bat = 0
+        # loop until the storage is fully discharged
+        while soc["bat"] > 0:
+            # maximum discharging of bat
+            discharging = nodes[n]["devs"]["bat"]["cap"] * nodes[n]["devs"]["bat"]["max_dch"]
+            # check whether there's enough soc remaining for maximum discharging
+            if soc["bat"] - discharging > 0:
+                # discharge is subtracted and tau_delayed incremented by an hour
+                soc["bat"] -= discharging
+                tau_delayed_bat += 1
+            # in case not enough charge is remaining:
+            else:
+                # tau_delayed is incremented by the fraction of the hour that discharging is still possible
+                # constant rate of discharging is assumed during the hour
+                tau_delayed_bat += soc["bat"] / discharging
+                soc["bat"] = 0
+            # check whether end of data is reached
+            if t + tau_delayed_bat >= max_step:
+                break
+
+        characs["tau_delayed_bat"][t] = tau_delayed_bat
+        ### -------------- temporal flexibility -------------- ###
+
+    power_ref_heat = {}
+    power_ref_bat = {}
+    power_flex_forced_heat = {}
+    power_flex_delayed_heat = {}
+    power_flex_forced_bat = {}
+    power_flex_delayed_bat = {}
+    for t in data_steps:
+        ### -------------- power flexibility -------------- ###
+        # reference case: power required without use of flexibility
+        # elec + power used by heatpumps
+        # Todo: elec und pv nicht rein!? sind ja nicht flexibel
+        if nodes[n]["devs"]["hp35"]["cap"] > 0:
+            power_ref_heat[t] = opti_res[2]["hp35"][t] + opti_res[2]["eh"][t]     # opti_res[2] = opti_res["res_heat"]
+        elif nodes[n]["devs"]["hp55"]["cap"] > 0:
+            power_ref_heat[t] = opti_res[2]["hp55"][t] + opti_res[2]["eh"][t]
+        else:
+            power_ref_heat[t] = opti_res[2]["chp"][t]
+
+        # flexibility definition for BAT (considering effect to grid): charging = negative, dch = positive (like HP/EH)
+
+        if opti_res[5]["bat"][t] > 0:
+            power_ref_bat[t] = opti_res[5]["bat"][t]    # opti_res[5] = opti_res["res_p_ch"]
+        elif opti_res[6]["bat"][t] > 0:
+            power_ref_bat[t] = opti_res[6]["bat"][t]    # opti_res[6] = opti_res["res_p_dch"]
+
+        # maximum electrical power that can be used/generated
+        if nodes[n]["devs"]["hp35"]["cap"] > 0:
+            power_max_heat = nodes[n]["devs"]["hp35"]["cap"] / nodes[n]["devs"]["COP_sh35"][t] + nodes[n]["devs"]["eh"]["cap"]
+        elif nodes[n]["devs"]["hp55"]["cap"] > 0:
+            power_max_heat = nodes[n]["devs"]["hp55"]["cap"] / nodes[n]["devs"]["COP_sh55"][t] + nodes[n]["devs"]["eh"]["cap"]
+        else:
+            power_max_heat = nodes[n]["devs"]["chp"]["cap"] / nodes[n]["devs"]["chp"]["eta_th"] * nodes[n]["devs"]["chp"]["eta_el"]
+
+        # minimum power that can be used/generated
+        power_min_heat = 0
+        # power flexibility as difference between reference case and max/min power generation
+        if power_max_heat > 0:
+            power_flex_forced_heat[t] = power_max_heat - power_ref_heat[t]
+        else:
+            power_flex_forced_heat[t] = 0
+        power_flex_delayed_heat[t] = power_ref_heat[t] - power_min_heat
+
+        power_max_bat = nodes[n]["devs"]["bat"]["cap"] * nodes[n]["devs"]["bat"]["max_ch"]
+        if opti_res[5]["bat"][t] >= 0:
+            power_flex_forced_bat[t] = power_max_bat - opti_res[5]["bat"][t]   # opti_res[5] = opti_res["res_p_ch"]
+            power_flex_delayed_bat[t] = power_max_bat + opti_res[5]["bat"][t]
+        elif opti_res[6]["bat"][t] > 0:
+            power_flex_forced_bat[t] = power_max_bat + opti_res[6]["bat"][t]  # opti_res[6] = opti_res["res_p_dch"]
+            power_flex_delayed_bat[t] = power_max_bat - opti_res[6]["bat"][t]
+
+        # alpha_el_flex
+        #alpha_el_flex_forced = power_flex_forced / dQ_build_nom
+        #alpha_el_flex_delayed = power_flex_delayed / dQ_build_nom
+        if data_steps[0] == 2175:
+            if bes_id == 5:
+                print(0)
+
+        # store the calculated characs
+        characs["power_flex_forced_heat"][t] = power_flex_forced_heat[t]
+        characs["power_flex_delayed_heat"][t] = power_flex_delayed_heat[t]
+        characs["power_flex_forced_bat"][t] = power_flex_forced_bat[t]
+        characs["power_flex_delayed_bat"][t] = power_flex_delayed_bat[t]
+        #characs["alpha_el_flex_forced"][n_opt] = alpha_el_flex_forced
+        #characs["alpha_el_flex_delayed"][n_opt] = alpha_el_flex_delayed
+
+        ### -------------- power flexibility -------------- ###
+
+    # ---- for heat ---- #
+    power_avg_forced_heat = {}
+    power_avg_delayed_heat = {}
+    power_cycle_delayed_heat = {}
+    power_cycle_forced_heat = {}
+    energy_forced_heat = {}
+    energy_delayed_heat = {}
+    # calculate average and cycle power as well as energy flexibility for steps within block bid only
+    for t_bid in range(start_hour, start_hour+block_length):
+
+        # average and cycle power flexibility
+        energy_forced_heat[t_bid] = 0  # energy that can the TES can be charged with
+        i = 0  # variable to iterate through hours, represents whole hours
+        # loop through the whole hours previously calculated as tau_forced
+        while i < characs["tau_forced_heat"][t_bid] - 1:
+            # add the energy that can be charged during that hour (power equals energy due to duration of 1 hour)
+            energy_forced_heat[t_bid] += characs["power_flex_forced_heat"][t_bid + i]
+            i += 1
+            # check whether end of data is reached
+            if t_bid + i >= max_step-1:
+                break
+        # add the energy charged during the remaining fraction of an hour, time is described by (tau_forced - i)
+        energy_forced_heat[t_bid] += characs["power_flex_forced_heat"][t_bid + i] * (characs["tau_forced_heat"][t_bid] - i)
+
+        # cycle describes time frame of first charging and then discharging the storage afterwards and vice versa
+        # check whether data for the whole cycle exists, n_opt + tau_forced must be within n_opts of the simulation
+        if t_bid + int(characs["tau_forced_heat"][t_bid]) < max_step:
+            # power_cycle_forced is the forced energy divided by the duration of the cycle
+            # time of the cycle is sum of tau_forced at n_opt and tau_delayed at (n_opt + tau_forced)
+            try:
+                power_cycle_forced_heat[t_bid] = energy_forced_heat[t_bid] / (characs["tau_forced_heat"][t_bid] +
+                                                      characs["tau_delayed_heat"][t_bid +
+                                                      int(characs["tau_forced_heat"][t_bid])])
+                if math.isnan(power_cycle_forced_heat[t_bid]):
+                    power_cycle_forced_heat[t_bid] = 0
+            except ZeroDivisionError:
+                power_cycle_forced_heat[t_bid] = 0
+        # if tau_delayed at (n_opt + tau_forced) doesn't exist because it exceeds the data,
+        # tau_delayed at n_opt instead of (n_opt + tau_forced) is used
+        else:
+            try:
+                power_cycle_forced_heat[t_bid] = energy_forced_heat[t_bid] / (characs["tau_forced_heat"][t_bid] +
+                                                      characs["tau_delayed_heat"][t_bid])
+                if math.isnan(power_cycle_forced_heat[t_bid]):
+                    power_cycle_forced_heat[t_bid] = 0
+            except ZeroDivisionError:
+                power_cycle_forced_heat[t_bid] = 0
+
+        # power_average_forced is charged energy (energy_forced) divided by duration of charging (tau_forced)
+        # check whether tau_forced > 0 to avoid division by zero
+        if characs["tau_forced_heat"][t_bid] > 0:
+            power_avg_forced_heat[t_bid] = energy_forced_heat[t_bid] / characs["tau_forced_heat"][t_bid]
+        else:
+            power_avg_forced_heat[t_bid] = 0
+
+        energy_delayed_heat[t_bid] = 0  # energy that can be discharged by the TES
+        i = 0  # variable to iterate through hours, represents whole hours
+        # loop through the whole hours previously calculated as tau_delayed
+        while i < characs["tau_delayed_heat"][t_bid] - 1:
+            # add the energy that can be discharged during that hour (power equals energy due to duration of 1 hour)
+            energy_delayed_heat[t_bid] += characs["power_flex_delayed_heat"][t_bid + i]
+            i += 1
+            # check whether end of data is reached
+            if t_bid + i >= max_step - 1:
+                break
+        # add the energy discharged during the remaining fraction of an hour, time is described by (tau_delayed - i)
+        energy_delayed_heat[t_bid] += characs["power_flex_delayed_heat"][t_bid + i] * (characs["tau_delayed_heat"][t_bid] - i)
+        # check whether data for the whole cycle exists, n_opt + tau_delayed must be within n_opts of the simulation
+        if t_bid + int(characs["tau_delayed_heat"][t_bid]) < max_step:
+            # power_cycle_delayed is the delayed energy divided by the duration of the cycle
+            # time of the cycle is sum of tau_delayed at n_opt and tau_forced at (n_opt + tau_delayed)
+            try:
+                power_cycle_delayed_heat[t_bid] = energy_delayed_heat[t_bid] / (characs["tau_delayed_heat"][t_bid] +
+                                                                    characs["tau_forced_heat"][t_bid +
+                                                                    int(characs["tau_delayed_heat"][t_bid])])
+                if math.isnan(power_cycle_delayed_heat[t_bid]):
+                    power_cycle_delayed_heat[t_bid] = 0
+            except ZeroDivisionError:
+                power_cycle_delayed_heat[t_bid] = 0
+        # if tau_forced at (n_opt + tau_delayed) doesn't exist because it exceeds the data,
+        # tau_forced at n_opt instead of (n_opt + tau_delayed) is used
+        else:
+            try:
+                power_cycle_delayed_heat[t_bid] = energy_delayed_heat[t_bid] / (characs["tau_delayed_heat"][t_bid] +
+                                                                characs["tau_forced_heat"][t_bid])
+            except ZeroDivisionError:
+                power_cycle_delayed_heat[t_bid] = 0
+                if math.isnan(power_cycle_delayed_heat[t_bid]):
+                    power_cycle_delayed_heat[t_bid] = 0
+        # power_avg_delayed is discharged energy (energy_delayed) divided by duration of discharging (tau_delayed)
+        try:
+            power_avg_delayed_heat[t_bid] = energy_delayed_heat[t_bid] / characs["tau_delayed_heat"][t_bid]
+        except ZeroDivisionError:
+            power_avg_delayed_heat[t_bid] = 0
+            if math.isnan(power_avg_delayed_heat[t_bid]):
+                power_avg_delayed_heat[t_bid] = 0
+
+        # store all the calculated characs
+        #characs["power_avg_forced_heat"][t_bid] = power_avg_forced_heat[t_bid]
+        #characs["power_avg_delayed_heat"][t_bid] = power_avg_delayed_heat[t_bid]
+        #characs["power_cycle_delayed_heat"][t_bid] = power_cycle_delayed_heat[t_bid]
+        #characs["power_cycle_forced_heat"][t_bid] = power_cycle_forced_heat[t_bid]
+        characs["energy_forced_heat"][t_bid] = energy_forced_heat[t_bid]
+        characs["energy_delayed_heat"][t_bid] = energy_delayed_heat[t_bid]
+
+    #characs["power_bid_avg_forced_heat"] = np.mean(np.array(list(characs["power_avg_forced_heat"].values())))
+    #characs["power_bid_avg_delayed_heat"] = np.mean(np.array(list(characs["power_avg_delayed_heat"].values())))
+    characs["energy_bid_avg_forced_heat"] = np.mean(np.array(list(characs["power_flex_forced_heat"].values())[:5]))
+    characs["energy_bid_avg_delayed_heat"] = np.mean(np.array(list(characs["power_flex_delayed_heat"].values())[:5]))
+
+        #beta_el_forced = energy_forced * par_rh["n_opt"] / (Q_SH + Q_DHW)
+        #beta_el_delayed = energy_delayed * par_rh["n_opt"] / (Q_SH + Q_DHW)
+        #characs["beta_el_forced"][t_bid] = beta_el_forced
+        #characs["beta_el_delayed"][t_bid] = beta_el_delayed
+
+    # ---- for bat ---- #
+    power_avg_forced_bat = {}
+    power_avg_delayed_bat = {}
+    power_cycle_delayed_bat = {}
+    power_cycle_forced_bat = {}
+    energy_forced_bat = {}
+    energy_delayed_bat = {}
+    # calculate average and cycle power as well as energy flexibility for steps within block bid only
+    for t_bid in range(start_hour, start_hour+block_length):
+
+        # average and cycle power flexibility
+        energy_forced_bat[t_bid] = 0  # energy that can the TES can be charged with
+        i = 0  # variable to iterate through hours, represents whole hours
+        # loop through the whole hours previously calculated as tau_forced
+        while i < characs["tau_forced_bat"][t_bid] - 1:
+            # add the energy that can be charged during that hour (power equals energy due to duration of 1 hour)
+            # todo: dt ergänzen
+            energy_forced_bat[t_bid] += characs["power_flex_forced_bat"][t_bid + i]
+            i += 1
+            # check whether end of data is reached
+            if t_bid + i >= max_step - 1:
+                break
+        # add the energy charged during the remaining fraction of an hour, time is described by (tau_forced - i)
+        energy_forced_bat[t_bid] += characs["power_flex_forced_bat"][t_bid + i] * (
+                        characs["tau_forced_bat"][t_bid] - i)
+
+        # cycle describes time frame of first charging and then discharging the storage afterwards and vice versa
+        # check whether data for the whole cycle exists, n_opt + tau_forced must be within n_opts of the simulation
+        if t_bid + int(characs["tau_forced_bat"][t_bid]) < max_step:
+            # power_cycle_forced is the forced energy divided by the duration of the cycle
+            # time of the cycle is sum of tau_forced at n_opt and tau_delayed at (n_opt + tau_forced)
+            try:
+                power_cycle_forced_bat[t_bid] = energy_forced_bat[t_bid] / (characs["tau_forced_bat"][t_bid] +
+                                                                    characs["tau_delayed_bat"][t_bid +
+                                                                    int(characs["tau_forced_bat"][t_bid])])
+                if math.isnan(power_cycle_forced_bat[t_bid]):
+                    power_cycle_forced_bat[t_bid] = 0
+            except ZeroDivisionError:
+                power_cycle_forced_bat[t_bid] = 0
+        # if tau_delayed at (n_opt + tau_forced) doesn't exist because it exceeds the data,
+        # tau_delayed at n_opt instead of (n_opt + tau_forced) is used
+        else:
+            try:
+                power_cycle_forced_bat[t_bid] = energy_forced_bat[t_bid] / (characs["tau_forced_bat"][t_bid] +
+                                                                            characs["tau_delayed_bat"][t_bid])
+                if math.isnan(power_cycle_forced_bat[t_bid]):
+                    power_cycle_forced_bat[t_bid] = 0
+            except ZeroDivisionError:
+                power_cycle_forced_bat[t_bid] = 0
+
+        # power_average_forced is charged energy (energy_forced) divided by duration of charging (tau_forced)
+        # check whether tau_forced > 0 to avoid division by zero
+        if characs["tau_forced_bat"][t_bid] > 0:
+            power_avg_forced_bat[t_bid] = energy_forced_bat[t_bid] / characs["tau_forced_bat"][t_bid]
+        else:
+            power_avg_forced_bat[t_bid] = 0
+
+        energy_delayed_bat[t_bid] = 0  # energy that can be discharged by the TES
+        i = 0  # variable to iterate through hours, represents whole hours
+        # loop through the whole hours previously calculated as tau_delayed
+        while i < characs["tau_delayed_bat"][t_bid] - 1:
+            # add the energy that can be discharged during that hour (power equals energy due to duration of 1 hour)
+            energy_delayed_bat[t_bid] += characs["power_flex_delayed_bat"][t_bid + i]
+            i += 1
+            # check whether end of data is reached
+            if t_bid + i >= max_step - 1:
+                break
+        # add the energy discharged during the remaining fraction of an hour, time is described by (tau_delayed - i)
+        energy_delayed_bat[t_bid] += characs["power_flex_delayed_bat"][t_bid + i] * (
+                        characs["tau_delayed_bat"][t_bid] - i)
+        # check whether data for the whole cycle exists, n_opt + tau_delayed must be within n_opts of the simulation
+        if t_bid + int(characs["tau_delayed_bat"][t_bid]) < max_step:
+            # power_cycle_delayed is the delayed energy divided by the duration of the cycle
+            # time of the cycle is sum of tau_delayed at n_opt and tau_forced at (n_opt + tau_delayed)
+            try:
+                power_cycle_delayed_bat[t_bid] = energy_delayed_bat[t_bid]/ (characs["tau_delayed_bat"][t_bid] +
+                                                                            characs["tau_forced_bat"][t_bid +
+                                                                        int(characs["tau_delayed_bat"][t_bid])])
+                if math.isnan(power_cycle_delayed_bat[t_bid]):
+                    power_cycle_delayed_bat[t_bid] = 0
+            except ZeroDivisionError:
+                power_cycle_delayed_bat[t_bid] = 0
+        # if tau_forced at (n_opt + tau_delayed) doesn't exist because it exceeds the data,
+        # tau_forced at n_opt instead of (n_opt + tau_delayed) is used
+        else:
+            try:
+                power_cycle_delayed_bat[t_bid] = energy_delayed_bat[t_bid] / (characs["tau_delayed_bat"][t_bid] +
+                                                                      characs["tau_forced_bat"][t_bid])
+            except ZeroDivisionError:
+                power_cycle_delayed_bat[t_bid] = 0
+                if math.isnan(power_cycle_delayed_bat[t_bid]):
+                    power_cycle_delayed_bat[t_bid] = 0
+        # power_avg_delayed is discharged energy (energy_delayed) divided by duration of discharging (tau_delayed)
+        try:
+            power_avg_delayed_bat[t_bid] = energy_delayed_bat[t_bid] / characs["tau_delayed_bat"][t_bid]
+        except ZeroDivisionError:
+            #[t_bid] = 0
+            #if math.isnan(power_avg_delayed_bat[t_bid]):
+            power_avg_delayed_bat[t_bid] = 0
+
+        # store all the calculated characs
+        #characs["power_avg_forced_bat"][t_bid] = power_avg_forced_bat[t_bid]
+        #characs["power_avg_delayed_bat"][t_bid] = power_avg_delayed_bat[t_bid]
+        #characs["power_cycle_delayed_bat"][t_bid] = power_cycle_delayed_bat[t_bid]
+        #characs["power_cycle_forced_bat"][t_bid] = power_cycle_forced_bat[t_bid]
+        characs["energy_forced_bat"][t_bid] = energy_forced_bat[t_bid]
+        characs["energy_delayed_bat"][t_bid] = energy_delayed_bat[t_bid]
+
+    #characs["power_bid_avg_forced_bat"] = np.mean(np.array(list(characs["power_avg_forced_bat"].values())))
+    #characs["power_bid_avg_delayed_bat"] = np.mean(np.array(list(characs["power_avg_delayed_bat"].values())))
+    characs["energy_bid_avg_forced_bat"] = np.mean(np.array(list(characs["power_flex_forced_bat"].values())[:5]))
+    characs["energy_bid_avg_delayed_bat"] = np.mean(np.array(list(characs["power_flex_delayed_bat"].values())[:5]))
+
+    print("Calculating flexibility. Finished building: " + str(n) + ", n_opt: " + str(t_bid) + ".")
+
+    ## Check if the heater is a boiler and set all characteristics to zero since there is no flexibility
+    if nodes[n]["devs"]["boiler"]["cap"] > 0:
+        characs["energy_bid_avg_forced_heat"] = 0
+        characs["energy_bid_avg_delayed_heat"] = 0
+
+    if buyer:
+        flexibility = min(characs["energy_bid_avg_forced_heat"] + characs["energy_bid_avg_forced_bat"],
+                          characs["energy_bid_avg_delayed_heat"] + characs["energy_bid_avg_delayed_bat"])
+    else:
+        flexibility = min(characs["energy_bid_avg_delayed_heat"] + characs["energy_bid_avg_forced_bat"],
+                          characs["energy_bid_avg_forced_heat"] + characs["energy_bid_avg_delayed_bat"])
+
+    # only save when calculated for a large amount of steps or all steps
+    #if start_step is None or block_length > 700:
+    #    with open(options["path_results"] + "/P2P_characteristics/" + datetime.datetime.now().strftime("%m-%d-%H-%M") +
+    #              ".p", 'wb') as fp:
+    #        pickle.dump(characs, fp)
+
+    return flexibility
