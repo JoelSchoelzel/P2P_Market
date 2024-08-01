@@ -8,6 +8,7 @@ Created on Mon Dec 21 15:38:47 2015
 
 from __future__ import division
 import numpy as np
+import matplotlib.pyplot as plt
 import python.opti_bes as decentral_opti
 import python.opti_bes_negotiation as opti_bes_nego # MA Lena
 import python.opti_city as central_opti
@@ -80,11 +81,17 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
 
 
         # FMU IMPORT AND INITIALIZATION
-        fmu_filename = 'FMU/Small_District_6houses_Boi.fmu'
-
-        start_time = 0
+        #fmu_filename = 'FMU/Small_District_6houses_Boi.fmu'
+        #fmu_filename = 'FMU/Small_District_8houses_HP_Boi.fmu'
+        #fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_constantinterpol.fmu'
+        fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_DHWCalc.fmu'
+        #fmu_filename = 'FMU/Medium_District_13houses_HP_Boi_CHP.fmu'
+        #fmu_filename = 'FMU/Small_District_6houses_Boi_DHWCalc.fmu'
+ 
+        #start_time = 0 
+        start_time = 3600 * par_rh["month_start"][par_rh["month"]]
         stop_time = 3600*24 # 1h in Sekunden
-        step_size = 3600  # Auflösung dyn. Sim; Communication Step size
+        step_size = 60  # Auflösung dyn. Sim; Communication Step size
 
         # read the model description
         model_description = read_model_description(fmu_filename)
@@ -98,11 +105,43 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         vr_soc_bat = []
         vr_soc_tes = []
 
+        vr_grid_gen = []
+        vr_grid_load = []
+        vr_Tmax_tes = []
+        vr_trade_check = []
+        vr_heat_dem = []
+        vr_hp_elec = []
+        vr_elec_dem = []
+        vr_pv_simu = []
+        rows = []  # list to record the results
+        grid_gen = []
+        grid_load = []
+        t_max = []
+        trade_sold = []
+        trade_bought = []
+        hp_elec = []
+        elec_dem = []
+        pv_simu = []
+        
+
         # get the value references (vr) for the variables we want to get/set
         for house in range(1, options["nb_bes"]+1): # different index, as house enumeration in Modelica model start with "1"
             vr_traded_elec.append(vr['tra_vol_input' + str(house)])  # defines value reference for variable name
-            vr_soc_bat.append(vr['House'+ str(house) + '.electrical.distribution.batterySimple.SOC']) # defines value reference for variable name
+            if nodes[house-1]["devs"]["bat"]["cap"] != 0: #TODO Wahrscheinlich müssen die BAT Häuser zuerst kommen
+                vr_soc_bat.append(vr['House'+ str(house) + '.electrical.distribution.batterySimple.SOC']) # defines value reference for variable name
             vr_soc_tes.append(vr['House'+ str(house) + '.hydraulic.distribution.soc_sto']) # defines value reference for variable name
+
+            vr_grid_load.append(vr['House'+ str(house) + '.electricalGrid.PElecLoa']) # defines value reference for variable name
+            vr_grid_gen.append(vr['House'+ str(house) + '.electricalGrid.PElecGen']) # defines value reference for variable name
+            vr_Tmax_tes.append(vr['House'+ str(house) + '.hydraulic.distribution.stoBuf.TTop']) # defines value reference for variable name
+            vr_trade_check.append(vr['House'+ str(house) + '.electrical.generation.tradingBus.tradedElec[1]']) # defines value reference for variable name
+            vr_heat_dem.append(vr['House'+ str(house) + '.userProfiles.tabHeatDem.y[1]']) # defines value reference for variable name
+            vr_elec_dem.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) # defines value reference for variable name
+            if nodes[house-1]["devs"]["hp35"]["cap"] != 0:
+                vr_hp_elec.append(vr['House'+ str(house) + '.outputs.hydraulic.gen.PEleHeaPum.value']) # defines value reference for variable name
+            else:
+                vr_hp_elec.append(0) # defines value reference for variable name
+        vr_pv_simu.append(vr['House1.electrical.generation.add.u2'])
 
         # extract the FMU
         unzipdir = extract(fmu_filename)
@@ -197,30 +236,102 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                             params=params, par_rh=par_rh, n_opt=n_opt, block_length=block_length,
                                             opti_res=opti_res[n_opt])
                 
+                time = 0
                 if options["mpc"]: 
-                    # Sum up the bought and sold energy quantities over the number of market rounds for every house using tra_vol
-                    # As tra_vol is the direct control variable for the simulation de/increasing the BESMod electrical generation, it has to be negative for sellers
-                    for house in range(0, options["nb_bes"]):
-                        vol_sum = 0 # intermediate variable, as dicts cannot use the += method
-                        tra_vol[n_opt][house] = {}
-                        if house in participating_buyers[n_opt]:
-                            l = list(mar_dict["transactions"][n_opt][house]["quantity"].values())
-                            for i in range(len(l)): # number of rounds, the house participated in (the last round is mostly started without successful negotiations)
-                                vol_sum += l[i][par_rh["month_start"][par_rh["month"]] + n_opt] # sum of the total energy quantitiy of the current house
-                            tra_vol[n_opt][house] = vol_sum
-                        elif house in participating_sellers[n_opt]:
-                            l = list(mar_dict["transactions"][n_opt][house]["quantity"].values())
-                            for i in range(len(l)):
-                                vol_sum += l[i][par_rh["month_start"][par_rh["month"]] + n_opt]
-                            tra_vol[n_opt][house] = -1 * vol_sum
-                        else:
-                            tra_vol[n_opt][house] = float(0)
-                        #set the control variable for the simulation
-                        fmu.setReal([vr_traded_elec[house]], [tra_vol[n_opt][house]]) 
+                    while time < 3600:
+                        # Sum up the bought and sold energy quantities over the number of market rounds for every house using tra_vol
+                        # As tra_vol is the direct control variable for the simulation de/increasing the BESMod electrical generation, it has to be negative for sellers
+                        for house in range(0, options["nb_bes"]):
+                            vol_sum = 0 # intermediate variable, as dicts cannot use the += method
+                            tra_vol[n_opt][house] = {}
+                            if house in participating_buyers[n_opt]:
+                                l = list(mar_dict["transactions"][n_opt][house]["quantity"].values())
+                                for i in range(len(l)): # number of rounds, the house participated in (the last round is mostly started without successful negotiations)
+                                    vol_sum += l[i][par_rh["month_start"][par_rh["month"]] + n_opt] # sum of the total energy quantitiy of the current house
+                                tra_vol[n_opt][house] = vol_sum
+                            elif house in participating_sellers[n_opt]:
+                                l = list(mar_dict["transactions"][n_opt][house]["quantity"].values())
+                                for i in range(len(l)):
+                                    vol_sum += l[i][par_rh["month_start"][par_rh["month"]] + n_opt]
+                                tra_vol[n_opt][house] = -1 * vol_sum
+                            else:
+                                tra_vol[n_opt][house] = float(0)
+                            #set the control variable for the simulation
+                            fmu.setReal([vr_traded_elec[house]], [tra_vol[n_opt][house]]) 
 
-                    # simulate one time step
-                    fmu.doStep(currentCommunicationPoint=n_opt * 3600, communicationStepSize=step_size) #TODO checken, ob das richtig ist als "time"-Ersatz
-                    
+                        # simulate one time step
+                        fmu.doStep(currentCommunicationPoint=start_time + n_opt * 3600 + time, communicationStepSize=step_size) #TODO checken, ob das richtig ist als "time"-Ersatz
+                        
+                        # Test for the returned values from the FMU
+                        no_house = 4 #in Modelica ist das Haus 5
+                        input1, input2, input3, input4, input5, input6, input7, input8  = fmu.getReal([vr_grid_gen[no_house], vr_grid_load[no_house], vr_Tmax_tes[no_house], vr_trade_check[no_house], vr_heat_dem[no_house], vr_hp_elec[no_house], vr_elec_dem[no_house], vr_pv_simu[0]])
+                        rows.append((n_opt, input1, input2, input3, input4, input5, input6, input7, input8))
+                        time += step_size
+
+                    length = 24
+                    if n_opt == length:
+                        total_elec = []
+                        for i in range(length * int(3600/step_size)):
+                            grid_gen.append(rows[i][1]/1000) # change from Wh to kWh
+                            grid_load.append(rows[i][2]/1000) # change from Wh to kWh
+                            t_max.append(rows[i][3])
+                            if rows[i][4] > 0:
+                                trade_sold.append(0)
+                                trade_bought.append(rows[i][4]/1000)
+                            else:
+                                trade_sold.append(rows[i][4]/1000)
+                                trade_bought.append(0)
+                            hp_elec.append(rows[i][6]/1000)
+                            elec_dem.append(rows[i][7]/1000)
+                            total_elec.append((rows[i][6]+rows[i][7])/1000)
+                            pv_simu.append(rows[i][8]/1000)
+                            #trade_check.append(rows[i][4]/1000) # change from Wh to kWh
+                        plt.plot(grid_gen, label = 'feed-in', color = 'tab:blue')
+                        plt.plot(grid_load, label = 'grid load', color = 'tab:orange')
+                        plt.plot(trade_bought, label = 'bought electricity', color = 'tab:green')
+                        plt.plot(trade_sold, label = 'sold electricity', color = 'tab:gray')
+                        plt.legend()
+                        plt.xticks(np.arange(0, length + 1, 1))
+                        plt.xlabel('time in h')
+                        plt.ylabel('electricity in kWh')
+                        plt.show()
+                        print("HI")
+
+                        plt.clf()
+                        plt.plot(trade_bought, label = 'bought electricity', color = 'tab:green')
+                        plt.plot(hp_elec, label = 'heat pump electricity', color = 'tab:cyan')
+                        plt.plot(elec_dem, label = 'electric load profile', color = 'tab:red')
+                        plt.legend()
+                        plt.xlabel('time in h')
+                        plt.ylabel('electricity in kWh')
+                        #plt.xticks(np.arange(0, length + 1, 1))
+                        plt.show()
+                        print("HI")
+
+                        plt.clf()
+                        plt.plot(trade_bought, label = 'bought electricity', color = 'tab:green')
+                        plt.plot(total_elec, label = 'hp + elec demand', color = 'tab:red')
+                        plt.legend()
+                        plt.xlabel('time in h')
+                        plt.ylabel('electricity in kWh')
+                        #plt.xticks(np.arange(0, length + 1, 1))
+                        plt.show()
+                        print("HI")
+                        """
+                        pv_nodes = []
+                        for i in range(24):
+                            pv_nodes.append(nodes[0]["pv_power"][1415 + i])
+                        plt.clf()
+                        plt.plot(pv_nodes, label = 'PV gen Python', color = 'tab:green')
+                        plt.plot(pv_simu, label = 'PV gen Monoddelica', color = 'tab:red')
+                        plt.legend()
+                        plt.xlabel('time in h')
+                        plt.ylabel('electricity in kWh')
+                        #plt.xticks(np.arange(0, length + 1, 1))
+                        plt.show()
+                        print("HI")
+                        """
+
                     # create initial SoC values for next optimization step
                     # in the case of Co-Simulation, the SOC is retrieved from the Modelica simulation
                     # the standard method for the SOC initial_values is still used for a comparison of both values
@@ -238,25 +349,32 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     for n in range(options["nb_bes"]):
                         init_val[n_opt + 1]["building_" + str(n)] = {}
                         init_val[n_opt + 1]["building_" + str(n)]["soc"] = {}
-                        soc_bat_fmu[n_opt][n] = fmu.getReal([vr_soc_bat[n]])
-                        #if soc_bat_fmu[n_opt][n][0] > 0.95:
-                            #soc_bat_fmu[n_opt][n][0] = 0.95
-                        init_val[n_opt + 1]["building_" + str(n)]["soc"]["bat"] \
-                            = soc_bat_fmu[n_opt][n][0] * opti_res[n_opt][n][12]["bat"] #SOC from simulation is percentual, optimization needs kWh
+                        # not every house owns BAT
+                        soc_bat_fmu[n_opt][n] = {}
+                        if nodes[n]["devs"]["bat"]["cap"] != 0:
+                            soc_bat_fmu[n_opt][n] = fmu.getReal([vr_soc_bat[n]])
+                            #if soc_bat_fmu[n_opt][n][0] > 0.95:
+                                #soc_bat_fmu[n_opt][n][0] = 0.95
+                            init_val[n_opt + 1]["building_" + str(n)]["soc"]["bat"] \
+                                = soc_bat_fmu[n_opt][n][0] * opti_res[n_opt][n][12]["bat"] #SOC from simulation is percentual, optimization needs kWh
+                        else:
+                            init_val[n_opt + 1]["building_" + str(n)]["soc"]["bat"] \
+                                = init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["bat"]
                         #for boiler systems, dont use the Modelica SOC_TES
                         #TODO nochmal klären!
                         if nodes[n]["devs"]["boiler"]["cap"] != 0.0:
                             init_val[n_opt + 1]["building_" + str(n)]["soc"]["tes"] \
                             = init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["tes"]
                         else:
-                            soc_tes_fmu[n_opt][n] = fmu.getReal([vr_soc_tes[house]])
+                            soc_tes_fmu[n_opt][n] = fmu.getReal([vr_soc_tes[n]])
                             init_val[n_opt + 1]["building_" + str(n)]["soc"]["tes"] \
                             = soc_tes_fmu[n_opt][n][0] * opti_res[n_opt][n][12]["tes"] #SOC from simulation is percentual, optimization needs kWh
                         init_val[n_opt + 1]["building_" + str(n)]["soc"]["ev"] = 0 # no EVs examined
                         
                         if n_opt != 0:
-                            soc_diff_bat[n_opt][n] \
-                                = abs(soc_bat_fmu[n_opt][n] - init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["bat"]/opti_res[n_opt][n][12]["bat"])
+                            if nodes[n]["devs"]["bat"]["cap"] != 0:
+                                soc_diff_bat[n_opt][n] \
+                                    = abs(soc_bat_fmu[n_opt][n] - init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["bat"]/opti_res[n_opt][n][12]["bat"])
                             if nodes[n]["devs"]["boiler"]["cap"] == 0.0:
                                 soc_diff_tes[n_opt][n] \
                                     = abs(soc_tes_fmu[n_opt][n] - init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["tes"]/opti_res[n_opt][n][12]["tes"])
@@ -270,6 +388,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                                     participating_buyers=participating_buyers[n_opt],
                                                                     participating_sellers=participating_sellers[n_opt])
 
+            
                 """
                 output = {}
                 soc_bat_fmu[n_opt] = {}
@@ -369,14 +488,16 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                             opti_res_new[n_opt][i][n] = {}
                             opti_res_new[n_opt][i][n] = opti_res[n_opt][n][i]
 
+        #"""
         # ------------------ CALCULATE RESULTS ------------------
-        #res_time, res_val = calc_results.calc_results_p2p(par_rh=par_rh, block_bids=mar_dict["block_bids"],
-        #                                                  options=options, block_length=block_length,
-        #                                                  nego_results=mar_dict["negotiation_results"],
-        #                                                  transactions_grid=mar_dict["transactions_with_grid"],
-        #                                                  init_val=init_val, last_time_step=last_time_step,
-        #                                                  opti_res=opti_res)
-        res_time, res_val = 1,2
+        res_time, res_val = calc_results.calc_results_p2p(par_rh=par_rh, block_bids=mar_dict["block_bids"],
+                                                          options=options, block_length=block_length,
+                                                          nego_results=mar_dict["negotiation_results"],
+                                                          transactions_grid=mar_dict["transactions_with_grid"],
+                                                          init_val=init_val, last_time_step=last_time_step,
+                                                          opti_res=opti_res)
+        #"""
+        #res_time, res_val = 1,2
         # return opti_res_new, mar_dict, trade_res, characteristics  #opti_res,
         return mar_dict, characteristics, init_val, res_time, res_val, opti_res
 

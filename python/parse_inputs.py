@@ -460,12 +460,15 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         elif districtData.scenario.heater[n] == "HP":
             if (districtData.district[n]['envelope'].construction_year > 1994) or (districtData.district[n]['envelope'].construction_year > 1983 and districtData.district[n]['envelope'].retrofit ==1) or (districtData.district[n]['envelope'].construction_year > 1958 and districtData.district[n]['envelope'].retrofit ==2):
                 # heat pump with 35C supply temperature todo: adjust parameters above
-                devs[n]["eh"]["cap"] = districtData.district[n]['capacities']['EH']
+                #devs[n]["eh"]["cap"] = districtData.district[n]['capacities']['EH']
+                #TODO hier wieder zurückändern
+                devs[n]["eh"]["cap"] = max(nodes[n]["dhw"])
                 devs[n]["hp35"]["cap"] = districtData.district[n]['capacities']['HP']
                 devs[n]["hp35"]["exists"] = 1
 
             else: # heat pump with 55C supply temperature
-                devs[n]["eh"]["cap"] = districtData.district[n]['capacities']['EH']
+                #devs[n]["eh"]["cap"] = districtData.district[n]['capacities']['EH']
+                devs[n]["eh"]["cap"] = max(nodes[n]["dhw"])
                 devs[n]["hp55"]["cap"] = districtData.district[n]['capacities']['HP']
                 devs[n]["hp55"]["exists"] = 1
 
