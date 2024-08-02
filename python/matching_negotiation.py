@@ -160,6 +160,10 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             prev_trade[n][t] = 0
     matched_pairs = []
 
+    # Initialize a set to keep track of buildings that participated in negotiations
+    participating_buyers = set()
+    participating_sellers = set()
+
     # --------------------- START NEGOTIATION ---------------------
 
     # start new round of trading while potential buyers and sellers exist and maximum number of rounds isn't reached
@@ -184,6 +188,11 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             remaining_supply = {}
             buyer_id = matched_bids_info_nego[r][match][0]["bes_id"]
             seller_id = matched_bids_info_nego[r][match][1]["bes_id"]
+
+            #TODO ich brauche diese beiden Listen für die Handelsübergabe an Modelica
+            participating_buyers.add(buyer_id)
+            participating_sellers.add(seller_id)
+        
 
             # price adjustment for negotiation
             # todo: delta_prices in abh. der Gebotsmengen und deren Differenzen
@@ -348,8 +357,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                     "additional_revenue": additional_revenue,
                     "remaining_demand": remaining_demand,
                     "remaining_supply": remaining_supply,
-                    "opti_bes_res_buyer": opti_bes_res_buyer,
-                    "opti_bes_res_seller": opti_bes_res_seller,
+                    #"opti_bes_res_buyer": opti_bes_res_buyer,
+                    #"opti_bes_res_seller": opti_bes_res_seller,
                 }
             except:
                 pass
@@ -452,7 +461,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     print("Finished all negotiations for time steps " + str(block_bid_time_steps[0]) + " to " + str(block_bid_time_steps[-1]) + ".")
 
-    return (nego_transactions, sorted_bids_nego, last_time_step,
+    return (nego_transactions, participating_buyers, participating_sellers, sorted_bids_nego, last_time_step,
             matched_bids_info_nego), opti_res
 
 def trade_with_grid(sorted_bids, params, par_rh, n_opt, block_length, opti_res):
