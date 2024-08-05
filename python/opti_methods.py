@@ -19,6 +19,7 @@ import python.characteristics as characs # MA Lena
 import python.parse_inputs as parse_inputs
 import python.matching_negotiation as mat_neg # MA Lena
 import python.calc_results as calc_results
+import copy
 
 
 
@@ -26,6 +27,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
     # Run rolling horizon
     init_val = {}  # not needed for first optimization, thus empty dictionary
     opti_res = {}  # to store the results of the first bes optimization of each optimization step
+    opti_res_check = {}
 
     if options["optimization"] == "P2P":
 
@@ -99,6 +101,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         else:
                             init_val[n_opt + 1] = 0
                     else: pass
+            opti_res_check[n_opt] = copy.deepcopy(opti_res[n_opt])
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) +
                   "% of optimizations processed.")
 
@@ -206,7 +209,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                 params = params)
         #res_time, res_val = 1,2
 
-        return mar_dict, characteristics, init_val, results, opti_res
+        return mar_dict, characteristics, init_val, results, opti_res, opti_res_check
 
     elif options["optimization"] == "P2P_typeWeeks":
         # runs optimization for type weeks instead of whole month/year

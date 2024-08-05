@@ -81,7 +81,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
                "crit_prio": crit_prio,  # "flex_energy",
                # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
                "block_length": block_length,  # length of block bid in hours
-               "max_trading_rounds": 5,
+               "max_trading_rounds": 25,
                 "negotiation": True,  # True: negotiation, False: auction
                "enhanced_horizon": enhanced_horizon,  # False: only block bid length, True: all 36hours
                "flex_price_delta": True,  # True: flex price delta, False: identical delta
@@ -132,7 +132,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     # Run (rolling horizon) optimization for whole year or month
     if options["optimization"] == "P2P":
         # run optimization incl. trading
-        mar_dict, characteristics, init_val, results, opti_res = (
+        mar_dict, characteristics, init_val, results, opti_res, opti_res_check = (
             opti_methods.rolling_horizon_opti(options=options, nodes=nodes, par_rh=par_rh,
                                               building_params=building_params,
                                               params=params, block_length=options["block_length"]))
@@ -201,16 +201,16 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     time["end"] = datetime.datetime.now()
     print("Finished rolling horizon. " + str(datetime.datetime.now()))
 
-    return mar_dict, characteristics, init_val, results, opti_res, par_rh, districtData, options
+    return mar_dict, characteristics, init_val, results, opti_res,opti_res_check, par_rh, districtData, options
 
 if __name__ == '__main__':
     for scenario_name in ["AppliedEnergy"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
         first_run = True
-        for month in [0]:  # , 7]:
+        for month in [4]:  # , 7]:
             for block_length in [1]:  #1, 3, 5]:
                 for enhanced_horizon in [False]: #, True]:
-                    for crit_prio in ["flex_quantity"]: #"flex_energy", "quantity", "random", "flex_quantity"
-                        mar_dict, characteristics, init_val, results, opti_res, par_rh, districtData, options = \
+                    for crit_prio in ["quantity"]: #"flex_energy", "quantity", "random", "flex_quantity"
+                        mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options = \
                             run_optimization(scenario_name, calcUserProfiles=first_run, crit_prio=crit_prio,
                                          block_length=block_length,
                                          enhanced_horizon=enhanced_horizon, month=month)

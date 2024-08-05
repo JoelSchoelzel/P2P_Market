@@ -72,30 +72,34 @@ def calc_results_p2p(par_rh, block_length, nego_results, opti_res, grid_transact
     trading_revenue = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
     trading_costs = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
     gain = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
+    counter = 0
 
     for opt in range(par_rh["n_opt"] - int(36/block_length)-1):
         for round_nb in nego_results[opt]:
             for match in nego_results[opt][round_nb]:
                 # valid_time_steps = {k: v for k, v in nego_results[opt][round_nb][match]["quantity"].items() if isinstance(k, int)}
                 for t in range(par_rh["hour_start"][opt], par_rh["hour_start"][opt] + block_length):
-                    if isinstance(nego_results[opt][round_nb][match]["quantity"][t], float):  # valid_time_steps
-                        #price[t][match] = nego_results[opt][round_nb][match]["price"][t]  # €/kWh
-                        traded_power[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]] += \
-                            nego_results[opt][round_nb][match]["quantity"][t]/1000  # kWh
-                        traded_power[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]] +=  \
-                            nego_results[opt][round_nb][match]["quantity"][t] / 1000  # kWh
-                        additional_revenue[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]] += \
-                            nego_results[opt][round_nb][match]["additional_revenue"][t]  # €/kWh
-                        saved_costs[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]] += \
-                            nego_results[opt][round_nb][match]["saved_costs"][t]  # €/kWh
-                        trading_revenue[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]] += \
-                            nego_results[opt][round_nb][match]["trading_revenue"][t]  # €/kWh
-                        trading_costs[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]] += \
-                            nego_results[opt][round_nb][match]["trading_cost"][t]  # €/kWh
-                        gain[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]] = \
-                            saved_costs[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]]
-                        gain[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]] = \
-                            additional_revenue[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]]
+                    try:
+                        if isinstance(nego_results[opt][round_nb][match]["quantity"][t], float):  # valid_time_steps
+                            traded_power[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]] += \
+                                nego_results[opt][round_nb][match]["quantity"][t]/1000  # kWh
+                            traded_power[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]] +=  \
+                                nego_results[opt][round_nb][match]["quantity"][t] / 1000  # kWh
+                            additional_revenue[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]] += \
+                                nego_results[opt][round_nb][match]["additional_revenue"][t]  # €/kWh
+                            saved_costs[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]] += \
+                                nego_results[opt][round_nb][match]["saved_costs"][t]  # €/kWh
+                            trading_revenue[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]] += \
+                                nego_results[opt][round_nb][match]["trading_revenue"][t]  # €/kWh
+                            trading_costs[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]] += \
+                                nego_results[opt][round_nb][match]["trading_cost"][t]  # €/kWh
+                            gain[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]] = \
+                                saved_costs[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]]
+                            gain[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]] = \
+                                additional_revenue[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]]
+                    except KeyError:
+                        counter =+ 1
+    print("counter_"+str(counter))
 
     traded_power_per_building = np.zeros(len(opti_res[0]))
     trading_costs_per_building  = np.zeros(len(opti_res[0]))
@@ -267,26 +271,26 @@ def plots():
     with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r1_len5_flex.p", "rb") as file_res_list:
         results[str(1) + "_" + str(5) + "_flex"] = pickle.load(file_res_list)
 
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r10_len1_random.p", "rb") as file_res_list:
-        results[str(10)+"_"+str(1)+"_random"] = pickle.load(file_res_list)
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r10_len1_quantity.p", "rb") as file_res_list:
-        results[str(10) + "_" + str(1) + "_quantity"] = pickle.load(file_res_list)
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r10_len1_flex.p", "rb") as file_res_list:
-        results[str(10) + "_" + str(1) + "_flex"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len1_random.p", "rb") as file_res_list:
+        results[str(5)+"_"+str(1)+"_random"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len1_quantity.p", "rb") as file_res_list:
+        results[str(5) + "_" + str(1) + "_quantity"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len1_flex.p", "rb") as file_res_list:
+        results[str(5) + "_" + str(1) + "_flex"] = pickle.load(file_res_list)
 
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r10_len3_random.p", "rb") as file_res_list:
-        results[str(10) + "_" + str(3) + "_random"] = pickle.load(file_res_list)
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r10_len3_quantity.p", "rb") as file_res_list:
-        results[str(10) + "_" + str(3) + "_quantity"] = pickle.load(file_res_list)
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r10_len3_flex.p", "rb") as file_res_list:
-        results[str(10) + "_" + str(3) + "_flex"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len3_random.p", "rb") as file_res_list:
+        results[str(5) + "_" + str(3) + "_random"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len3_quantity.p", "rb") as file_res_list:
+        results[str(5) + "_" + str(3) + "_quantity"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len3_flex.p", "rb") as file_res_list:
+        results[str(5) + "_" + str(3) + "_flex"] = pickle.load(file_res_list)
 
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r10_len5_random.p", "rb") as file_res_list:
-        results[str(10) + "_" + str(5) + "_random"] = pickle.load(file_res_list)
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r10_len5_quantity.p", "rb") as file_res_list:
-        results[str(10) + "_" + str(5) + "_quantity"] = pickle.load(file_res_list)
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r10_len5_flex.p", "rb") as file_res_list:
-        results[str(10) + "_" + str(5) + "_flex"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len5_random.p", "rb") as file_res_list:
+        results[str(5) + "_" + str(5) + "_random"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len5_quantity.p", "rb") as file_res_list:
+        results[str(5) + "_" + str(5) + "_quantity"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len5_flex.p", "rb") as file_res_list:
+        results[str(5) + "_" + str(5) + "_flex"] = pickle.load(file_res_list)
 
 
     """
@@ -340,11 +344,11 @@ def plots():
     # Creating the DataFrame
     data = {
         ('random', 1): [results["1_1_random"]["traded_supply_bids"]*100, results["1_3_random"]["traded_supply_bids"]*100, results["1_5_random"]["traded_supply_bids"]*100],
-        ('random', 10): [results["10_1_random"]["traded_supply_bids"]*100, results["10_3_random"]["traded_supply_bids"]*100, results["10_5_random"]["traded_supply_bids"]*100],
+        ('random', 10): [results["5_1_random"]["traded_supply_bids"]*100, results["5_3_random"]["traded_supply_bids"]*100, results["5_5_random"]["traded_supply_bids"]*100],
         ('quantity', 1): [results["1_1_quantity"]["traded_supply_bids"]*100, results["1_3_quantity"]["traded_supply_bids"]*100, results["1_5_quantity"]["traded_supply_bids"]*100],
-        ('quantity', 10): [results["10_1_quantity"]["traded_supply_bids"]*100, results["10_3_quantity"]["traded_supply_bids"]*100, results["10_5_quantity"]["traded_supply_bids"]*100],
+        ('quantity', 10): [results["5_1_quantity"]["traded_supply_bids"]*100, results["5_3_quantity"]["traded_supply_bids"]*100, results["5_5_quantity"]["traded_supply_bids"]*100],
         ('flexibility', 1): [results["1_1_flex"]["traded_supply_bids"]*100, results["1_3_flex"]["traded_supply_bids"]*100, results["1_5_flex"]["traded_supply_bids"]*100],
-        ('flexibility', 10): [results["10_1_flex"]["traded_supply_bids"]*100, results["10_3_flex"]["traded_supply_bids"]*100, results["10_5_flex"]["traded_supply_bids"]*100],
+        ('flexibility', 10): [results["5_1_flex"]["traded_supply_bids"]*100, results["5_3_flex"]["traded_supply_bids"]*100, results["5_5_flex"]["traded_supply_bids"]*100],
     }
     df = pd.DataFrame(data, index=[1, 3, 5])
     # Plotting the heatmap
@@ -375,11 +379,11 @@ def plots():
     # Creating the DataFrame
     data = {
         ('random', 1): [results["1_1_random"]["traded_demand_bids"]*100, results["1_3_random"]["traded_demand_bids"]*100, results["1_5_random"]["traded_demand_bids"]*100],
-        ('random', 10): [results["10_1_random"]["traded_demand_bids"]*100, results["10_3_random"]["traded_demand_bids"]*100, results["10_5_random"]["traded_demand_bids"]*100],
+        ('random', 10): [results["5_1_random"]["traded_demand_bids"]*100, results["5_3_random"]["traded_demand_bids"]*100, results["5_5_random"]["traded_demand_bids"]*100],
         ('quantity', 1): [results["1_1_quantity"]["traded_demand_bids"]*100, results["1_3_quantity"]["traded_demand_bids"]*100, results["1_5_quantity"]["traded_demand_bids"]*100],
-        ('quantity', 10): [results["10_1_quantity"]["traded_demand_bids"]*100, results["10_3_quantity"]["traded_demand_bids"]*100, results["10_5_quantity"]["traded_demand_bids"]*100],
+        ('quantity', 10): [results["5_1_quantity"]["traded_demand_bids"]*100, results["5_3_quantity"]["traded_demand_bids"]*100, results["5_5_quantity"]["traded_demand_bids"]*100],
         ('flexibility', 1): [results["1_1_flex"]["traded_demand_bids"]*100, results["1_3_flex"]["traded_demand_bids"]*100, results["1_5_flex"]["traded_demand_bids"]*100],
-        ('flexibility', 10): [results["10_1_flex"]["traded_demand_bids"]*100, results["10_3_flex"]["traded_demand_bids"]*100, results["10_5_flex"]["traded_demand_bids"]*100],
+        ('flexibility', 10): [results["5_1_flex"]["traded_demand_bids"]*100, results["5_3_flex"]["traded_demand_bids"]*100, results["5_5_flex"]["traded_demand_bids"]*100],
     }
     df = pd.DataFrame(data, index=[1, 3, 5])
     # Plotting the heatmap
@@ -412,21 +416,21 @@ def plots():
         ('random', 1): [results["1_1_random"]["traded_power_total"] / 1000,
                         results["1_3_random"]["traded_power_total"] / 1000,
                         results["1_5_random"]["traded_power_total"] / 1000],
-        ('random', 10): [results["10_1_random"]["traded_power_total"] / 1000,
-                         results["10_3_random"]["traded_power_total"] / 1000,
-                         results["10_5_random"]["traded_power_total"] / 1000],
+        ('random', 10): [results["5_1_random"]["traded_power_total"] / 1000,
+                         results["5_3_random"]["traded_power_total"] / 1000,
+                         results["5_5_random"]["traded_power_total"] / 1000],
         ('quantity', 1): [results["1_1_quantity"]["traded_power_total"] / 1000,
                           results["1_3_quantity"]["traded_power_total"] / 1000,
                           results["1_5_quantity"]["traded_power_total"] / 1000],
-        ('quantity', 10): [results["10_1_quantity"]["traded_power_total"] / 1000,
-                           results["10_3_quantity"]["traded_power_total"] / 1000,
-                           results["10_5_quantity"]["traded_power_total"] / 1000],
+        ('quantity', 10): [results["5_1_quantity"]["traded_power_total"] / 1000,
+                           results["5_3_quantity"]["traded_power_total"] / 1000,
+                           results["5_5_quantity"]["traded_power_total"] / 1000],
         ('flexibility', 1): [results["1_1_flex"]["traded_power_total"] / 1000,
                              results["1_3_flex"]["traded_power_total"] / 1000,
                              results["1_5_flex"]["traded_power_total"] / 1000],
-        ('flexibility', 10): [results["10_1_flex"]["traded_power_total"] / 1000,
-                              results["10_3_flex"]["traded_power_total"] / 1000,
-                              results["10_5_flex"]["traded_power_total"] / 1000],
+        ('flexibility', 10): [results["5_1_flex"]["traded_power_total"] / 1000,
+                              results["5_3_flex"]["traded_power_total"] / 1000,
+                              results["5_5_flex"]["traded_power_total"] / 1000],
     }
     df = pd.DataFrame(data, index=[1, 3, 5])
     # Plotting the heatmap
@@ -798,6 +802,33 @@ def calc_gain():
     tikzplotlib.save(
         "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/abs_gain_per_group.tex", axis_height ='5 cm',axis_width='15 cm')
     plt.show()
+
+    volume = 0
+    for n_opt in range(par_rh["n_opt"] - int(36/5)-1):
+        for n in range(len(opti_res[0])):
+            for t in range(par_rh["hour_start"][n_opt], par_rh["hour_start"][n_opt] + 5):
+                volume += opti_res[n_opt][n][4][19][t]/1000
+
+    from_grid = np.zeros(900)
+    for n_opt in range(par_rh["n_opt"] - int(36/5)-1 ):
+        for n in range(len(opti_res[0])):
+            for t in range(par_rh["hour_start"][n_opt], par_rh["hour_start"][n_opt] + 5):
+                from_grid[t - par_rh["hour_start"][0]] += mar_dict["transactions_with_grid"][n_opt]["power_from_grid"][n][t]
+    to_grid = np.zeros(900)
+    for n_opt in range(par_rh["n_opt"] - int(36/5)-1 ):
+        for n in range(len(opti_res[0])):
+            for t in range(par_rh["hour_start"][n_opt], par_rh["hour_start"][n_opt] + 5):
+                to_grid[t - par_rh["hour_start"][0]] += mar_dict["transactions_with_grid"][n_opt]["power_to_grid"][n][t]
+
+    A = np.zeros((2,900))
+    b = 0
+    B = np.zeros(900)
+    for t in range(900):
+        if from_grid[t] > 0 and to_grid[t] > 0:
+            b +=1
+            A[0, t] = from_grid[t]
+            A[1, t] = to_grid[t]
+            B[t] = min(from_grid[t], to_grid[t])
 
 
 

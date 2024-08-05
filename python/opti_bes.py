@@ -28,6 +28,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     # last time step for soc_end
     first_time_step = time_steps[0]
     last_time_step = time_steps[-1]
+    time_steps_block_bid = [time_steps[0], time_steps[1], time_steps[2], time_steps[3]]
     # Durations of time steps # for aggregated RH
     #duration = par_rh["duration"][n_opt]
 
@@ -506,8 +507,8 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     res_p_sell = {}
     for dev in ("chp", "pv"):
         res_p_use[dev] = {(t): p_use[dev][t].X for t in time_steps}
-        #res_p_sell[dev] = {(t): p_sell[dev][t].X for t in time_steps}
-        res_p_sell[dev] = {t: round(p_sell[dev][t].X, 15) for t in time_steps}
+        res_p_sell[dev] = {(t): p_sell[dev][t].X for t in time_steps}
+        #res_p_sell[dev] = {t: round(p_sell[dev][t].X, 15) for t in time_steps}
 
     res_p_grid_buy = {(t): p_grid_buy[t].X for t in time_steps}
     res_p_grid_sell = {(t): p_grid_sell[t].X for t in time_steps}

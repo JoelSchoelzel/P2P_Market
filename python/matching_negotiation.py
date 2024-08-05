@@ -155,9 +155,12 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
     nego_transactions = {r: {}}
     prev_trade = {}
     for n in range(num_bes):
-        prev_trade[n] = {}
+        prev_trade[n]  = {}
+        prev_trade[n]["sell"] = {}
+        prev_trade[n]["buy"] = {}
         for t in par_rh["time_steps"][n_opt][0:block_length]:
-            prev_trade[n][t] = 0
+            prev_trade[n]["sell"][t] = 0
+            prev_trade[n]["buy"][t] = 0
     matched_pairs = []
 
     # --------------------- START NEGOTIATION ---------------------
@@ -188,23 +191,41 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             # price adjustment for negotiation
             # todo: delta_prices in abh. der Gebotsmengen und deren Differenzen
             bid_quantity_seller = {}
+            bid_quantity_buyer = {}
             ratio = {}
-            for t in par_rh["time_steps"][n_opt][0:block_length]:
-                bid_quantity_seller[t] = matched_bids_info_nego[r][match][1][t][1]
-            for t in par_rh["time_steps"][n_opt][0:block_length]:
-                try:
-                    ratio[t] = bid_quantity_seller[t] / max(bid_quantity_seller.values())
-                except ZeroDivisionError:
-                    ratio[t] = 0
-            trade_price = {}
-            for t in par_rh["time_steps"][n_opt][0:block_length]:
-                trade_price[t] = min(matched_bids_info_nego[r][match][1][t][0], matched_bids_info_nego[r][match][0][t][0]) \
-                                    + (1 - ratio[t]) * (max(matched_bids_info_nego[r][match][1][t][0],
-                                                                          matched_bids_info_nego[r][match][0][t][0])
-                                                                      - min(matched_bids_info_nego[r][match][1][t][0],
-                                                                            matched_bids_info_nego[r][match][0][t][0]))
+            if matched_bids_info_nego[r][match][0]["flex_energy"] >= matched_bids_info_nego[r][match][1]["flex_energy"]:
+                for t in par_rh["time_steps"][n_opt][0:block_length]:
+                    bid_quantity_seller[t] = matched_bids_info_nego[r][match][1][t][1]
+                for t in par_rh["time_steps"][n_opt][0:block_length]:
+                    try:
+                        ratio[t] = bid_quantity_seller[t] / max(bid_quantity_seller.values())
+                    except ZeroDivisionError:
+                        ratio[t] = 0
+                trade_price = {}
+                for t in par_rh["time_steps"][n_opt][0:block_length]:
+                    trade_price[t] = min(matched_bids_info_nego[r][match][1][t][0], matched_bids_info_nego[r][match][0][t][0]) \
+                                        + (1 - ratio[t]) * (max(matched_bids_info_nego[r][match][1][t][0],
+                                                                              matched_bids_info_nego[r][match][0][t][0])
+                                                                          - min(matched_bids_info_nego[r][match][1][t][0],
+                                                                                matched_bids_info_nego[r][match][0][t][0]))
+            elif matched_bids_info_nego[r][match][1]["flex_energy"] > matched_bids_info_nego[r][match][0]["flex_energy"]:
+                for t in par_rh["time_steps"][n_opt][0:block_length]:
+                    bid_quantity_buyer[t] = matched_bids_info_nego[r][match][0][t][1]
+                for t in par_rh["time_steps"][n_opt][0:block_length]:
+                    try:
+                        ratio[t] = bid_quantity_buyer[t] / max(bid_quantity_buyer.values())
+                    except ZeroDivisionError:
+                        ratio[t] = 0
+                trade_price = {}
+                for t in par_rh["time_steps"][n_opt][0:block_length]:
+                    trade_price[t] = max(matched_bids_info_nego[r][match][1][t][0], matched_bids_info_nego[r][match][0][t][0]) \
+                                        + (1 - ratio[t]) * (min(matched_bids_info_nego[r][match][1][t][0],
+                                                                              matched_bids_info_nego[r][match][0][t][0])
+                                                                          - max(matched_bids_info_nego[r][match][1][t][0],
+                                                                                matched_bids_info_nego[r][match][0][t][0]))
 
             #### run the optimization model for buyer and seller ###
+
             try:
                 opti_bes_res_buyer = {}
                 print(buyer_id)
@@ -241,6 +262,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                         saved_costs[t] = 0
                         trading_revenue[t] = 0
                         additional_revenue[t] = 0
+                        # todo: hier nach noch eine opti?
                         trade_power[t] = min(opti_bes_res_buyer["res_power_trade"][t],
                                                 opti_bes_res_seller["res_power_trade"][t])
 
@@ -264,14 +286,12 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                         # remaining_supply[t] = matched_bids_info_nego[r][match][1][t][1] - trade_power[t]
                         remaining_supply[t] = opti_bes_res_seller["res_p_grid_sell"][t] + (opti_bes_res_seller["res_power_trade"][t] - trade_power[t])
                         # store the traded quantity of each trader for the opti of next trading round r
-                        prev_trade[buyer_id][t] += trade_power[t] # buyer
-                        prev_trade[seller_id][t] += trade_power[t] # seller
+                        prev_trade[buyer_id]["buy"][t] += trade_power[t] # buyer
+                        prev_trade[seller_id]["sell"][t] += trade_power[t] # seller
 
 
                 # ---------- BIDS FOR NEXT ROUND ---------- #
                 new_sum_energy = 0
-                res_soc_buyer = opti_bes_res_buyer["res_soc"]
-                res_soc_seller = opti_bes_res_seller["res_soc"]
 
                 # add bids only if there is untraded demand
                 if sum(remaining_demand.values()) > 1e-3:
@@ -294,8 +314,9 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                     block_bid["quantity"] = new_sum_energy / len(block_bid_time_steps)
                     block_bid["sum_energy"] = new_sum_energy
                     block_bid["total_price"] = matched_bids_info_nego[r][match][0][t][0]
+                    block_bid["ignored_demand"] = matched_bids_info_nego[r][match][0]["ignored_demand"]
                     flex_energy = characteristics.calc_characs_single(nodes = nodes, block_length = block_length,
-                                                                      bes_id = buyer_id, soc_state = res_soc_buyer,
+                                                                      bes_id = buyer_id, soc_state = opti_bes_res_buyer["res_soc"],
                                                                       opti_res = opti_res[buyer_id], buyer = True)
 
                     block_bid["flex_energy"] = flex_energy
@@ -326,8 +347,9 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                     block_bid["quantity"] = new_sum_energy / len(block_bid_time_steps)
                     block_bid["sum_energy"] = new_sum_energy
                     block_bid["total_price"] = matched_bids_info_nego[r][match][1][t][0]
+                    block_bid["ignored_demand"] = matched_bids_info_nego[r][match][1]["ignored_demand"]
                     flex_energy = characteristics.calc_characs_single(nodes = nodes, block_length = block_length,
-                                                                      bes_id = seller_id, soc_state = res_soc_seller,
+                                                                      bes_id = seller_id, soc_state = opti_bes_res_seller["res_soc"],
                                                                       opti_res = opti_res[seller_id], buyer = False)
 
 
@@ -348,10 +370,11 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                     "additional_revenue": additional_revenue,
                     "remaining_demand": remaining_demand,
                     "remaining_supply": remaining_supply,
-                    "opti_bes_res_buyer": opti_bes_res_buyer,
-                    "opti_bes_res_seller": opti_bes_res_seller,
+                    #"opti_bes_res_buyer": opti_bes_res_buyer,
+                    #"opti_bes_res_seller": opti_bes_res_seller,
                 }
             except:
+                print(1111111111)
                 pass
 
         # Add all buyers/sellers that weren't matched (but were in sorted bids list) to the new sorted_bids_nego lists
@@ -482,11 +505,11 @@ def trade_with_grid(sorted_bids, params, par_rh, n_opt, block_length, opti_res):
                 power_to_grid[bes_id][t] = opti_res[bes_id][18][t]
                 revenue_power_to_grid[bes_id][t] = opti_res[bes_id][18][t]/1000 * params["eco"]["sell" + "_" + "pv"]
 
-    for seller in sorted_bids["sell_blocks"]:
-        # trade ignored demand of sellers with grid
-        for t in time_steps:
-            power_from_grid[seller["bes_id"]][t] = seller.get("ignored_demand")[t]
-            costs_power_from_grid[seller["bes_id"]][t] = (power_from_grid[seller["bes_id"]][t]/1000 * params["eco"]["pr", "el"])
+    #for seller in sorted_bids["sell_blocks"]:
+    #    # trade ignored demand of sellers with grid
+    #    for t in time_steps:
+    #        power_from_grid[seller["bes_id"]][t] = seller.get("ignored_demand")[t]
+   #         costs_power_from_grid[seller["bes_id"]][t] = (power_from_grid[seller["bes_id"]][t]/1000 * params["eco"]["pr", "el"])
 
     # --------------------- STORE THE RESULTS OF TRANSACTIONS WITH THE GRID ---------------------
 

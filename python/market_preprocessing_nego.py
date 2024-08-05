@@ -153,13 +153,13 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
                                   "flex_energy": min(characs[bes_id]["energy_bid_avg_forced_heat"]
                                                      + characs[bes_id]["energy_bid_avg_forced_bat"],
                                                      characs[bes_id]["energy_bid_avg_delayed_heat"]
-                                                     + characs[bes_id]["energy_bid_avg_delayed_bat"])
-                                  }
-            #  if buy_block_bid_info["mean_quantity"] > 0:
+                                                     + characs[bes_id]["energy_bid_avg_delayed_bat"]),
+                                  "ignored_demand": False}
             buy_list[i].update(buy_block_bid_info)
+            if buy_block_bid_info["quantity"] == 0:
+                del buy_list[i]
 
-        # Check if at least one value is False
-        # & append block bid to sell_list
+        # Check if at least one value is False & append block bid to sell_list
         elif "False" in bool_list:
             # Make a deepcopy to avoid modifying the original sublist in block_bid
             sublist_copy = copy.deepcopy(block_bid["bes_" + str(n)])
@@ -170,12 +170,16 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
             # sell list only contains the quantities & prices to be sold
             for t in sublist_copy:
                 if isinstance(sublist_copy[t], list) and sublist_copy[t][2] == "True":
-                    sell_list[i][t][0] = 0  # set price to 0
+                    sell_list[i][t][0] = 0.09  # set price to 0
                     sell_list[i][t][1] = 0  # set quantity to 0
                     sell_list[i][t][2] = str("False")  # set str to False
                 # ignored demand at each time step t is difference between quantity in sellers block bid and in
                 # sell list and will be traded with grid at end of negotiation rounds
                 ignored_demand[t] = block_bid["bes_"+str(n)][t][1] - sell_list[i][t][1]
+            if sum(ignored_demand.values()) > 0:
+                bid_info = {"ignored_demand": True}
+            else:
+                bid_info = {"ignored_demand": False}
 
             # append block_bid_info to sell_list
             bes_id, mean_price, sum_energy, mean_quantity \
@@ -187,8 +191,32 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
                                                       + characs[bes_id]["energy_bid_avg_forced_bat"],
                                                       characs[bes_id]["energy_bid_avg_forced_heat"]
                                                       + characs[bes_id]["energy_bid_avg_delayed_bat"]),
-                                   "ignored_demand": ignored_demand}
+                                   "ignored_demand": bid_info["ignored_demand"]}
             sell_list[i].update(sell_block_bid_info)
+            if sell_block_bid_info["quantity"] == 0:
+                del sell_list[i]
+
+            sublist_copy = copy.deepcopy(block_bid["bes_" + str(n)])
+            buy_list.append(sublist_copy)
+            i = len(buy_list) - 1
+            # Set quantity and price to 0 at time steps where the string is False (seller wants to sell)
+            # buy list only contains the quantities & prices to be bought
+            for t in sublist_copy:
+                buy_list[i][t][2] = str("True")  # set str to True
+                buy_list[i][t][1] = ignored_demand[t]
+
+            # append block_bid_info to buy_list
+            bes_id, mean_price, sum_energy, mean_quantity = mean_all(block_bid=buy_list[i])
+            buy_block_bid_info = {"bes_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
+                                   "quantity": mean_quantity,
+                                   "flex_energy": min(characs[bes_id]["energy_bid_avg_delayed_heat"]
+                                                      + characs[bes_id]["energy_bid_avg_forced_bat"],
+                                                      characs[bes_id]["energy_bid_avg_forced_heat"]
+                                                      + characs[bes_id]["energy_bid_avg_delayed_bat"]),
+                                   "ignored_demand": bid_info["ignored_demand"]}
+            buy_list[i].update(buy_block_bid_info)
+            if buy_block_bid_info["quantity"] == 0:
+                del buy_list[i]
 
     # ------------------- SORT BLOCK BIDS BY CRITERIA DEFINED IN OPTIONS -------------------
 
