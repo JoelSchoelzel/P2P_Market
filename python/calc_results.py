@@ -4,7 +4,7 @@ import pandas as pd
 import pickle
 
 
-def calc_results_p2p(par_rh, block_length, nego_results, opti_res, grid_transaction, params):
+def calc_results_p2p(par_rh, block_length, nego_results, opti_res,opti_res_check, grid_transaction, params):
 
     last_n_opt = par_rh["n_opt"]
     time_steps = []

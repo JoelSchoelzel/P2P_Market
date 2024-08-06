@@ -3,129 +3,236 @@
 Minimize
  
 Subject To
- Max_heat_operation_boiler: Q_boiler_2463 <= 0
- Max_heat_operation_chp: Q_chp_2463 <= 0
- Max_heat_operation_eh: P_eh_2463 <= 2569.749088404689
- Max_heat_operation_hp35: Q_hp35_2463 <= 0
- Max_heat_operation_boiler: Q_boiler_2464 <= 0
- Max_heat_operation_chp: Q_chp_2464 <= 0
- Max_heat_operation_hp35: Q_hp35_2464 <= 0
- Max_heat_operation_boiler: Q_boiler_2465 <= 0
- Max_heat_operation_chp: Q_chp_2465 <= 0
- Max_heat_operation_hp35: Q_hp35_2465 <= 0
- Power_equation_hp35_2463: - 4.235738831615119 P_hp35_2463 + Q_hp35_2463
+ Demand_costs_grid: c_dem_grid - 0.36 P_grid_buy7032 - 0.36 P_grid_buy7033
+   - 0.36 P_grid_buy7034 - 0.36 P_grid_buy7035 - 0.36 P_grid_buy7036
+   - 0.36 P_grid_buy7037 = 0
+ Max_heat_operation_eh: P_eh_7033 <= 0
+ Max_heat_operation_hp35: Q_hp35_7033 <= 0
+ Max_heat_operation_hp55: Q_hp55_7033 <= 0
+ Max_heat_operation_eh: P_eh_7034 <= 0
+ Max_heat_operation_hp35: Q_hp35_7034 <= 0
+ Max_heat_operation_hp55: Q_hp55_7034 <= 0
+ Max_heat_operation_chp: Q_chp_7035 <= 0
+ Max_heat_operation_eh: P_eh_7035 <= 0
+ Max_heat_operation_hp35: Q_hp35_7035 <= 0
+ Max_heat_operation_hp55: Q_hp55_7035 <= 0
+ Max_heat_operation_eh: P_eh_7036 <= 0
+ Max_heat_operation_hp35: Q_hp35_7036 <= 0
+ Max_heat_operation_hp55: Q_hp55_7036 <= 0
+ Max_heat_operation_eh: P_eh_7037 <= 0
+ Max_heat_operation_hp35: Q_hp35_7037 <= 0
+ Max_heat_operation_hp55: Q_hp55_7037 <= 0
+ Power_equation_hp35_7032: - 4.87193675889328 P_hp35_7032 + Q_hp35_7032
    = 0
- Power_equation_hp55_2463: - 2.673319755600815 P_hp55_2463 + Q_hp55_2463
+ Power_equation_hp55_7032: P_chp_7032 - 0.3 gaschp_7032 = 0
+ Power_equation_hp35_7033: - 4.950200803212851 P_hp35_7033 + Q_hp35_7033
    = 0
- heat_operation_chp_2463: Q_chp_2463 - 0.62 gaschp_2463 = 0
- Power_equation_hp55_2463: P_chp_2463 - 0.3 gaschp_2463 = 0
- Heat_operation_EH_2463: Q_eh_2463 = 0
- Power_equation_hp55_2464: - 2.78093220338983 P_hp55_2464 + Q_hp55_2464
+ Power_equation_hp55_7033: - 2.923385300668151 P_hp55_7033 + Q_hp55_7033
    = 0
- heat_operation_chp_2464: Q_chp_2464 - 0.62 gaschp_2464 = 0
- Power_equation_hp55_2464: P_chp_2464 - 0.3 gaschp_2464 = 0
- Heat_operation_EH_2464: Q_eh_2464 = 0
- Power_equation_hp55_2465: - 2.816738197424892 P_hp55_2465 + Q_hp55_2465
+ Power_equation_EH_7033: - Q_eh_7033 + P_eh_7033 = 0
+ Power_equation_hp35_7034: - 4.9304 P_hp35_7034 + Q_hp35_7034 = 0
+ Power_equation_hp55_7034: - 2.916888888888889 P_hp55_7034 + Q_hp55_7034
    = 0
- heat_operation_chp_2465: Q_chp_2465 - 0.62 gaschp_2465 = 0
- Power_equation_hp55_2465: P_chp_2465 - 0.3 gaschp_2465 = 0
- Heat_operation_EH_2465: Q_eh_2465 = 27.31
- Power_equation_EH_2465: - Q_eh_2465 + P_eh_2465 = 0
- Solar_electrical_pv_2463: P_pv_2463 = 2921.980066646144
- Solar_electrical_pv_2464: P_pv_2464 = 2696.509976323342
- Solar_electrical_pv_2465: P_pv_2465 = 2404.138772006483
- Heat_charging_2463: P_ch_tes_2463 - Q_hp35_2463 - Q_hp55_2463 - Q_chp_2463
-   - Q_boiler_2463 - Q_eh_2463 = 0
- Heat_discharging_2463: P_dch_tes_2463 = 2810.471809209195
- Storage_bal_tes_2463: SOC_tes_2463 - P_ch_tes_2463 + P_dch_tes_2463 = 0
- Heat_charging_2464: P_ch_tes_2464 - Q_hp35_2464 - Q_hp55_2464 - Q_chp_2464
-   - Q_boiler_2464 - Q_eh_2464 = 0
- Heat_discharging_2464: P_dch_tes_2464 = 2471.792558650933
- Storage_bal_tes_2464: - 0.98 SOC_tes_2463 + SOC_tes_2464 - P_ch_tes_2464
-   + P_dch_tes_2464 = 0
- Heat_charging_2465: P_ch_tes_2465 - Q_hp35_2465 - Q_hp55_2465 - Q_chp_2465
-   - Q_boiler_2465 - Q_eh_2465 = 0
- Heat_discharging_2465: P_dch_tes_2465 = 2014.308170576887
- Storage_bal_tes_2465: - 0.98 SOC_tes_2464 + SOC_tes_2465 - P_ch_tes_2465
-   + P_dch_tes_2465 = 0
- max_ch_bat_2463: P_ch_bat_2463 - 3577.823428608 y_bat_2463 <= 0
- max_dch_bat_2463: P_dch_bat_2463 + 3577.823428608 y_bat_2463
-   <= 3577.823428608
- Storage_balance_bat_2463: SOC_bat_2463 - 0.97 P_ch_bat_2463
-   + 1.030927835051547 P_dch_bat_2463 = 3180.288056846737
- max_ch_bat_2464: P_ch_bat_2464 - 3577.823428608 y_bat_2464 <= 0
- max_dch_bat_2464: P_dch_bat_2464 + 3577.823428608 y_bat_2464
-   <= 3577.823428608
- max_soc_bat_2464: SOC_bat_2464 <= 5664.887095295999
- Storage_balance_bat_2464: - SOC_bat_2463 + SOC_bat_2464
-   - 0.97 P_ch_bat_2464 + 1.030927835051547 P_dch_bat_2464 = 0
- Storage_balance_bat_2465: - SOC_bat_2464 + SOC_bat_2465
-   - 0.97 P_ch_bat_2465 + 1.030927835051547 P_dch_bat_2465 = 0
- Electricity_balance_2463: P_ch_bat_2463 - P_dch_bat_2463 + P_hp35_2463
-   + P_hp55_2463 + P_eh_2463 - P_imp_2463 - P_use_chp_2463 - P_use_pv_2463
-   = -29.58
- power=sell+use_chp_2463: - P_chp_2463 + P_use_chp_2463 + P_sell_chp_2463
+ Power_equation_hp35_7035: - 4.891269841269841 P_hp35_7035 + Q_hp35_7035
    = 0
- power=sell+use_pv_2463: - P_pv_2463 + P_use_pv_2463 + P_sell_pv_2463 = 0
- Electricity_balance_2464: P_ch_bat_2464 - P_dch_bat_2464 + P_hp35_2464
-   + P_hp55_2464 + P_eh_2464 - P_imp_2464 - P_use_chp_2464 - P_use_pv_2464
-   = -243.66
- power=sell+use_chp_2464: - P_chp_2464 + P_use_chp_2464 + P_sell_chp_2464
+ Power_equation_hp55_7035: - 2.903982300884955 P_hp55_7035 + Q_hp55_7035
    = 0
- power=sell+use_pv_2464: - P_pv_2464 + P_use_pv_2464 + P_sell_pv_2464 = 0
- Electricity_balance_2465: P_ch_bat_2465 - P_dch_bat_2465 + P_hp35_2465
-   + P_hp55_2465 + P_eh_2465 - P_imp_2465 - P_use_chp_2465 - P_use_pv_2465
-   = -2957.2
- power=sell+use_chp_2465: - P_chp_2465 + P_use_chp_2465 + P_sell_chp_2465
+ Power_equation_hp35_7036: - 4.81484375 P_hp35_7036 + Q_hp35_7036 = 0
+ Power_equation_hp55_7036: - 2.878508771929824 P_hp55_7036 + Q_hp55_7036
    = 0
- power=sell+use_pv_2465: - P_pv_2465 + P_use_pv_2465 + P_sell_pv_2465 = 0
- soc_bb=soc_ph: SOC_bat_2465 = 4966.151220859591
- soc_bb=soc_ph: SOC_tes_2465 = 2275.430421401931
- sum_p_imp: P_imp_2463 + P_imp_2464 + P_imp_2465 <= 580.3712279935171
- binary_import_2463: - P_imp_2463 + 30484 y_house_load_2463 >= 0
- binary_export_2463: - P_sell_chp_2463 - P_sell_pv_2463
-   - 30484 y_house_load_2463 >= -30484
+ Power_equation_hp55_7036: P_chp_7036 - 0.3 gaschp_7036 = 0
+ Power_equation_hp35_7037: - 4.759073359073359 P_hp35_7037 + Q_hp35_7037
+   = 0
+ Power_equation_hp55_7037: - 2.859694989106754 P_hp55_7037 + Q_hp55_7037
+   = 0
+ Solar_electrical_pv_7037: P_pv_7037 = 0
+ Heat_discharging_7032: P_dch_tes_7032 = 2009.990700741117
+ Storage_bal_tes_7032: SOC_tes_7032 - P_ch_tes_7032 + P_dch_tes_7032 = 0
+ Storage_bal_tes_7034: - 0.98 SOC_tes_7033 + SOC_tes_7034 - P_ch_tes_7034
+   + P_dch_tes_7034 = 0
+ Heat_discharging_7035: P_dch_tes_7035 = 2137.653769372509
+ Storage_bal_tes_7035: - 0.98 SOC_tes_7034 + SOC_tes_7035 - P_ch_tes_7035
+   + P_dch_tes_7035 = 0
+ Heat_charging_7036: P_ch_tes_7036 - Q_hp35_7036 - Q_hp55_7036 - Q_chp_7036
+   - Q_boiler_7036 - Q_eh_7036 = 0
+ Heat_discharging_7037: P_dch_tes_7037 = 2213.865740622171
+ Storage_bal_tes_7037: - 0.98 SOC_tes_7036 + SOC_tes_7037 - P_ch_tes_7037
+   + P_dch_tes_7037 = 0
+ max_ch_bat_7032: P_ch_bat_7032 - 3154.412371967999 y_bat_7032 <= 0
+ max_soc_bat_7032: SOC_bat_7032 >= 262.8676976639999
+ Storage_balance_bat_7032: SOC_bat_7032 - 0.97 P_ch_bat_7032
+   + 1.030927835051547 P_dch_bat_7032 = 460.496563643386
+ max_ch_bat_7033: P_ch_bat_7033 - 3154.412371967999 y_bat_7033 <= 0
+ max_dch_bat_7033: P_dch_bat_7033 + 3154.412371967999 y_bat_7033
+   <= 3154.412371967999
+ Storage_balance_bat_7033: - SOC_bat_7032 + SOC_bat_7033
+   - 0.97 P_ch_bat_7033 + 1.030927835051547 P_dch_bat_7033 = 0
+ max_ch_bat_7034: P_ch_bat_7034 - 3154.412371967999 y_bat_7034 <= 0
+ max_dch_bat_7034: P_dch_bat_7034 + 3154.412371967999 y_bat_7034
+   <= 3154.412371967999
+ Storage_balance_bat_7034: - SOC_bat_7033 + SOC_bat_7034
+   - 0.97 P_ch_bat_7034 + 1.030927835051547 P_dch_bat_7034 = 0
+ max_ch_bat_7035: P_ch_bat_7035 - 3154.412371967999 y_bat_7035 <= 0
+ max_dch_bat_7035: P_dch_bat_7035 + 3154.412371967999 y_bat_7035
+   <= 3154.412371967999
+ Storage_balance_bat_7035: - SOC_bat_7034 + SOC_bat_7035
+   - 0.97 P_ch_bat_7035 + 1.030927835051547 P_dch_bat_7035 = 0
+ max_ch_bat_7036: P_ch_bat_7036 - 3154.412371967999 y_bat_7036 <= 0
+ max_dch_bat_7036: P_dch_bat_7036 + 3154.412371967999 y_bat_7036
+   <= 3154.412371967999
+ max_soc_bat_7036: SOC_bat_7036 >= 262.8676976639999
+ Storage_balance_bat_7036: - SOC_bat_7035 + SOC_bat_7036
+   - 0.97 P_ch_bat_7036 + 1.030927835051547 P_dch_bat_7036 = 0
+ max_ch_bat_7037: P_ch_bat_7037 - 3154.412371967999 y_bat_7037 <= 0
+ max_dch_bat_7037: P_dch_bat_7037 + 3154.412371967999 y_bat_7037
+   <= 3154.412371967999
+ Storage_balance_bat_7037: - SOC_bat_7036 + SOC_bat_7037
+   - 0.97 P_ch_bat_7037 + 1.030927835051547 P_dch_bat_7037 = 0
+ power=sell+use_pv_7032: - P_pv_7032 + P_use_pv_7032 + P_sell_pv_7032 = 0
+ prev_trade_sell==0_7032: Previous_power_trade_buyer_7032
+   = 470.3631501753631
+ Electricity_balance_7033: P_ch_bat_7033 - P_dch_bat_7033 + P_hp35_7033
+   + P_hp55_7033 + P_eh_7033 - P_imp_7033 - P_use_chp_7033 - P_use_pv_7033
+   = -31.95
+ import=grid+trade+prev_7033: - Power_trade_buyer_7033
+   - Previous_power_trade_buyer_7033 + P_imp_7033 - P_grid_buy7033 = 0
+ prev_trade_sell==0_7033: Previous_power_trade_buyer_7033
+   = 65.90684982463679
+ Electricity_balance_7034: P_ch_bat_7034 - P_dch_bat_7034 + P_hp35_7034
+   + P_hp55_7034 + P_eh_7034 - P_imp_7034 - P_use_chp_7034 - P_use_pv_7034
+   = -31.95
+ power=sell+use_pv_7034: - P_pv_7034 + P_use_pv_7034 + P_sell_pv_7034 = 0
+ import=grid+trade+prev_7034: - Power_trade_buyer_7034
+   - Previous_power_trade_buyer_7034 + P_imp_7034 - P_grid_buy7034 = 0
+ prev_trade_sell==0_7034: Previous_power_trade_buyer_7034
+   = 31.95000049898779
+ Electricity_balance_7035: P_ch_bat_7035 - P_dch_bat_7035 + P_hp35_7035
+   + P_hp55_7035 + P_eh_7035 - P_imp_7035 - P_use_chp_7035 - P_use_pv_7035
+   = -31.95
+ power=sell+use_chp_7035: - P_chp_7035 + P_use_chp_7035 + P_sell_chp_7035
+   = 0
+ import=grid+trade+prev_7035: - Power_trade_buyer_7035
+   - Previous_power_trade_buyer_7035 + P_imp_7035 - P_grid_buy7035 = 0
+ prev_trade_sell==0_7035: Previous_power_trade_buyer_7035
+   = 31.95000049898773
+ Electricity_balance_7036: P_ch_bat_7036 - P_dch_bat_7036 + P_hp35_7036
+   + P_hp55_7036 + P_eh_7036 - P_imp_7036 - P_use_chp_7036 - P_use_pv_7036
+   = -31.95
+ power=sell+use_pv_7036: - P_pv_7036 + P_use_pv_7036 + P_sell_pv_7036 = 0
+ import=grid+trade+prev_7036: - Power_trade_buyer_7036
+   - Previous_power_trade_buyer_7036 + P_imp_7036 - P_grid_buy7036 = 0
+ prev_trade_sell==0_7036: Previous_power_trade_buyer_7036
+   = 31.95000049898779
+ Electricity_balance_7037: P_ch_bat_7037 - P_dch_bat_7037 + P_hp35_7037
+   + P_hp55_7037 + P_eh_7037 - P_imp_7037 - P_use_chp_7037 - P_use_pv_7037
+   = -31.95
+ power=sell+use_chp_7037: - P_chp_7037 + P_use_chp_7037 + P_sell_chp_7037
+   = 0
+ power=sell+use_pv_7037: - P_pv_7037 + P_use_pv_7037 + P_sell_pv_7037 = 0
+ soc_bb=soc_ph: SOC_bat_7037 = 295.8058419938976
+ import=grid+trade+prev_7037: - Power_trade_buyer_7037
+   - Previous_power_trade_buyer_7037 + P_imp_7037 - P_grid_buy7037 = 0
+ prev_trade_sell==0_7037: Previous_power_trade_buyer_7037
+   = 31.95000049897046
+ binary_import_7034: - P_imp_7034 + 30484 y_house_load_7034 >= 0
+ binary_export_7034: - P_sell_chp_7034 - P_sell_pv_7034
+   - 30484 y_house_load_7034 >= -30484
+ binary_import_7036: - P_imp_7036 + 30484 y_house_load_7036 >= 0
+ binary_export_7036: - P_sell_chp_7036 - P_sell_pv_7036
+   - 30484 y_house_load_7036 >= -30484
 Bounds
- SOC_bat_2463 free
- SOC_bat_2464 free
- SOC_bat_2465 free
- P_dch_bat_2465 free
- P_ch_tes_2463 free
- P_dch_tes_2463 free
- SOC_tes_2464 free
- P_dch_tes_2464 free
- SOC_tes_2465 free
- P_ch_tes_2465 free
- P_dch_tes_2465 free
- Q_hp35_2463 free
- Q_hp35_2464 free
- P_hp55_2463 free
- Q_hp55_2463 free
- P_hp55_2464 free
- Q_hp55_2464 free
- Q_hp55_2465 free
- P_chp_2463 free
- Q_chp_2463 free
- P_chp_2464 free
- Q_chp_2464 free
- P_chp_2465 free
- Q_chp_2465 free
- Q_boiler_2464 free
- Q_eh_2463 free
- Q_eh_2464 free
- Q_eh_2465 free
- P_eh_2465 free
- P_pv_2463 free
- P_pv_2464 free
- P_pv_2465 free
- P_imp_2465 free
- P_use_chp_2464 free
- P_use_chp_2465 free
- P_use_pv_2464 free
- P_use_pv_2465 free
- gaschp_2463 free
- gaschp_2464 free
- gaschp_2465 free
+ c_dem_grid free
+ SOC_bat_7032 free
+ P_ch_bat_7032 free
+ P_dch_bat_7032 free
+ SOC_bat_7033 free
+ P_ch_bat_7033 free
+ P_dch_bat_7033 free
+ SOC_bat_7034 free
+ P_ch_bat_7034 free
+ SOC_bat_7035 free
+ P_ch_bat_7035 free
+ P_dch_bat_7035 free
+ SOC_bat_7036 free
+ P_dch_bat_7036 free
+ SOC_bat_7037 free
+ P_ch_bat_7037 free
+ P_dch_bat_7037 free
+ SOC_tes_7032 free
+ P_ch_tes_7032 free
+ P_dch_tes_7032 free
+ SOC_tes_7033 free
+ SOC_tes_7034 free
+ P_ch_tes_7034 free
+ P_dch_tes_7034 free
+ SOC_tes_7035 free
+ P_ch_tes_7035 free
+ P_dch_tes_7035 free
+ SOC_tes_7036 free
+ P_ch_tes_7036 free
+ SOC_tes_7037 free
+ P_ch_tes_7037 free
+ P_dch_tes_7037 free
+ P_hp35_7032 free
+ Q_hp35_7032 free
+ P_hp35_7033 free
+ Q_hp35_7033 free
+ P_hp35_7034 free
+ Q_hp35_7034 free
+ P_hp35_7035 free
+ Q_hp35_7035 free
+ P_hp35_7036 free
+ Q_hp35_7036 free
+ P_hp35_7037 free
+ Q_hp35_7037 free
+ P_hp55_7033 free
+ Q_hp55_7033 free
+ P_hp55_7034 free
+ Q_hp55_7034 free
+ P_hp55_7035 free
+ Q_hp55_7035 free
+ P_hp55_7036 free
+ Q_hp55_7036 free
+ P_hp55_7037 free
+ Q_hp55_7037 free
+ P_chp_7032 free
+ P_chp_7035 free
+ Q_chp_7035 free
+ P_chp_7036 free
+ Q_chp_7036 free
+ P_chp_7037 free
+ Q_boiler_7036 free
+ Q_eh_7033 free
+ P_eh_7033 free
+ P_eh_7035 free
+ Q_eh_7036 free
+ P_eh_7037 free
+ P_pv_7032 free
+ P_pv_7037 free
+ Previous_power_trade_buyer_7032 free
+ Previous_power_trade_buyer_7033 free
+ Previous_power_trade_buyer_7034 free
+ Previous_power_trade_buyer_7035 free
+ Previous_power_trade_buyer_7036 free
+ Previous_power_trade_buyer_7037 free
+ P_grid_buy7032 free
+ P_imp_7033 free
+ P_imp_7034 free
+ P_imp_7035 free
+ P_imp_7036 free
+ P_imp_7037 free
+ P_sell_chp_7035 free
+ P_sell_chp_7037 free
+ P_use_pv_7032 free
+ P_sell_pv_7032 free
+ P_use_pv_7034 free
+ P_sell_pv_7034 free
+ P_use_pv_7036 free
+ P_sell_pv_7036 free
+ P_sell_pv_7037 free
+ gaschp_7032 free
+ gaschp_7036 free
 Binaries
- y_bat_2463 y_bat_2464 y_house_load_2463
+ y_bat_7032 y_bat_7033 y_bat_7034 y_bat_7035 y_bat_7036 y_bat_7037
+ y_house_load_7034 y_house_load_7036
 End

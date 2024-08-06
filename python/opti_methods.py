@@ -101,7 +101,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         else:
                             init_val[n_opt + 1] = 0
                     else: pass
-            opti_res_check[n_opt] = copy.deepcopy(opti_res[n_opt])
+            #opti_res_check[n_opt] = copy.deepcopy(opti_res[n_opt])
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) +
                   "% of optimizations processed.")
 
@@ -205,7 +205,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         # ------------------ CALCULATE RESULTS ------------------
         results = calc_results.calc_results_p2p(par_rh=par_rh, block_length=block_length,
                                                 nego_results=mar_dict["negotiation_results"],
-                                                opti_res=opti_res, grid_transaction=mar_dict["transactions_with_grid"],
+                                                opti_res=opti_res, opti_res_check= opti_res_check,
+                                                grid_transaction=mar_dict["transactions_with_grid"],
                                                 params = params)
         #res_time, res_val = 1,2
 

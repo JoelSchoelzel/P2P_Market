@@ -81,7 +81,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
                "crit_prio": crit_prio,  # "flex_energy",
                # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
                "block_length": block_length,  # length of block bid in hours
-               "max_trading_rounds": 25,
+               "max_trading_rounds": 15,
                 "negotiation": True,  # True: negotiation, False: auction
                "enhanced_horizon": enhanced_horizon,  # False: only block bid length, True: all 36hours
                "flex_price_delta": True,  # True: flex price delta, False: identical delta
@@ -206,12 +206,11 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 if __name__ == '__main__':
     for scenario_name in ["AppliedEnergy"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
         first_run = True
-        for month in [4]:  # , 7]:
+        for month in [1]:  # , 7]:
             for block_length in [1]:  #1, 3, 5]:
                 for enhanced_horizon in [False]: #, True]:
                     for crit_prio in ["quantity"]: #"flex_energy", "quantity", "random", "flex_quantity"
                         mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options = \
                             run_optimization(scenario_name, calcUserProfiles=first_run, crit_prio=crit_prio,
-                                         block_length=block_length,
-                                         enhanced_horizon=enhanced_horizon, month=month)
+                                             block_length=block_length, enhanced_horizon=enhanced_horizon, month=month)
                         first_run = False
