@@ -10,9 +10,10 @@ data = sdf.load(file)
 
 # storage temperatures
 variables = []
-for i in range(1, 21, 4):
+variables.append('hydraulic.distribution.stoBuf.layer[1].T')
+for i in range(5, 21, 5):
     variables.append('hydraulic.distribution.stoBuf.layer[' + str(i) + '].T')
-variables = ['electrical.externalElectricalPin1.PElecLoa', 'building.heatPortCon[1].Q_flow']
+#variables = ['electrical.externalElectricalPin1.PElecLoa', 'building.heatPortCon[1].Q_flow']
 
 datasets = []
 
@@ -22,9 +23,16 @@ for variable in variables:
     # read the dataset
     datasets.append(sdf.load(file, path))
 figure, ax = plt.subplots()
-for dataset, variable in zip(datasets, variables):
-    ax.plot(dataset.scales[0].data/3600, dataset.data, label=variable)
-#ax.legend()
+#for dataset, variable in zip(datasets, variables):
+for i, (dataset, variable) in enumerate(zip(datasets, variables)):
+    if i == 0:
+        label = "Bottom Layer"
+    elif i == len(variables) - 1:
+        label = "Top Layer"
+    else:
+        label = None
+    ax.plot(dataset.scales[0].data/3600, dataset.data, label=label)
+ax.legend()
 plt.title('Temperature Profile of the TES layers')
 plt.xlabel('Time [h]')
 plt.ylabel('Temperature [K]')
