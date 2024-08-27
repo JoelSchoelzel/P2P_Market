@@ -527,6 +527,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
                 f.write('\n')
         f.close()
 
+    epsilon = 1e-04
     # Retrieve results
     res_y = {}
     res_power = {}
@@ -545,12 +546,15 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     for dev in storage:
         res_soc[dev] = {(t): soc[dev][t].X for t in time_steps}
 
-    res_p_imp = {(t): p_imp[t].X for t in time_steps}
+    #res_p_imp = {(t): p_imp[t].X for t in time_steps}
+    res_p_imp = {(t): p_imp[t].X if p_imp[t].X >= epsilon else 0 for t in time_steps}
     res_p_ch = {}
     res_p_dch = {}
     for dev in storage:
-        res_p_ch[dev] = {(t): p_ch[dev][t].X for t in time_steps}
-        res_p_dch[dev] = {(t): p_dch[dev][t].X for t in time_steps}
+        #res_p_ch[dev] = {(t): p_ch[dev][t].X for t in time_steps}
+        #res_p_dch[dev] = {(t): p_dch[dev][t].X for t in time_steps}
+        res_p_ch[dev] = {(t): p_ch[dev][t].X if p_ch[dev][t].X >= epsilon else 0 for t in time_steps}
+        res_p_dch[dev] = {(t): p_dch[dev][t].X if p_dch[dev][t].X >= epsilon else 0 for t in time_steps}
 
     #res_gas = {}
     #for dev in ["boiler", "chp"]:

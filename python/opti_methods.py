@@ -9,8 +9,10 @@ Created on Mon Dec 21 15:38:47 2015
 from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
-import python.opti_bes as decentral_opti
-import python.opti_bes_negotiation as opti_bes_nego # MA Lena
+#import python.opti_bes as decentral_opti
+import python.opti_besTEMP as decentral_opti
+import python.opti_bes_negotiationTEMP as opti_bes_nego # MA Lena
+#import python.opti_bes_negotiation as opti_bes_nego # MA Lena
 import python.opti_city as central_opti
 import python.market_preprocessing as mar_pre
 import python.market_preprocessing_nego as mar_pre_nego # MA Lena
@@ -36,8 +38,9 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
     soc_bat_fmu = {}    # SOC of the battery retrieved from the Modelica simulation
     soc_tes_fmu = {}    # SOC of the TES retrieved from the Modelica simulation
     soc_bat_opti = {}   # SOC from init_val, but percentual, not in kWh
-    soc_diff_bat = {}       # difference between the simulation and optimization SOC
-    soc_diff_tes = {}       # difference between the simulation and optimization SOC
+    soc_diff_bat = {}   # difference between the simulation and optimization SOC
+    soc_diff_tes = {}   # difference between the simulation and optimization SOC
+    t_tes_avg = {}      # average temperature of the TES retrieved from the Modelica simulation
 
     if options["optimization"] == "P2P":
 
@@ -81,7 +84,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         #fmu_filename = 'FMU/Small_District_6houses_Boi.fmu'
         #fmu_filename = 'FMU/Small_District_8houses_HP_Boi.fmu'
         #fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_constantinterpol.fmu'
-        fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_DHWCalc.fmu'
+        #fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_DHWCalc.fmu'
+        fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_DHWCalc_2Sto.fmu'
         #fmu_filename = 'FMU/Medium_District_13houses_HP_Boi_CHP.fmu'
         #fmu_filename = 'FMU/Small_District_6houses_Boi_DHWCalc.fmu'
 
@@ -99,10 +103,15 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         for variable in model_description.modelVariables:
             vr[variable.name] = variable.valueReference
 
+        # control variables
         vr_traded_elec = []
+        vr_T_set_mpc = []
+        # state variables
+        vr_T_tes_avg = []
         vr_soc_bat = []
         vr_soc_tes = []
 
+        # Variable references für die Auswertungen
         vr_grid_gen = []
         vr_grid_load = []
         vr_Tmax_tes = []
@@ -110,6 +119,11 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         vr_heat_dem = []
         vr_hp_elec = []
         vr_elec_dem = []
+        vr_T_set_hp = []
+        vr_n_set_hp = []
+        vr_m_flow = []
+        vr_T_ret = []
+
         rows = []  # list to record the results
         grid_gen = []
         grid_load = []
@@ -118,24 +132,49 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         trade_bought = []
         hp_elec = []
         elec_dem = []
-        
+        t_tes_list = []
+        t_tes_sup_list = []
+        t_sup_list = []
+        bought_elec = []
+        hp_heat = []
+        heat_dem = []
+        T_set_hp = []
+        n_set_hp = []
+        m_flow = []
+        T_return = []
 
         # get the value references (vr) for the variables we want to get/set
         for house in range(1, options["nb_bes"]+1): # different index, as house enumeration in Modelica model start with "1"
             vr_traded_elec.append(vr['tra_vol_input' + str(house)])  # defines value reference for variable name
+            if nodes[house-1]["devs"]["hp35"]["cap"] != 0:
+            #if nodes[house-1]["devs"]["hp55"]["cap"] != 0:
+                vr_T_set_mpc.append(vr['T_set_MPC'+ str(house)]) # defines value reference for variable name
+            else:
+                vr_T_set_mpc.append(0)
             if nodes[house-1]["devs"]["bat"]["cap"] != 0: #TODO Wahrscheinlich müssen die BAT Häuser zuerst kommen
                 vr_soc_bat.append(vr['House'+ str(house) + '.electrical.distribution.batterySimple.SOC']) # defines value reference for variable name
-            vr_soc_tes.append(vr['House'+ str(house) + '.hydraulic.distribution.soc_sto']) # defines value reference for variable name
+            #vr_soc_tes.append(vr['House'+ str(house) + '.hydraulic.distribution.soc_sto']) # defines value reference for variable name
+            vr_T_tes_avg.append(vr['House'+ str(house) + '.hydraulic.distribution.T_avg_buf']) # defines value reference for variable name
+
             vr_grid_load.append(vr['House'+ str(house) + '.electricalGrid.PElecLoa']) # defines value reference for variable name
             vr_grid_gen.append(vr['House'+ str(house) + '.electricalGrid.PElecGen']) # defines value reference for variable name
             vr_Tmax_tes.append(vr['House'+ str(house) + '.hydraulic.distribution.stoBuf.TTop']) # defines value reference for variable name
             vr_trade_check.append(vr['House'+ str(house) + '.electrical.generation.tradingBus.tradedElec[1]']) # defines value reference for variable name
             vr_heat_dem.append(vr['House'+ str(house) + '.userProfiles.tabHeatDem.y[1]']) # defines value reference for variable name
             vr_elec_dem.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) # defines value reference for variable name
+            vr_m_flow.append(vr['House'+ str(house) + '.hydraulic.transfer.val[1].m_flow']) # defines value reference for variable name
             if nodes[house-1]["devs"]["hp35"]["cap"] != 0:
+            #if nodes[house-1]["devs"]["hp55"]["cap"] != 0:
                 vr_hp_elec.append(vr['House'+ str(house) + '.outputs.hydraulic.gen.PEleHeaPum.value']) # defines value reference for variable name
-            else:
-                vr_hp_elec.append(0) # defines value reference for variable name
+                vr_T_set_hp.append(vr['House'+ str(house) + '.hydraulic.control.setAndMeaSelPri.TSet']) # defines value reference for variable name
+                vr_n_set_hp.append(vr['House'+ str(house) + '.hydraulic.control.priGenPIDCtrl.ySet']) # defines value reference for variable name
+                vr_T_ret.append(vr['House'+ str(house) + '.hydraulic.generation.heatPump.senT_a1.T']) # defines value reference for variable name
+            else: # vr still has to be filled for the heatpump houses, as otherwise there will be index problems 
+                vr_hp_elec.append(0) 
+                vr_T_set_hp.append(0)
+                vr_n_set_hp.append(0)
+                vr_T_ret.append(0)
+
 
 
         # extract the FMU
@@ -159,6 +198,9 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             init_val[n_opt+1] = {}
             trade_res[n_opt] = {}
             tra_vol[n_opt] = {}
+
+            if n_opt == 15:
+                print("hi")
 
             if n_opt == 0:
                 for n in range(options["nb_bes"]):
@@ -226,7 +268,46 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     mat_neg.trade_with_grid(sorted_bids=mar_dict["sorted_bids"][n_opt], params=params, par_rh=par_rh,
                                             n_opt=n_opt, block_length=block_length, opti_res=opti_res[n_opt])
 
+                #"""
+                t_tes_list.append(opti_res[n_opt][4][21][par_rh["month_start"][par_rh["month"]] + n_opt] - 273.15)
+                #t_tes_sup_list.append(opti_res[n_opt][7][23][par_rh["month_start"][par_rh["month"]] + n_opt] - 273.15)
+                t_sup_list.append(opti_res[n_opt][4][22][par_rh["month_start"][par_rh["month"]] + n_opt] - 273.15)
+                bought_elec.append(opti_res[n_opt][4][19][par_rh["month_start"][par_rh["month"]] + n_opt]/1000)
+                #hp_heat.append(opti_res[n_opt][4][2]["hp35"][par_rh["month_start"][par_rh["month"]] + n_opt]/1000)
+                hp_elec.append((opti_res[n_opt][4][2]["hp35"][par_rh["month_start"][par_rh["month"]] + n_opt]/1000)/nodes[4]["devs"]["COP_sh35"][par_rh["month_start"][par_rh["month"]] + n_opt])
+                #hp_elec.append((opti_res[n_opt][4][2]["hp55"][par_rh["month_start"][par_rh["month"]] + n_opt]/1000)/nodes[4]["devs"]["COP_sh55"][par_rh["month_start"][par_rh["month"]] + n_opt])
+                heat_dem.append((nodes[4]["heat"][par_rh["month_start"][par_rh["month"]] + n_opt])/1000/nodes[4]["devs"]["COP_sh35"][par_rh["month_start"][par_rh["month"]] + n_opt])
+                #heat_dem.append((nodes[4]["heat"][par_rh["month_start"][par_rh["month"]] + n_opt])/1000/nodes[4]["devs"]["COP_sh55"][par_rh["month_start"][par_rh["month"]] + n_opt])
+                if n_opt == 144:
+            
+                    fig, ax1 = plt.subplots()
+                    ax1.plot(t_tes_list, label = 'End Storage Temperature', color = 'tab:red')
+                    #ax1.plot(t_tes_sup_list, label = 'Supply Storage Temperature', color = 'tab:orange')
+                    ax1.plot(t_sup_list, label = 'Supply Temperature', color = 'tab:blue')
+                    ax1.set_ylabel('Temperature in °C', fontsize=12)
+                    ax2 = ax1.twinx()
+                    ax2.plot(bought_elec, label = 'Bought electricity', color = 'tab:green')
+                    ax2.set_ylabel('Electricity in kWh', fontsize=12)
+                    plt.tight_layout()
+                    ax1.legend(fontsize=14, loc = 'upper right', bbox_to_anchor=(1, 1))
+                    plt.xlabel('time in h', fontsize=14)
+                    plt.grid(True, linewidth = 0.5)
+                    plt.show()
+                    print("HI")
 
+                    plt.clf()
+                
+                    plt.plot(hp_elec, label = 'HP power', color = 'tab:red')
+                    plt.plot(bought_elec, label = 'bought electricity', color = 'tab:green')
+                    plt.plot(heat_dem, label = 'heat demand', color = 'tab:blue')
+                    plt.legend()
+                    plt.xlabel('time in h', fontsize=14)
+                    plt.ylabel('electricity/heat in kW', fontsize=14)
+                    plt.tight_layout()
+                    plt.grid(True, linewidth = 0.5)
+                    plt.show()
+                    print("HI")
+                #"""
                 time = 0
                 if options["mpc"]: 
                     while time < 3600:
@@ -263,6 +344,9 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                 tra_vol[n_opt][house] = float(0)
                             #set the control variable for the simulation
                             fmu.setReal([vr_traded_elec[house]], [tra_vol[n_opt][house]]) 
+                            if nodes[house]["devs"]["hp35"]["cap"] != 0:
+                            #if nodes[house]["devs"]["hp55"]["cap"] != 0:
+                                fmu.setReal([vr_T_set_mpc[house]], [opti_res[n_opt][house][21][par_rh["month_start"][par_rh["month"]] + n_opt]])
                         # simulate one time step
                         fmu.doStep(currentCommunicationPoint=start_time + n_opt * 3600 + time, communicationStepSize=step_size) #TODO checken, ob das richtig ist als "time"-Ersatz
                         
@@ -271,15 +355,18 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         no_house1 = 1
                         input1, input2, input3, input4, input5, input6, input7 = fmu.getReal([vr_grid_gen[no_house], vr_grid_load[no_house], vr_Tmax_tes[no_house], vr_trade_check[no_house], vr_heat_dem[no_house], vr_hp_elec[no_house], vr_elec_dem[no_house]])
                         input8 = fmu.getReal([vr_soc_bat[no_house1]])
-                        rows.append((n_opt, input1, input2, input3, input4, input5, input6, input7, input8))
+                        input9, input10, input11, input12 = fmu.getReal([vr_T_set_hp[no_house], vr_n_set_hp[no_house], vr_m_flow[no_house], vr_T_ret[no_house]])
+                        rows.append((n_opt, input1, input2, input3, input4, input5, input6, input7, input8, input9, input10, input11, input12))
                         time += step_size
 
-                    length = 100
+                    length = 72
                     start = 0
                     if n_opt == length:
                         total_elec = []
                         bat_opti = []
                         bat_fmu = []
+                        feed_in_share = []
+                        hp_elec = []
                         for i in range(start*int(3600/step_size), length * int(3600/step_size)):
                             bat_fmu.append(100 * rows[i][8][0])
                             grid_gen.append(rows[i][1]/1000) # change from Wh to kWh
@@ -288,24 +375,78 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                             if rows[i][4] > 0:
                                 trade_sold.append(0)
                                 trade_bought.append(rows[i][4]/1000)
+                                if rows[i][6] >= rows[i][4]:
+                                    feed_in_share.append(0)
+                                else:
+                                    feed_in_share.append(100 * ((rows[i][4] - rows[i][6])/rows[i][4]))
                             else:
                                 trade_sold.append(rows[i][4]/1000)
                                 trade_bought.append(0)
+                                feed_in_share.append(None)
                             hp_elec.append(rows[i][6]/1000)
                             elec_dem.append(rows[i][7]/1000)
                             total_elec.append((rows[i][6]+rows[i][7])/1000)
                             #trade_check.append(rows[i][4]/1000) # change from Wh to kWh
+                            T_set_hp.append(rows[i][9] - 273.15)
+                            n_set_hp.append(rows[i][10])
+                            m_flow.append(rows[i][11])
+                            T_return.append(rows[i][12] - 273.15)
                         t = [par_rh["month_start"][par_rh["month"]] + i for i in range(start, length)]
                         t_filtered = [t[i] for i in range(0, len(t), 10)]
                         xtick_positions = np.arange(0, (length - start) * (3600 / step_size), int(3600 / step_size) * 10)
+                        
+                        plt.clf()
+                        plt.plot(T_set_hp, color = 'tab:green')
                         plt.xticks(xtick_positions, t_filtered, fontsize=16)
-                        plt.plot(grid_gen, label = 'feed-in', color = 'tab:blue')
-                        plt.plot(grid_load, label = 'grid load', color = 'tab:orange')
-                        plt.plot(trade_bought, label = 'bought electricity', color = 'tab:green')
-                        plt.plot(trade_sold, label = 'sold electricity', color = 'tab:gray')
-                        plt.legend(fontsize=16, loc = 'upper right', bbox_to_anchor=(1, 1))
+                        plt.legend(fontsize=16, loc = 'upper right')
                         plt.xlabel('time in h', fontsize=18)
-                        plt.ylabel('electricity in kWh', fontsize=18)
+                        plt.ylabel('temperature in °C', fontsize=18)
+                        plt.tight_layout()
+                        plt.grid(True, linewidth = 0.5)
+                        plt.show()
+                        print("HI")
+
+                        plt.clf()
+                        plt.plot(T_return, color = 'tab:green')
+                        plt.xticks(xtick_positions, t_filtered, fontsize=16)
+                        plt.legend(fontsize=16, loc = 'upper right')
+                        plt.xlabel('time in h', fontsize=18)
+                        plt.ylabel('return temperature in °C', fontsize=18)
+                        plt.tight_layout()
+                        plt.grid(True, linewidth = 0.5)
+                        plt.show()
+                        print("HI")
+
+                        plt.clf()
+                        plt.plot(m_flow, color = 'tab:green')
+                        plt.xticks(xtick_positions, t_filtered, fontsize=16)
+                        plt.legend(fontsize=16, loc = 'upper right')
+                        plt.xlabel('time in h', fontsize=18)
+                        plt.ylabel('mass flow in kg/s', fontsize=18)
+                        plt.tight_layout()
+                        plt.grid(True, linewidth = 0.5)
+                        plt.show()
+                        print("HI")
+
+
+                        plt.clf()
+                        plt.plot(n_set_hp, color = 'tab:green')
+                        plt.xticks(xtick_positions, t_filtered, fontsize=16)
+                        plt.legend(fontsize=16, loc = 'upper right')
+                        plt.xlabel('time in h', fontsize=18)
+                        plt.ylabel('relative heatpump speed', fontsize=18)
+                        plt.tight_layout()
+                        plt.grid(True, linewidth = 0.5)
+                        plt.show()
+                        print("HI")
+
+                        plt.clf()
+                        plt.plot(feed_in_share, color = 'tab:green')
+                        plt.xticks(xtick_positions, t_filtered, fontsize=16)
+                        plt.legend(fontsize=16, loc = 'upper right')
+                        plt.ylim(0, 100)
+                        plt.xlabel('time in h', fontsize=18)
+                        plt.ylabel('Feed-in of the bought electricity in %', fontsize=18)
                         plt.tight_layout()
                         plt.grid(True, linewidth = 0.5)
                         plt.show()
@@ -314,7 +455,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         plt.clf()
                         plt.plot(trade_bought, label = 'bought electricity', color = 'tab:green')
                         plt.plot(hp_elec, label = 'heat pump electricity', color = 'tab:cyan')
-                        plt.plot(elec_dem, label = 'electric load profile', color = 'tab:red')
+                        #plt.plot(elec_dem, label = 'electric load profile', color = 'tab:red')
                         plt.legend()
                         plt.xticks(xtick_positions, t_filtered, fontsize=16)
                         plt.xlabel('time in h')
@@ -327,21 +468,6 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         plt.show()
                         print("HI")
 
-                        plt.clf()
-                        #plt.figure(figsize=(12, 6))
-                        plt.plot(trade_bought, label = 'bought electricity', color = 'tab:green')
-                        plt.plot(total_elec, label = 'hp + elec demand', color = 'tab:red')
-                        plt.legend()
-                        plt.xticks(xtick_positions, t_filtered, fontsize=16)
-                        plt.xlabel('time in h')
-                        plt.ylabel('electricity in kWh')
-                        plt.legend(fontsize=16, loc = 'upper right')
-                        plt.xlabel('time in h', fontsize=18)
-                        plt.ylabel('electricity in kWh', fontsize=18)
-                        plt.tight_layout()
-                        plt.grid(True, linewidth = 0.5)
-                        plt.show()
-                        print("HI")
                         """
                         plt.clf()
                         for i in range(start, length): #TODO checken, ob es sich hier wirklich um die jeweils gleichen Zeitschritte handelt
@@ -366,6 +492,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     soc_diff_tes[n_opt] = {}
                     soc_bat_fmu[n_opt] = {}
                     soc_tes_fmu[n_opt] = {}
+                    t_tes_avg[n_opt] = {}
+                    
                     
                     init_val_opti[n_opt + 1] \
                         = opti_bes_nego.compute_initial_values_block(nb_buildings=options["nb_bes"], opti_res=opti_res[n_opt],
@@ -374,17 +502,22 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     for n in range(options["nb_bes"]):
                         init_val[n_opt + 1]["building_" + str(n)] = {}
                         init_val[n_opt + 1]["building_" + str(n)]["soc"] = {}
+                        init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = {}
+
+                        # Return SOCs
                         # not every house owns BAT
                         soc_bat_fmu[n_opt][n] = {}
                         if nodes[n]["devs"]["bat"]["cap"] != 0:
                             soc_bat_fmu[n_opt][n] = fmu.getReal([vr_soc_bat[n]])
-                            #if soc_bat_fmu[n_opt][n][0] > 0.95:
-                                #soc_bat_fmu[n_opt][n][0] = 0.95
+                            if soc_bat_fmu[n_opt][n][0] > 0.95:
+                                soc_bat_fmu[n_opt][n][0] = 0.95
                             init_val[n_opt + 1]["building_" + str(n)]["soc"]["bat"] \
                                 = soc_bat_fmu[n_opt][n][0] * opti_res[n_opt][n][12]["bat"] #SOC from simulation is percentual, optimization needs kWh
                         else:
                             init_val[n_opt + 1]["building_" + str(n)]["soc"]["bat"] \
                                 = init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["bat"]
+                            
+                        """ TODO: Dieser Teil bei einem temperaturgeregelten System nicht mehr nötig, T_tes als Zustandsgröße reicht
                         #for boiler systems, dont use the Modelica SOC_TES
                         #TODO nochmal klären!
                         if nodes[n]["devs"]["boiler"]["cap"] != 0.0:
@@ -394,31 +527,43 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                             soc_tes_fmu[n_opt][n] = fmu.getReal([vr_soc_tes[n]])
                             init_val[n_opt + 1]["building_" + str(n)]["soc"]["tes"] \
                             = soc_tes_fmu[n_opt][n][0] * opti_res[n_opt][n][12]["tes"] #SOC from simulation is percentual, optimization needs kWh
+                        """
+                        init_val[n_opt + 1]["building_" + str(n)]["soc"]["tes"] \
+                            = init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["tes"]
                         init_val[n_opt + 1]["building_" + str(n)]["soc"]["ev"] = 0 # no EVs examined
                         
                         if n_opt != 0:
                             if nodes[n]["devs"]["bat"]["cap"] != 0:
                                 soc_diff_bat[n_opt][n] \
                                     = abs(soc_bat_fmu[n_opt][n][0] - init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["bat"]/opti_res[n_opt][n][12]["bat"])
-                            if nodes[n]["devs"]["boiler"]["cap"] == 0.0:
-                                soc_diff_tes[n_opt][n] \
-                                    = abs(soc_tes_fmu[n_opt][n][0] - init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["tes"]/opti_res[n_opt][n][12]["tes"])
+                            #if nodes[n]["devs"]["boiler"]["cap"] == 0.0:
+                                #soc_diff_tes[n_opt][n] \
+                                    #= abs(soc_tes_fmu[n_opt][n][0] - init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["tes"]/opti_res[n_opt][n][12]["tes"])
                         
-                    if n_opt == 24:
+                        # Return average TES temperature
+                        t_tes_avg[n_opt][n] = fmu.getReal([vr_T_tes_avg[n]])
+                        init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = t_tes_avg[n_opt][n][0]
+
+                    if n_opt == 72:
                         bat_opti = []
                         tes_opti = []
                         bat_fmu = []
                         tes_fmu = []
+                        t_tes_opti = []
+                        t_tes_fmu = []
                         #TODO evtl könnte man hier auch wie oben den SOC FMU ausführlicher gestalten und nicht nut stündliche Werte
-                        for i in range(1, 25): #TODO checken, ob es sich hier wirklich um die jeweils gleichen Zeitschritte handelt
+                        for i in range(1, 73): #TODO checken, ob es sich hier wirklich um die jeweils gleichen Zeitschritte handelt
                             bat_fmu.append(100 * soc_bat_fmu[i][2][0])
                             bat_opti.append(100 * (init_val_opti[i]["building_2"]["soc"]["bat"]/opti_res[n_opt][2][12]["bat"]))
-                            tes_fmu.append(100 * soc_tes_fmu[i][4][0])
-                            tes_opti.append(100 * (init_val_opti[i + 1]["building_4"]["soc"]["tes"]/opti_res[n_opt][4][12]["tes"]))
+                            t_tes_opti.append(init_val_opti[i]["building_4"]["t_tes"] - 273.15)
+                            t_tes_fmu.append(init_val[i]["building_4"]["t_tes"] - 273.15)
+                            #tes_fmu.append(100 * soc_tes_fmu[i][4][0])
+                            #tes_opti.append(100 * (init_val_opti[i + 1]["building_4"]["soc"]["tes"]/opti_res[n_opt][4][12]["tes"]))
                         #t = [par_rh["month_start"][par_rh["month"]] + i for i in range(start, length)]
                         #t_filtered = [t[i] for i in range(0, len(t), 10)]
                         #xtick_positions = np.arange(0, (length - start) * (3600 / step_size), int(3600 / step_size) * 10)
                         #plt.xticks(xtick_positions, t_filtered, fontsize=16)
+                        """
                         plt.plot(bat_fmu, label = 'BAT-SOC after simulation', color = 'tab:blue')
                         plt.plot(bat_opti, label = 'BAT-SOC after optimization', color = 'tab:orange')
                         plt.legend(fontsize=16, loc = 'upper right', bbox_to_anchor=(1, 1))
@@ -435,6 +580,16 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         plt.legend(fontsize=16, loc = 'upper right', bbox_to_anchor=(1, 1))
                         plt.xlabel('time in h', fontsize=18)
                         plt.ylabel('SOC in %', fontsize=18)
+                        plt.tight_layout()
+                        plt.grid(True, linewidth = 0.5)
+                        plt.show()
+                        print("HI")
+                        """
+                        plt.plot(t_tes_fmu, label = 'After simulation', marker = 'o', color = 'tab:blue')
+                        plt.plot(t_tes_opti, label = 'After optimization', marker = 'x', color = 'tab:orange')
+                        plt.legend(fontsize=16, loc = 'upper right', bbox_to_anchor=(1, 1))
+                        plt.xlabel('time in h', fontsize=18)
+                        plt.ylabel('Average storage temperature  in °C', fontsize=18)
                         plt.tight_layout()
                         plt.grid(True, linewidth = 0.5)
                         plt.show()

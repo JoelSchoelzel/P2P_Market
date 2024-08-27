@@ -44,6 +44,11 @@ def get_inputs(par_rh, options, districtData):  # gets inputs for optimization
     # TODO: create a pandapower network and extracts node and line information
     #net_data = net.create_net(options)
 
+    if not options["WithElecDem"]:
+        for n in nodes:
+            for t in range(8760):
+                nodes[n]["elec"][t] = 0
+
     return nodes, building_params, params, devs, par_rh
 
 
@@ -79,7 +84,8 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 
     # Set options for energy trading
     options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
-               "mpc": True, #True: use of model predictive control with simulation, False: sole optimizatio negotiation
+               "mpc": False, #True: use of model predictive control with simulation, False: sole optimizatio negotiation
+               "WithElecDem": False, #True: electric demands for buildings are considered 
                "bid_strategy": "zero",  # zero for zero-intelligence, learning, devices
                "crit_prio": crit_prio,  # "flex_energy",
                # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
@@ -129,8 +135,8 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     # Get following inputs:
     nodes, building_params, params, devs_pre_opti, par_rh = get_inputs(par_rh, options, districtData)
     # pickledump
-    with open(options["path_results"] + "/nodes_input_" + options_DG["scenario_name"] + ".p", 'wb') as file_nodes:
-        pickle.dump(nodes, file_nodes)
+    #with open(options["path_results"] + "/nodes_input_" + options_DG["scenario_name"] + ".p", 'wb') as file_nodes:
+        #pickle.dump(nodes, file_nodes)
 
     # Run (rolling horizon) optimization for whole year or month
     if options["optimization"] == "P2P":
@@ -207,7 +213,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     return mar_dict, characteristics, init_val, results, opti_res, par_rh, districtData, options
 
 if __name__ == '__main__':
-    for scenario_name in ["Small_District_BOI+HP"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
+    for scenario_name in ["old/Small_District_BOI+HP"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
         first_run = True
         for month in [3]:  # , 7]:
             for block_length in [1]:  #1, 3, 5]:

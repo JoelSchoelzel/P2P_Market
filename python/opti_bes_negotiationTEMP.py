@@ -149,6 +149,28 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         for t in time_steps:
             power[dev][t] = model.addVar(vtype="C", lb=0, name="P_" + dev + "_" + str(t))
 
+    # heating system and temperatures
+    t_tes = {}
+    t_tes_sup = {}
+    t_sup = {}
+    loss_tes = {}
+    greater_0 = {}
+    for t in time_steps:
+        t_tes[t] = model.addVar(vtype="C", name="T_TES_" + str(t)) # Average Temperature of Tes after discharging
+        t_tes_sup[t] = model.addVar(vtype="C", name="T_TES_" + str(t)) # Average Temperature of Tes before discharging
+        t_sup[t] = model.addVar(vtype="C", name="T_supply_" + str(t))  # Supply Temperature of the heatpump
+        loss_tes[t] = model.addVar(vtype="C", name="Q_loss_tes_" + str(t))  # Energy losses in the TES
+        greater_0[t] = model.addVar(vtype="B", lb=0.0, ub=1.0, name="Demand_greater_0_" + str(t))
+    
+    # Initial storage temperature at the start of the month
+    if node["devs"]["hp55"]["cap"] > 0:
+        t_tes_init = 40 + 273.15
+    else: 
+        t_tes_init = 30 + 273.15
+    # Storage temperature at the beginning of n_opt
+    if bool(init_val) == True:
+        t_tes_init_rh = init_val["t_tes"]
+
     # maping storage sizes
     soc_nom = {}
     for dev in storage:
@@ -337,43 +359,109 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
             model.addConstr(power[dev][t] == demands["PV_GEN"][t],
                             name="Solar_electrical_" + dev + "_" + str(t))
 
+    # Heating System
+    #if options["mpc"]:  
+    m_flow = 0.2 # in kg/s TODO richtigen Wert checken
+    t_flow_min = 30 + 273.15 #TODO ??
+    cp = params["phy"]["c_w"]
+    big_m = 10000
+    for t in time_steps:
+        # Necessary Supply Temperature
+        model.addConstr(demands["heat"][t] == (t_sup[t] - t_flow_min) * cp * m_flow,
+                            name="T_supply_HP_" + str(t))
+        # Binary that indicates existing Demand
+        model.addConstr(greater_0[t] * big_m >= demands["heat"][t], 
+                        name="HeatDem_greater_0_" + str(t))
+        # If ther is heat demand, the storage average temperature must be higher than the supply temperature. Assures that supply can be fulfilled
+        #model.addGenConstrIndicator(greater_0[t], 1, (t_tes_sup[t] >= t_sup[t]), name="Meet_T_sup" + str(t))
+        model.addGenConstrIndicator(greater_0[t], 1, (t_tes[t] >= t_sup[t]), name="Meet_T_sup" + str(t))
+
     # %% BUILDING STORAGES # %% DOMESTIC FLEXIBILITIES
 
     dev = "tes"
     eta_tes = node["devs"][dev]["eta_tes"]
     eta_ch = node["devs"][dev]["eta_ch"]
     eta_dch = node["devs"][dev]["eta_dch"]
+    t_tes_min = 18 + 273.15
+    t_tes_max = 50 + 273.15
+    rho = params["phy"]["rho_w"]
+    #vol = 0.188 #in m3 TODO Checken, welches Volumen genau
+    vol = (3600 * node["devs"]["tes"]["cap"])/(cp * rho * (t_tes_max - t_tes_min))
     for t in time_steps:
-        # Initial SOC is the SOC at the beginning of the first time step, thus it equals the SOC at the end of the previous time step
+        #if options["mpc"]:
+        # Initial temperature is the temperature at the beginning of the first time step, thus it equals the SOC at the end of the previous time step
         if t == par_rh["hour_start"][n_opt] and t > par_rh["month_start"][par_rh["month"]]:
-            soc_prev = soc_init_rh[dev]
+            t_tes_prev = t_tes_init_rh
         elif t == par_rh["month_start"][par_rh["month"]]:
-            soc_prev = soc_init[dev]
+            t_tes_prev = t_tes_init
         else:
-            soc_prev = soc[dev][t - 1]
+            t_tes_prev = t_tes[t - 1]
+            
 
-        # Maximal charging
-        model.addConstr(p_ch[dev][t] == eta_ch * (heat["chp"][t] + heat["hp35"][t] + heat["hp55"][t] + heat["boiler"][t]
-                                                  + heat["eh"][t]),
+        # Energy balance of the TES
+        model.addConstr((t_tes[t] - t_tes_prev) * vol * rho * cp / 3600 == dt[t] * (eta_ch * p_ch[dev][t] - eta_dch * p_dch[dev][t] - loss_tes[t]) , 
+                        name="Storage_bal" + dev + "_" + str(t))
+        
+        #model.addConstr((t_tes_sup[t] - t_tes_prev) * vol * rho * cp / 3600 == dt[t] * (eta_ch * p_ch[dev][t] - loss_tes[t]) , 
+                        #name="Storage_ch_" + dev + "_" + str(t))
+        #model.addConstr((t_tes[t] - t_tes_sup[t]) * vol * rho * cp / 3600 == dt[t] * (- eta_dch * p_dch[dev][t]), 
+                        #name="Storage_dch_" + dev + "_" + str(t))
+        # # Heat loss
+        model.addConstr(loss_tes[t] == (t_tes_prev - t_tes_min) * (1 - eta_tes) * vol * rho * cp / 3600, 
+                        name="loss_tes" + str(t))
+        # SOC 
+        model.addConstr(soc[dev][t] == (t_tes[t] - t_tes_min) / (t_tes_max - t_tes_min), 
+                        name="SOC" + str(t))
+        # Min T
+        #model.addConstr(t_tes_sup[t] >= t_tes_min, 
+                        #name="Min_T_tes_sup_" + str(t))
+        # Max T
+        #model.addConstr(t_tes_sup[t] <= t_tes_max, 
+                        #name="Max_T_sup_tes_" + str(t))
+        # Min T
+        model.addConstr(t_tes[t] >= t_tes_min, 
+                        name="Min_T_tes" + str(t))
+        # Max T
+        model.addConstr(t_tes[t] <= t_tes_max, 
+                        name="Max_T_tes" + str(t))
+        # TES charging
+        model.addConstr(p_ch[dev][t] == eta_ch * (heat["chp"][t] + heat["hp35"][t] + heat["hp55"][t] + heat["boiler"][t]+ heat["eh"][t]),
                         name="Heat_charging_" + str(t))
-        # Maximal discharging
+        # TES discharging
         model.addConstr(p_dch[dev][t] == (1 / eta_dch) * (demands["heat"][t] + demands["dhw"][t]),
                         name="Heat_discharging_" + str(t))
+        """
+        else:
+            # Initial SOC is the SOC at the beginning of the first time step, thus it equals the SOC at the end of the previous time step
+            if t == par_rh["hour_start"][n_opt] and t > par_rh["month_start"][par_rh["month"]]:
+                soc_prev = soc_init_rh[dev]
+            elif t == par_rh["month_start"][par_rh["month"]]:
+                soc_prev = soc_init[dev]
+            else:
+                soc_prev = soc[dev][t - 1]
 
-        # Minimal and maximal soc
-        model.addConstr(soc["tes"][t] <= soc_nom["tes"], name="max_cap_tes_" + str(t))
-        model.addConstr(soc["tes"][t] >= node["devs"]["tes"]["min_soc"] * soc_nom["tes"], name="min_cap_" + str(t))
+            # Maximal charging
+            model.addConstr(p_ch[dev][t] == eta_ch * (heat["chp"][t] + heat["hp35"][t] + heat["hp55"][t] + heat["boiler"][t]
+                                                    + heat["eh"][t]),
+                            name="Heat_charging_" + str(t))
+            # Maximal discharging
+            model.addConstr(p_dch[dev][t] == (1 / eta_dch) * (demands["heat"][t] + demands["dhw"][t]),
+                            name="Heat_discharging_" + str(t))
 
-        # SOC coupled over all times steps (Energy amount balance, kWh)
-        model.addConstr(soc[dev][t] == soc_prev * eta_tes + dt[t] * (p_ch[dev][t] - p_dch[dev][t]),
-                        name="Storage_bal_" + dev + "_" + str(t))
+            # Minimal and maximal soc
+            model.addConstr(soc["tes"][t] <= soc_nom["tes"], name="max_cap_tes_" + str(t))
+            model.addConstr(soc["tes"][t] >= node["devs"]["tes"]["min_soc"] * soc_nom["tes"], name="min_cap_" + str(t))
 
-        # soc at the end is the same like at the beginning: in this opti not needed
-        # since constraint for block bid quantity is added
-        # if t == last_time_step:
-        #    model.addConstr(soc[device][t] == soc_init[device],
-        #                    name="End_TES_Storage_" + str(t))
+            # SOC coupled over all times steps (Energy amount balance, kWh)
+            model.addConstr(soc[dev][t] == soc_prev * eta_tes + dt[t] * (p_ch[dev][t] - p_dch[dev][t]),
+                            name="Storage_bal_" + dev + "_" + str(t))
 
+            # soc at the end is the same like at the beginning: in this opti not needed
+            # since constraint for block bid quantity is added
+            # if t == last_time_step:
+            #    model.addConstr(soc[device][t] == soc_init[device],
+            #                    name="End_TES_Storage_" + str(t))
+        """
 
     dev = "bat"
     k_loss = node["devs"][dev]["k_loss"]
@@ -527,6 +615,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
                 f.write('\n')
         f.close()
 
+    epsilon = 1e-04
     # Retrieve results
     res_y = {}
     res_power = {}
@@ -545,12 +634,12 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     for dev in storage:
         res_soc[dev] = {(t): soc[dev][t].X for t in time_steps}
 
-    res_p_imp = {(t): p_imp[t].X for t in time_steps}
+    res_p_imp = {(t): p_imp[t].X if p_imp[t].X >= epsilon else 0 for t in time_steps}
     res_p_ch = {}
     res_p_dch = {}
     for dev in storage:
-        res_p_ch[dev] = {(t): p_ch[dev][t].X for t in time_steps}
-        res_p_dch[dev] = {(t): p_dch[dev][t].X for t in time_steps}
+        res_p_ch[dev] = {(t): p_ch[dev][t].X if p_ch[dev][t].X >= epsilon else 0 for t in time_steps}
+        res_p_dch[dev] = {(t): p_dch[dev][t].X if p_dch[dev][t].X >= epsilon else 0 for t in time_steps}
 
     #res_gas = {}
     #for dev in ["boiler", "chp"]:
@@ -588,6 +677,10 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         res_price_trade = {(t): delta_price[t] for t in time_steps}
         res_power_trade = {(t): power_trade["seller"][t].X for t in time_steps}
         res_prev_trade = {(t): prev_trade["seller"][t].X for t in time_steps}
+    
+    res_t_tes = {(t): t_tes[t].X for t in time_steps}
+    #res_t_tes_sup = {(t): t_tes_sup[t].X for t in time_steps}
+    res_t_sup = {(t): t_sup[t].X for t in time_steps}
 
     obj = model.ObjVal
     print("Obj: " + str(model.ObjVal))
@@ -634,6 +727,9 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         "res_p_grid_buy": res_p_grid_buy,
         "res_p_grid_sell": res_p_grid_sell,
         "res_prev_trade": res_prev_trade,
+        "res_t_tes": res_t_tes,
+        #"res_t_tes_sup": res_t_tes_sup,
+        "res_t_sup": res_t_sup
     }
 
     return opti_bes_res
@@ -674,6 +770,9 @@ def replace_opti_res(opti_res, opti_res_block_bid, par_rh, n_opt):
         opti_res[18][t] = opti_res_block_bid["res_p_grid_sell"][t]
         opti_res[19][t] = opti_res_block_bid["res_power_trade"][t] + opti_res_block_bid["res_prev_trade"][t]
         opti_res[20][t] = opti_res_block_bid["res_prev_trade"][t]
+        opti_res[21][t] = opti_res_block_bid["res_t_tes"][t]
+        opti_res[22][t] = opti_res_block_bid["res_t_sup"][t]
+        #opti_res[23][t] = opti_res_block_bid["res_t_tes_sup"][t]
 
     return opti_res
 
@@ -690,8 +789,12 @@ def compute_initial_values_block(nb_buildings, opti_res, last_time_step, length_
     """
     init_val_block = {}
     # create dict to store initial values of all BES
+    import random
     for n in range(nb_buildings):
         init_val_block["building_" + str(n)] = {}
+        #init_val_block["building_" + str(n)]["t_tes"] = random.randint(30, 50) + 273.15
+        init_val_block["building_" + str(n)]["t_tes"] = opti_res[n][21][last_time_step]
+        #init_val_block["building_" + str(n)]["t_tes"] = opti_res[n][21][last_time_step]
         init_val_block["building_" + str(n)]["soc"] = {}
         # fill this dict with initial SoC values of first optimisation
         for dev in ["tes", "bat", "ev"]:

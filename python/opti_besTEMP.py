@@ -115,8 +115,8 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         p_dch[dev] = {}
         for t in time_steps:  # All time steps of all days
             soc[dev][t] = model.addVar(vtype="C", name="SOC_" + dev + "_" + str(t))
-            p_ch[dev][t] = model.addVar(vtype="C", name="P_ch_" + dev + "_" + str(t))
-            p_dch[dev][t] = model.addVar(vtype="C", name="P_dch_" + dev + "_" + str(t))
+            p_ch[dev][t] = model.addVar(vtype="C", lb=0, name="P_ch_" + dev + "_" + str(t)) 
+            p_dch[dev][t] = model.addVar(vtype="C", lb=0, name="P_dch_" + dev + "_" + str(t))
 
     for dev in ["hp35", "hp55", "chp", "boiler"]:
         power[dev] = {}
@@ -136,14 +136,29 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         power[dev] = {}
         for t in time_steps:
             power[dev][t] = model.addVar(vtype="C", lb=0, name="P_" + dev + "_" + str(t))
-    """
+    
     # heating system and temperatures
     t_tes = {}
+    t_tes_sup = {}
     t_sup = {}
+    loss_tes = {}
+    greater_0 = {}
     for t in time_steps:
-        t_tes[t] = model.addVar(vtype="C", name="T_TES_" + str(t)) # Average Temperature of Tes
+        t_tes[t] = model.addVar(vtype="C", name="T_TES_" + str(t)) # Average Temperature of Tes after discharging
+        t_tes_sup[t] = model.addVar(vtype="C", name="T_TES_sup" + str(t)) # Average Temperature of Tes before discharging
         t_sup[t] = model.addVar(vtype="C", name="T_supply_" + str(t))  # Supply Temperature of the heatpump
-    """
+        loss_tes[t] = model.addVar(vtype="C", name="Q_loss_tes_" + str(t))  # Energy losses in the TES
+        greater_0[t] = model.addVar(vtype="B", lb=0.0, ub=1.0, name="Demand_greater_0_" + str(t))
+    
+    # Initial storage temperature at the start of the month
+    if node["devs"]["hp55"]["cap"] > 0:
+        t_tes_init = 40 + 273.15
+    else: 
+        t_tes_init = 30 + 273.15
+    # Storage temperature at the beginning of n_opt
+    if bool(init_val) == True:
+        t_tes_init_rh = init_val["t_tes"]
+   
     # maping storage sizes
     soc_nom = {}
     for dev in storage:
@@ -299,6 +314,24 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             model.addConstr(power[dev][t] == demands["PV_GEN"][t],
                             name="Solar_electrical_" + dev + "_" + str(t))
 
+    # Heating System
+    #if options["mpc"]:  
+    m_flow = 0.2 # in kg/s TODO richtigen Wert checken. Evtl ältere Häuser nehmen, da dann auch höhere Wärmebedarfe
+    t_flow_min = 30 + 273.15 #TODO ??
+    big_m = 10000
+    cp = params["phy"]["c_w"]
+    for t in time_steps:
+        # Necessary Supply Temperature
+        model.addConstr(demands["heat"][t] == (t_sup[t] - t_flow_min) * cp * m_flow,
+                            name="T_supply_HP_" + str(t))
+        # Binary that indicates existing Demand
+        model.addConstr(greater_0[t] * big_m >= demands["heat"][t], 
+                        name="HeatDem_greater_0_" + str(t))
+        
+        # If ther is heat demand, the storage average temperature must be higher than the supply temperature. Assures that supply can be fulfilled
+        #model.addGenConstrIndicator(greater_0[t], 1, (t_tes_sup[t] >= t_sup[t]), name="Meet_T_sup" + str(t))
+        model.addGenConstrIndicator(greater_0[t], 1, (t_tes[t] >= t_sup[t]), name="Meet_T_sup" + str(t))
+
     # %% BUILDING STORAGES # %% DOMESTIC FLEXIBILITIES
 
     ## Nominal storage content (SOC)
@@ -311,36 +344,86 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     eta_tes = node["devs"][dev]["eta_tes"]
     eta_ch = node["devs"][dev]["eta_ch"]
     eta_dch = node["devs"][dev]["eta_dch"]
+    t_tes_min = 18 + 273.15
+    t_tes_max = 50 + 273.15
+    rho = params["phy"]["rho_w"]
+    #vol = 0.188 #in m3 TODO Checken, welches Volumen genau
+    vol = (3600 * node["devs"]["tes"]["cap"])/(cp * rho * (t_tes_max - t_tes_min))
     for t in time_steps:
-        # Initial SOC is the SOC at the beginning of the first time step, thus it equals the SOC at the end of the previous time step
+        #if options["mpc"]:
+        # Initial temperature is the temperature at the beginning of the first time step, thus it equals the SOC at the end of the previous time step
         if t == par_rh["hour_start"][n_opt] and t > par_rh["month_start"][par_rh["month"]]:
-            soc_prev = soc_init_rh[dev]
+            t_tes_prev = t_tes_init_rh
         elif t == par_rh["month_start"][par_rh["month"]]:
-            soc_prev = soc_init[dev]
+            t_tes_prev = t_tes_init
         else:
-            soc_prev = soc[dev][t - 1]
+            t_tes_prev = t_tes[t - 1]
+            
 
-        # Maximal charging
-        model.addConstr(p_ch[dev][t] == eta_ch * (heat["chp"][t] + heat["hp35"][t] + heat["hp55"][t] + heat["boiler"][t]
-                                                  + heat["eh"][t]),
+        # Energy balance of the TES
+        model.addConstr((t_tes[t] - t_tes_prev) * vol * rho * cp / 3600 == dt[t] * (eta_ch * p_ch[dev][t] - eta_dch * p_dch[dev][t] - loss_tes[t]) , 
+                        name="Storage_bal_" + dev + "_" + str(t))
+        
+        #model.addConstr((t_tes_sup[t] - t_tes_prev) * vol * rho * cp / 3600 == dt[t] * (eta_ch * p_ch[dev][t] - loss_tes[t]) , 
+                        #name="Storage_ch_" + dev + "_" + str(t))
+        #model.addConstr((t_tes[t] - t_tes_sup[t]) * vol * rho * cp / 3600 == dt[t] * (- eta_dch * p_dch[dev][t]), 
+                        #name="Storage_dch_" + dev + "_" + str(t))
+
+        # # Heat loss
+        model.addConstr(loss_tes[t] == (t_tes_prev - t_tes_min) * (1 - eta_tes) * vol * rho * cp / 3600, 
+                        name="loss_tes_" + str(t))
+        # SOC 
+        model.addConstr(soc[dev][t] == (t_tes[t] - t_tes_min) / (t_tes_max - t_tes_min), 
+                        name="SOC_" + str(t))
+        # Min T
+        #model.addConstr(t_tes_sup[t] >= t_tes_min, 
+                        #name="Min_T_tes_sup_" + str(t))
+        # Max T
+        #model.addConstr(t_tes_sup[t] <= t_tes_max, 
+                        #name="Max_T_sup_tes_" + str(t))
+        # Min T
+        model.addConstr(t_tes[t] >= t_tes_min, 
+                        name="Min_T_tes_" + str(t))
+        # Max T
+        model.addConstr(t_tes[t] <= t_tes_max, 
+                        name="Max_T_tes_" + str(t))
+        # TES charging
+        model.addConstr(p_ch[dev][t] == eta_ch * (heat["chp"][t] + heat["hp35"][t] + heat["hp55"][t] + heat["boiler"][t]+ heat["eh"][t]),
                         name="Heat_charging_" + str(t))
-        # Maximal discharging
+        # TES discharging
         model.addConstr(p_dch[dev][t] == (1 / eta_dch) * (demands["heat"][t] + demands["dhw"][t]),
                         name="Heat_discharging_" + str(t))
+        """
+        else:
+            # Initial SOC is the SOC at the beginning of the first time step, thus it equals the SOC at the end of the previous time step
+            if t == par_rh["hour_start"][n_opt] and t > par_rh["month_start"][par_rh["month"]]:
+                soc_prev = soc_init_rh[dev]
+            elif t == par_rh["month_start"][par_rh["month"]]:
+                soc_prev = soc_init[dev]
+            else:
+                soc_prev = soc[dev][t - 1]
 
-        # Minimal and maximal soc
-        model.addConstr(soc["tes"][t] <= soc_nom["tes"], name="max_cap_tes_" + str(t))
-        model.addConstr(soc["tes"][t] >= node["devs"]["tes"]["min_soc"] * soc_nom["tes"], name="min_cap_" + str(t))
+            # Maximal charging
+            model.addConstr(p_ch[dev][t] == eta_ch * (heat["chp"][t] + heat["hp35"][t] + heat["hp55"][t] + heat["boiler"][t]
+                                                    + heat["eh"][t]),
+                            name="Heat_charging_" + str(t))
+            # Maximal discharging
+            model.addConstr(p_dch[dev][t] == (1 / eta_dch) * (demands["heat"][t] + demands["dhw"][t]),
+                            name="Heat_discharging_" + str(t))
 
-        # SOC coupled over all times steps (Energy amount balance, kWh)
-        model.addConstr(soc[dev][t] == soc_prev * eta_tes + dt[t] * (p_ch[dev][t] - p_dch[dev][t]),
-                        name="Storage_bal_" + dev + "_" + str(t))
+            # Minimal and maximal soc
+            model.addConstr(soc["tes"][t] <= soc_nom["tes"], name="max_cap_tes_" + str(t))
+            model.addConstr(soc["tes"][t] >= node["devs"]["tes"]["min_soc"] * soc_nom["tes"], name="min_cap_" + str(t))
 
-        # soc at the end is the same like at the beginning
-        #if t == last_time_step:
-        #   model.addConstr(soc["tes"][t] == soc["tes"][first_time_step],
-        #                    name="End_TES_Storage_" + str(t))
+            # SOC coupled over all times steps (Energy amount balance, kWh)
+            model.addConstr(soc[dev][t] == soc_prev * eta_tes + dt[t] * (p_ch[dev][t] - p_dch[dev][t]),
+                            name="Storage_bal_" + dev + "_" + str(t))
 
+            # soc at the end is the same like at the beginning
+            #if t == last_time_step:
+            #   model.addConstr(soc["tes"][t] == soc["tes"][first_time_step],
+            #                    name="End_TES_Storage_" + str(t))
+        """   
 
     dev = "bat"
     k_loss = node["devs"][dev]["k_loss"]
@@ -449,14 +532,24 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     model.Params.TimeLimit = params["gp"]["time_limit"]
     model.Params.MIPGap = params["gp"]["mip_gap"]
     model.Params.MIPFocus = params["gp"]["numeric_focus"]
+    """
+    orignumvars = model.NumVars
+    model.feasRelaxS(0, False, True, True)
 
+    slacks = model.getVars()[orignumvars:]
+    for sv in slacks:
+        if sv.X > 1e-9:
+            print('%s = %g' % (sv.VarName, sv.X))
+    """
     # Execute calculation
     model.optimize()
     #        model.write("model.ilp")
 
+    print(str(model.Status))
     # Write errorfile if optimization problem is infeasible or unbounded
     if model.status == gp.GRB.Status.INFEASIBLE or model.status == gp.GRB.Status.INF_OR_UNBD:
         model.computeIIS()
+        model.write("model.ilp")
         f = open('errorfile_hp.txt', 'w')
         f.write(str(datetime.datetime.now()) + '\nThe following constraint(s) cannot be satisfied:\n')
         for c in model.getConstrs():
@@ -465,6 +558,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
                 f.write('\n')
         f.close()
 
+    epsilon = 1e-04
     # Retrieve results
     res_y = {}
     res_power = {}
@@ -484,12 +578,12 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         res_soc[dev] = {(t): soc[dev][t].X for t in time_steps}
 
     res_p_imp = {}
-    res_p_imp["p_imp"] = {(t): p_imp[t].X for t in time_steps}
+    res_p_imp["p_imp"] = {(t): p_imp[t].X if p_imp[t].X >= epsilon else 0 for t in time_steps}
     res_p_ch = {}
     res_p_dch = {}
     for dev in storage:
-        res_p_ch[dev] = {(t): p_ch[dev][t].X for t in time_steps}
-        res_p_dch[dev] = {(t): p_dch[dev][t].X for t in time_steps}
+        res_p_ch[dev] = {(t): p_ch[dev][t].X if p_ch[dev][t].X >= epsilon else 0 for t in time_steps}
+        res_p_dch[dev] = {(t): p_dch[dev][t].X if p_dch[dev][t].X >= epsilon else 0 for t in time_steps}
 
     #res_gas = {}
     #for dev in ["boiler", "chp"]:
@@ -520,7 +614,11 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     res_p_grid_sell = {(t): p_grid_sell[t].X for t in time_steps}
     res_p_trade = {(t): power_trade["buyer"][t].X + power_trade["seller"][t].X for t in time_steps}
     res_prev_trade =  {(t): prev_trade["buyer"][t].X + prev_trade["seller"][t].X for t in time_steps}
-
+ 
+    res_t_tes = {(t): t_tes[t].X for t in time_steps}
+    res_t_sup = {(t): t_sup[t].X for t in time_steps}
+    #res_t_tes_sup = {(t): t_tes_sup[t].X for t in time_steps}
+    
 
     obj = model.ObjVal
     print("Obj: " + str(model.ObjVal))
@@ -546,4 +644,4 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             res_p_imp, res_p_ch, res_p_dch, res_p_use, res_p_sell,
             obj, res_c_dem, res_rev, res_soc_nom,
             objVal, runtime, soc_init_rh, res_gas_sum, res_p_grid_buy,
-            res_p_grid_sell, res_p_trade, res_prev_trade)
+            res_p_grid_sell, res_p_trade, res_prev_trade, res_t_tes, res_t_sup)#, res_t_tes_sup)
