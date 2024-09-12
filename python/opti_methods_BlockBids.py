@@ -85,8 +85,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         #fmu_filename = 'FMU/Small_District_8houses_HP_Boi.fmu'
         #fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_constantinterpol.fmu'
         #fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_DHWCalc.fmu'
-        fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_DHWCalc_2Sto.fmu'
-        #fmu_filename = 'FMU/Medium_District_13houses_HP_Boi_CHP.fmu'
+        #fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_DHWCalc_2Sto.fmu'
+        fmu_filename = 'FMU/Medium_District_12houses_HP_Boi_CHP.fmu'
         #fmu_filename = 'FMU/Small_District_6houses_Boi_DHWCalc.fmu'
 
         #start_time = 0 
@@ -114,7 +114,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         # Variable references für die Auswertungen
         vr_grid_gen = []
         vr_grid_load = []
-        vr_Tmax_tes = []
+        vr_Ttop_tes = []
         vr_trade_check = []
         vr_heat_dem = []
         vr_hp_elec = []
@@ -123,11 +123,12 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         vr_n_set_hp = []
         vr_m_flow = []
         vr_T_ret = []
+        vr_T_top = []
+        vr_Tbot_tes = []
 
         rows = []  # list to record the results
         grid_gen = []
         grid_load = []
-        t_max = []
         trade_sold = []
         trade_bought = []
         hp_elec = []
@@ -142,12 +143,13 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         n_set_hp = []
         m_flow = []
         T_return = []
+        T_sto_top = []
+        T_sto_bot = []
 
         # get the value references (vr) for the variables we want to get/set
         for house in range(1, options["nb_bes"]+1): # different index, as house enumeration in Modelica model start with "1"
             vr_traded_elec.append(vr['tra_vol_input' + str(house)])  # defines value reference for variable name
-            if nodes[house-1]["devs"]["hp35"]["cap"] != 0:
-            #if nodes[house-1]["devs"]["hp55"]["cap"] != 0:
+            if nodes[house-1]["devs"]["eh"]["cap"] != 0: # Tset only for systems with a heat pump (and therefore an EH)
                 vr_T_set_mpc.append(vr['T_set_MPC'+ str(house)]) # defines value reference for variable name
             else:
                 vr_T_set_mpc.append(0)
@@ -158,13 +160,13 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
 
             vr_grid_load.append(vr['House'+ str(house) + '.electricalGrid.PElecLoa']) # defines value reference for variable name
             vr_grid_gen.append(vr['House'+ str(house) + '.electricalGrid.PElecGen']) # defines value reference for variable name
-            vr_Tmax_tes.append(vr['House'+ str(house) + '.hydraulic.distribution.stoBuf.TTop']) # defines value reference for variable name
+            vr_Ttop_tes.append(vr['House'+ str(house) + '.hydraulic.distribution.stoBuf.TTop']) # defines value reference for variable name
+            vr_Tbot_tes.append(vr['House'+ str(house) + '.hydraulic.distribution.stoBuf.TBottom']) # defines value reference for variable name
             vr_trade_check.append(vr['House'+ str(house) + '.electrical.generation.tradingBus.tradedElec[1]']) # defines value reference for variable name
             vr_heat_dem.append(vr['House'+ str(house) + '.userProfiles.tabHeatDem.y[1]']) # defines value reference for variable name
             vr_elec_dem.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) # defines value reference for variable name
             vr_m_flow.append(vr['House'+ str(house) + '.hydraulic.transfer.val[1].m_flow']) # defines value reference for variable name
-            if nodes[house-1]["devs"]["hp35"]["cap"] != 0:
-            #if nodes[house-1]["devs"]["hp55"]["cap"] != 0:
+            if nodes[house-1]["devs"]["eh"]["cap"] != 0: # only for systems with a heat pump (and therefore an EH)
                 vr_hp_elec.append(vr['House'+ str(house) + '.outputs.hydraulic.gen.PEleHeaPum.value']) # defines value reference for variable name
                 vr_T_set_hp.append(vr['House'+ str(house) + '.hydraulic.control.setAndMeaSelPri.TSet']) # defines value reference for variable name
                 vr_n_set_hp.append(vr['House'+ str(house) + '.hydraulic.control.priGenPIDCtrl.ySet']) # defines value reference for variable name
@@ -269,16 +271,21 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                             n_opt=n_opt, block_length=block_length, opti_res=opti_res[n_opt])
 
                 #"""
-                t_tes_list.append(opti_res[n_opt][4][21][par_rh["month_start"][par_rh["month"]] + n_opt] - 273.15)
-                #t_tes_sup_list.append(opti_res[n_opt][7][23][par_rh["month_start"][par_rh["month"]] + n_opt] - 273.15)
-                t_sup_list.append(opti_res[n_opt][4][22][par_rh["month_start"][par_rh["month"]] + n_opt] - 273.15)
-                bought_elec.append(opti_res[n_opt][4][19][par_rh["month_start"][par_rh["month"]] + n_opt]/1000)
-                #hp_heat.append(opti_res[n_opt][4][2]["hp35"][par_rh["month_start"][par_rh["month"]] + n_opt]/1000)
-                hp_elec.append((opti_res[n_opt][4][2]["hp35"][par_rh["month_start"][par_rh["month"]] + n_opt]/1000)/nodes[4]["devs"]["COP_sh35"][par_rh["month_start"][par_rh["month"]] + n_opt])
-                #hp_elec.append((opti_res[n_opt][4][2]["hp55"][par_rh["month_start"][par_rh["month"]] + n_opt]/1000)/nodes[4]["devs"]["COP_sh55"][par_rh["month_start"][par_rh["month"]] + n_opt])
-                heat_dem.append((nodes[4]["heat"][par_rh["month_start"][par_rh["month"]] + n_opt])/1000/nodes[4]["devs"]["COP_sh35"][par_rh["month_start"][par_rh["month"]] + n_opt])
-                #heat_dem.append((nodes[4]["heat"][par_rh["month_start"][par_rh["month"]] + n_opt])/1000/nodes[4]["devs"]["COP_sh55"][par_rh["month_start"][par_rh["month"]] + n_opt])
-                if n_opt == 144:
+                no_house = 7
+                for block_step in par_rh["time_steps"][n_opt][0:block_length]:
+                    t_tes_list.append(opti_res[n_opt][no_house][21][block_step] - 273.15)
+                    #t_tes_sup_list.append(opti_res[n_opt][7][23][block_step] - 273.15)
+                    t_sup_list.append(opti_res[n_opt][no_house][22][block_step] - 273.15)
+                    bought_elec.append(opti_res[n_opt][no_house][19][block_step]/1000)
+                    #hp_heat.append(opti_res[n_opt][no_house][2]["hp35"][block_step]/1000)
+
+                    if nodes[no_house]["devs"]["hp35"]["cap"] > 0:
+                        hp_elec.append((opti_res[n_opt][no_house][2]["hp35"][block_step]/1000)/nodes[no_house]["devs"]["COP_sh35"][block_step])
+                        heat_dem.append((nodes[no_house]["heat"][block_step])/1000/nodes[no_house]["devs"]["COP_sh35"][block_step])
+                    elif nodes[no_house]["devs"]["hp55"]["cap"] > 0:
+                        hp_elec.append((opti_res[n_opt][no_house][2]["hp55"][block_step]/1000)/nodes[no_house]["devs"]["COP_sh55"][block_step])
+                        heat_dem.append((nodes[no_house]["heat"][block_step])/1000/nodes[no_house]["devs"]["COP_sh55"][block_step])
+                if n_opt == 24:
             
                     fig, ax1 = plt.subplots()
                     ax1.plot(t_tes_list, label = 'End Storage Temperature', color = 'tab:red')
@@ -307,40 +314,41 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     plt.grid(True, linewidth = 0.5)
                     plt.show()
                     print("HI")
-                #"""
+                    #"""
                 
                 if options["mpc"]:
-                    for t_block in range(block_length):
+                    for block_step in par_rh["time_steps"][n_opt][0:block_length]:
+                        tra_vol[n_opt][block_step] = {}
                         time = 0
                         while time < 3600:
                             # Sum up the bought and sold energy quantities over the number of market rounds for every house using tra_vol
                             # As tra_vol is the direct control variable for the simulation de/increasing the BESMod electrical generation, it has to be negative for sellers
                             for house in range(0, options["nb_bes"]):
-                                tra_vol[n_opt][house] = {}
+                                tra_vol[n_opt][block_step][house] = {}
                                 if house in participating_buyers[n_opt]:
-                                    tra_vol[n_opt][house] = opti_res[n_opt][house][19][par_rh["month_start"][par_rh["month"]] + n_opt]
+                                    tra_vol[n_opt][block_step][house] = opti_res[n_opt][house][19][block_step]
                                 elif house in participating_sellers[n_opt]:
-                                    tra_vol[n_opt][house] = -1 * opti_res[n_opt][house][19][par_rh["month_start"][par_rh["month"]] + n_opt]
+                                    tra_vol[n_opt][block_step][house] = -1 * opti_res[n_opt][house][19][block_step]
                                 else:
-                                    tra_vol[n_opt][house] = float(0)
+                                    tra_vol[n_opt][block_step][house] = float(0)
                                 #set the control variable for the simulation
-                                fmu.setReal([vr_traded_elec[house]], [tra_vol[n_opt][house]]) 
-                                if nodes[house]["devs"]["hp35"]["cap"] != 0:
-                                #if nodes[house]["devs"]["hp55"]["cap"] != 0:
-                                    fmu.setReal([vr_T_set_mpc[house]], [opti_res[n_opt][house][21][par_rh["month_start"][par_rh["month"]] + n_opt]])
+                                fmu.setReal([vr_traded_elec[house]], [tra_vol[n_opt][block_step][house]]) 
+                                if nodes[house]["devs"]["eh"]["cap"] != 0: # only for systems with a heat pump (and therefore an EH)
+                                    fmu.setReal([vr_T_set_mpc[house]], [opti_res[n_opt][house][21][block_step]])
                             # simulate one time step
-                            fmu.doStep(currentCommunicationPoint=start_time + (n_opt + t_block) * 3600 + time, communicationStepSize=step_size) #TODO checken, ob das richtig ist als "time"-Ersatz
+                            fmu.doStep(currentCommunicationPoint=block_step * 3600 + time, communicationStepSize=step_size) #TODO checken, ob das richtig ist als "time"-Ersatz
                             
                             # Test for the returned values from the FMU
-                            no_house = 4 #in Modelica ist das Haus 5
+                            #no_house = 4 #in Modelica ist das Haus 5
+                            no_house = 7 #in Modelica ist das Haus 8
                             no_house1 = 1
-                            input1, input2, input3, input4, input5, input6, input7 = fmu.getReal([vr_grid_gen[no_house], vr_grid_load[no_house], vr_Tmax_tes[no_house], vr_trade_check[no_house], vr_heat_dem[no_house], vr_hp_elec[no_house], vr_elec_dem[no_house]])
+                            input1, input2, input3, input4, input5, input6, input7 = fmu.getReal([vr_grid_gen[no_house], vr_grid_load[no_house], vr_Ttop_tes[no_house], vr_trade_check[no_house], vr_heat_dem[no_house], vr_hp_elec[no_house], vr_elec_dem[no_house]])
                             input8 = fmu.getReal([vr_soc_bat[no_house1]])
-                            input9, input10, input11, input12 = fmu.getReal([vr_T_set_hp[no_house], vr_n_set_hp[no_house], vr_m_flow[no_house], vr_T_ret[no_house]])
-                            rows.append((n_opt, input1, input2, input3, input4, input5, input6, input7, input8, input9, input10, input11, input12))
+                            input9, input10, input11, input12, input13, input14, input15 = fmu.getReal([vr_T_set_hp[no_house], vr_n_set_hp[no_house], vr_m_flow[no_house], vr_T_ret[no_house], vr_Tbot_tes[no_house], vr_T_tes_avg[no_house], vr_traded_elec[no_house]])
+                            rows.append((n_opt, input1, input2, input3, input4, input5, input6, input7, input8, input9, input10, input11, input12, input13, input14, input15))
                             time += step_size
-                    """
-                    length = 72
+                    #"""
+                    length = 24
                     start = 0
                     if n_opt == length:
                         total_elec = []
@@ -348,11 +356,13 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         bat_fmu = []
                         feed_in_share = []
                         hp_elec = []
-                        for i in range(start*int(3600/step_size), length * int(3600/step_size)):
+                        T_avg = []
+                        for i in range(start*int((block_length * 3600)/step_size), length * int((block_length * 3600)/step_size)):
                             bat_fmu.append(100 * rows[i][8][0])
                             grid_gen.append(rows[i][1]/1000) # change from Wh to kWh
                             grid_load.append(rows[i][2]/1000) # change from Wh to kWh
-                            t_max.append(rows[i][3])
+                            T_sto_top.append(rows[i][3] - 273.15)
+                            T_sto_bot.append(rows[i][13] - 273.15)
                             if rows[i][4] > 0:
                                 trade_sold.append(0)
                                 trade_bought.append(rows[i][4]/1000)
@@ -372,6 +382,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                             n_set_hp.append(rows[i][10])
                             m_flow.append(rows[i][11])
                             T_return.append(rows[i][12] - 273.15)
+                            T_avg.append(rows[i][14] - 273.15)
                         t = [par_rh["month_start"][par_rh["month"]] + i for i in range(start, length)]
                         t_filtered = [t[i] for i in range(0, len(t), 10)]
                         xtick_positions = np.arange(0, (length - start) * (3600 / step_size), int(3600 / step_size) * 10)
@@ -399,11 +410,34 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         print("HI")
 
                         plt.clf()
+                        plt.plot(T_avg, color = 'tab:green')
+                        plt.xticks(xtick_positions, t_filtered, fontsize=16)
+                        plt.legend(fontsize=16, loc = 'upper right')
+                        plt.xlabel('time in h', fontsize=18)
+                        plt.ylabel('Average TES temperature in °C', fontsize=18)
+                        plt.tight_layout()
+                        plt.grid(True, linewidth = 0.5)
+                        plt.show()
+                        print("HI")
+
+                        plt.clf()
                         plt.plot(m_flow, color = 'tab:green')
                         plt.xticks(xtick_positions, t_filtered, fontsize=16)
                         plt.legend(fontsize=16, loc = 'upper right')
                         plt.xlabel('time in h', fontsize=18)
                         plt.ylabel('mass flow in kg/s', fontsize=18)
+                        plt.tight_layout()
+                        plt.grid(True, linewidth = 0.5)
+                        plt.show()
+                        print("HI")
+
+                        plt.clf()
+                        plt.plot(T_sto_bot, label = 'Bottom Layer', color = 'tab:blue')
+                        plt.plot(T_sto_top, label = 'Top Layer', color = 'tab:red')
+                        plt.xticks(xtick_positions, t_filtered, fontsize=16)
+                        plt.legend(fontsize=16, loc = 'upper right')
+                        plt.xlabel('time in h', fontsize=18)
+                        plt.ylabel('Temperature in °C', fontsize=18)
                         plt.tight_layout()
                         plt.grid(True, linewidth = 0.5)
                         plt.show()
@@ -449,7 +483,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         plt.show()
                         print("HI")
 
-                        """
+                        #"""
                     """
                         plt.clf()
                         for i in range(start, length): #TODO checken, ob es sich hier wirklich um die jeweils gleichen Zeitschritte handelt
@@ -524,9 +558,14 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         
                         # Return average TES temperature
                         t_tes_avg[n_opt][n] = fmu.getReal([vr_T_tes_avg[n]])
-                        init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = t_tes_avg[n_opt][n][0]
+                        if nodes[n]["devs"]["eh"]["cap"] != 0:
+                            init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = t_tes_avg[n_opt][n][0]
+                        elif nodes[n]["devs"]["boiler"]["cap"] != 0:
+                            init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = init_val_opti[n_opt + 1]["building_" + str(n)]["t_tes"]
+                        elif nodes[n]["devs"]["chp"]["cap"] != 0:
+                            init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = init_val_opti[n_opt + 1]["building_" + str(n)]["t_tes"]
 
-                    if n_opt == 72:
+                    if n_opt == 24:
                         bat_opti = []
                         tes_opti = []
                         bat_fmu = []
@@ -534,11 +573,11 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         t_tes_opti = []
                         t_tes_fmu = []
                         #TODO evtl könnte man hier auch wie oben den SOC FMU ausführlicher gestalten und nicht nut stündliche Werte
-                        for i in range(1, 73): #TODO checken, ob es sich hier wirklich um die jeweils gleichen Zeitschritte handelt
+                        for i in range(1, 9): #TODO checken, ob es sich hier wirklich um die jeweils gleichen Zeitschritte handelt
                             bat_fmu.append(100 * soc_bat_fmu[i][2][0])
                             bat_opti.append(100 * (init_val_opti[i]["building_2"]["soc"]["bat"]/opti_res[n_opt][2][12]["bat"]))
-                            t_tes_opti.append(init_val_opti[i]["building_4"]["t_tes"] - 273.15)
-                            t_tes_fmu.append(init_val[i]["building_4"]["t_tes"] - 273.15)
+                            t_tes_opti.append(init_val_opti[i]["building_7"]["t_tes"] - 273.15)
+                            t_tes_fmu.append(init_val[i]["building_7"]["t_tes"] - 273.15)
                             #tes_fmu.append(100 * soc_tes_fmu[i][4][0])
                             #tes_opti.append(100 * (init_val_opti[i + 1]["building_4"]["soc"]["tes"]/opti_res[n_opt][4][12]["tes"]))
                         #t = [par_rh["month_start"][par_rh["month"]] + i for i in range(start, length)]
@@ -567,6 +606,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         plt.show()
                         print("HI")
                         """
+                        #TODO dieser Plot nur so halb sinvoll bei blockBids, sind ja keine stündlihen Werte
                         plt.plot(t_tes_fmu, label = 'After simulation', marker = 'o', color = 'tab:blue')
                         plt.plot(t_tes_opti, label = 'After optimization', marker = 'x', color = 'tab:orange')
                         plt.legend(fontsize=16, loc = 'upper right', bbox_to_anchor=(1, 1))

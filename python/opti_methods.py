@@ -199,7 +199,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             trade_res[n_opt] = {}
             tra_vol[n_opt] = {}
 
-            if n_opt == 15:
+            if n_opt == 5:
                 print("hi")
 
             if n_opt == 0:
@@ -268,7 +268,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     mat_neg.trade_with_grid(sorted_bids=mar_dict["sorted_bids"][n_opt], params=params, par_rh=par_rh,
                                             n_opt=n_opt, block_length=block_length, opti_res=opti_res[n_opt])
 
-                #"""
+                """
                 t_tes_list.append(opti_res[n_opt][4][21][par_rh["month_start"][par_rh["month"]] + n_opt] - 273.15)
                 #t_tes_sup_list.append(opti_res[n_opt][7][23][par_rh["month_start"][par_rh["month"]] + n_opt] - 273.15)
                 t_sup_list.append(opti_res[n_opt][4][22][par_rh["month_start"][par_rh["month"]] + n_opt] - 273.15)
@@ -307,7 +307,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     plt.grid(True, linewidth = 0.5)
                     plt.show()
                     print("HI")
-                #"""
+                """
                 time = 0
                 if options["mpc"]: 
                     while time < 3600:

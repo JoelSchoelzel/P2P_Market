@@ -5,7 +5,8 @@ Created on 10.06.2021
 """
 from pathlib import Path
 
-import python.opti_methods as opti_methods
+#import python.opti_methods as opti_methods
+import python.opti_methods_BlockBids as opti_methods
 import python.parse_inputs as parse_inputs
 import pickle
 import os
@@ -84,7 +85,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 
     # Set options for energy trading
     options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
-               "mpc": False, #True: use of model predictive control with simulation, False: sole optimizatio negotiation
+               "mpc": True, #True: use of model predictive control with simulation, False: sole optimizatio negotiation
                "WithElecDem": False, #True: electric demands for buildings are considered 
                "bid_strategy": "zero",  # zero for zero-intelligence, learning, devices
                "crit_prio": crit_prio,  # "flex_energy",
@@ -213,10 +214,11 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     return mar_dict, characteristics, init_val, results, opti_res, par_rh, districtData, options
 
 if __name__ == '__main__':
-    for scenario_name in ["old/Small_District_BOI+HP"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
+    #for scenario_name in ["old/Small_District_BOI+HP"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
+    for scenario_name in ["old/Medium_District_12houses_BOI+HP+CHP"]:
         first_run = True
         for month in [3]:  # , 7]:
-            for block_length in [1]:  #1, 3, 5]:
+            for block_length in [3]:  #1, 3, 5]:
                 for enhanced_horizon in [False]: #, True]:
                     for crit_prio in ["flex_quantity"]: #"flex_energy", "quantity", "random", "flex_quantity"
                         mar_dict, characteristics, init_val, results, opti_res, par_rh, districtData, options = \

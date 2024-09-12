@@ -364,7 +364,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     m_flow = 0.2 # in kg/s TODO richtigen Wert checken
     t_flow_min = 30 + 273.15 #TODO ??
     cp = params["phy"]["c_w"]
-    big_m = 10000
+    big_m = 100000
     for t in time_steps:
         # Necessary Supply Temperature
         model.addConstr(demands["heat"][t] == (t_sup[t] - t_flow_min) * cp * m_flow,
@@ -383,7 +383,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     eta_ch = node["devs"][dev]["eta_ch"]
     eta_dch = node["devs"][dev]["eta_dch"]
     t_tes_min = 18 + 273.15
-    t_tes_max = 50 + 273.15
+    t_tes_max = 55 + 273.15
     rho = params["phy"]["rho_w"]
     #vol = 0.188 #in m3 TODO Checken, welches Volumen genau
     vol = (3600 * node["devs"]["tes"]["cap"])/(cp * rho * (t_tes_max - t_tes_min))
