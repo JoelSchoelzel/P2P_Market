@@ -510,8 +510,8 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     res_p_sell = {}
     for dev in ("chp", "pv"):
         res_p_use[dev] = {(t): p_use[dev][t].X for t in time_steps}
-        #res_p_sell[dev] = {(t): p_sell[dev][t].X for t in time_steps}
-        res_p_sell[dev] = {t: round(p_sell[dev][t].X, 15) for t in time_steps}
+        res_p_sell[dev] = {(t): p_sell[dev][t].X for t in time_steps}
+        #res_p_sell[dev] = {t: round(p_sell[dev][t].X, 15) for t in time_steps}
 
     res_p_grid_buy = {(t): p_grid_buy[t].X for t in time_steps}
     res_p_grid_sell = {(t): p_grid_sell[t].X for t in time_steps}

@@ -280,7 +280,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         model.addConstr(power["chp"][t] == node["devs"]["chp"]["eta_el"] * gas["chp"][t],
                         name="Power_equation_" + dev + "_" + str(t))
         # TODO: Check need of mod_lvl
-        # model.addConstr(power["chp"][t] == node["devs"]["chp"]["eta_el"] * gas["chp"][t] * node["devs"]["chp"]["mod_lvl"],
+        #model.addConstr(power["chp"][t] == node["devs"]["chp"]["eta_el"] * gas["chp"][t] * node["devs"]["chp"]["mod_lvl"],
         #                name="Min_power_equation_chp_" + str(t))
 
         # BOILER
@@ -316,8 +316,12 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
 
     # Heating System
     #if options["mpc"]:  
-    m_flow = 0.2 # in kg/s TODO richtigen Wert checken. Evtl ältere Häuser nehmen, da dann auch höhere Wärmebedarfe
-    t_flow_min = 30 + 273.15 #TODO ??
+    if node["devs"]["chp"]["cap"] != 0:
+        m_flow = 0.8 # in kg/s 
+    else:
+        m_flow = 0.15 # in kg/s 
+
+    t_flow_min = 37 + 273.15 #TODO ??
     big_m = 100000
     cp = params["phy"]["c_w"]
     for t in time_steps:
@@ -607,8 +611,8 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     res_p_sell = {}
     for dev in ("chp", "pv"):
         res_p_use[dev] = {(t): p_use[dev][t].X for t in time_steps}
-        #res_p_sell[dev] = {(t): p_sell[dev][t].X for t in time_steps}
-        res_p_sell[dev] = {t: round(p_sell[dev][t].X, 15) for t in time_steps}
+        res_p_sell[dev] = {(t): p_sell[dev][t].X for t in time_steps}
+        #res_p_sell[dev] = {t: round(p_sell[dev][t].X, 15) for t in time_steps}
 
     res_p_grid_buy = {(t): p_grid_buy[t].X for t in time_steps}
     res_p_grid_sell = {(t): p_grid_sell[t].X for t in time_steps}

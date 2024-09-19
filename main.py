@@ -27,7 +27,7 @@ import classes
 # from classes import Datahandler
 from classes import *
 
-def get_inputs(par_rh, options, districtData):  # gets inputs for optimization
+def get_inputs(par_rh, options, districtData, scenario_name):  # gets inputs for optimization
     ### Load Params
     # load rolling horizon parameters
     par_rh = parse_inputs.compute_pars_rh(par_rh, options, districtData)
@@ -49,6 +49,18 @@ def get_inputs(par_rh, options, districtData):  # gets inputs for optimization
         for n in nodes:
             for t in range(8760):
                 nodes[n]["elec"][t] = 0
+    
+    if scenario_name == "old/Medium_District_12houses_BOI+HP+CHP":
+        for n in nodes:
+            if nodes[n]["devs"]["chp"]["cap"] != 0:
+                nodes[n]["devs"]["chp"]["cap"] = 25610
+                nodes[n]["devs"]["chp"]["cap"] = 46000
+                #nodes[n]["devs"]["chp"]["mod_lvl"] = 0.3
+
+
+
+
+
 
     return nodes, building_params, params, devs, par_rh
 
@@ -91,7 +103,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
                "crit_prio": crit_prio,  # "flex_energy",
                # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
                "block_length": block_length,  # length of block bid in hours
-               "max_trading_rounds": 5,
+               "max_trading_rounds": 15,
                 "negotiation": True,  # True: negotiation, False: auction
                "enhanced_horizon": enhanced_horizon,  # False: only block bid length, True: all 36hours
                "flex_price_delta": True,  # True: flex price delta, False: identical delta
@@ -134,7 +146,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
         "block_bid_length": options["block_length"]
     }
     # Get following inputs:
-    nodes, building_params, params, devs_pre_opti, par_rh = get_inputs(par_rh, options, districtData)
+    nodes, building_params, params, devs_pre_opti, par_rh = get_inputs(par_rh, options, districtData, scenario_name)
     # pickledump
     #with open(options["path_results"] + "/nodes_input_" + options_DG["scenario_name"] + ".p", 'wb') as file_nodes:
         #pickle.dump(nodes, file_nodes)
@@ -142,10 +154,10 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     # Run (rolling horizon) optimization for whole year or month
     if options["optimization"] == "P2P":
         # run optimization incl. trading
-        mar_dict, characteristics, init_val, results, opti_res = (
+        mar_dict, characteristics, init_val, results, opti_res, opti_res_check = (
             opti_methods.rolling_horizon_opti(options=options, nodes=nodes, par_rh=par_rh,
                                               building_params=building_params,
-                                              params=params, block_length=options["block_length"]))
+                                              params=params, block_length=options["block_length"], scenario_name=scenario_name))
 
         scenario_folder = scenario_name.replace("_", " ")
         month_folder = ""
@@ -197,7 +209,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     elif options["optimization"] == "P2P_typeWeeks":
         opti_results, typeweeks_indices, mar_dict, trade_res = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
                                                                                                  building_params,
-                                                                                                 params)
+                                                                                                 params, scenario_name)
         # Compute plots
         # criteria_typeweeks, criteria_year = output.compute_out_P2P_typeWeeks(options, options_DG, par_rh, opti_results,
         #                      districtData.weights, params, building_params, trade_res, mar_dict)
@@ -211,7 +223,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     time["end"] = datetime.datetime.now()
     print("Finished rolling horizon. " + str(datetime.datetime.now()))
 
-    return mar_dict, characteristics, init_val, results, opti_res, par_rh, districtData, options
+    return mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options
 
 if __name__ == '__main__':
     #for scenario_name in ["old/Small_District_BOI+HP"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
@@ -220,8 +232,8 @@ if __name__ == '__main__':
         for month in [3]:  # , 7]:
             for block_length in [3]:  #1, 3, 5]:
                 for enhanced_horizon in [False]: #, True]:
-                    for crit_prio in ["flex_quantity"]: #"flex_energy", "quantity", "random", "flex_quantity"
-                        mar_dict, characteristics, init_val, results, opti_res, par_rh, districtData, options = \
+                    for crit_prio in ["quantity"]: #"flex_energy", "quantity", "random", "flex_quantity"
+                        mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options = \
                             run_optimization(scenario_name, calcUserProfiles=first_run, crit_prio=crit_prio,
                                          block_length=block_length,
                                          enhanced_horizon=enhanced_horizon, month=month)

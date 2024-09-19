@@ -448,14 +448,14 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         # SOC and the end time step of block bid == SOC of opti with prediction horizon
         if t == time_steps[-1]:
             for dev in ("bat", "tes"):
-                model.addConstr(soc[dev][t] == opti_res[3][dev][t])
-
+                model.addConstr(soc[dev][t] == opti_res[3][dev][t], name="soc_bb=soc_ph")
+        """
         if is_buying:
             model.addConstr(p_imp[t] == p_grid_buy[t] + power_trade["buyer"][t] + prev_trade["buyer"][t],
                             name="import=grid+trade+prev_" + str(t))
-            model.addConstr(prev_traded[t] == prev_trade["buyer"][t], name="prev_trade_sell==0_" + str(t))
-            model.addConstr(0 == p_grid_sell[t], name="p_grid_sell==0_" + str(t))
-            model.addConstr(0 == prev_trade["seller"][t], name="prev_trade_sell==0_" + str(t))
+            model.addConstr(prev_traded["buy"][t] == prev_trade["buyer"][t], name="prev_trade_sell==0_" + str(t))
+            model.addConstr(opti_res[18][t] == p_grid_sell[t], name="p_grid_sell==0_" + str(t))
+            model.addConstr(prev_traded["sell"][t]  == prev_trade["seller"][t], name="prev_trade_sell==0_" + str(t))
             # power the buyer can trade is limited by the quantity the seller is willing to sell
             model.addConstr(power_trade["buyer"][t] <= quantity_bid_seller[t], name="max_Power_trade_buyer")
             model.addConstr(power_trade["buyer"][t] >= 0, name="min_Power_trade_buyer")
@@ -463,17 +463,78 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
             model.addConstr(p_sell["chp"][t] + p_sell["pv"][t] == p_grid_sell[t] + power_trade["seller"][t]
                             + prev_trade["seller"][t],
                                 name="sold=grid+trade+prev_" + str(t))
-            model.addConstr(prev_traded[t] == prev_trade["seller"][t], name="prev_trade_buy==0_" + str(t))
-            model.addConstr(0 == p_grid_buy[t], name="p_grid_buy==0_" + str(t))
-            model.addConstr(0 == prev_trade["buyer"][t], name="prev_trade_buy==0_" + str(t))
+            model.addConstr(prev_traded["buy"][t] == prev_trade["buyer"][t], name="prev_trade_sell==0_" + str(t))
+            model.addConstr(opti_res[18][t] == p_grid_sell[t], name="p_grid_sell==0_" + str(t))
+            model.addConstr(prev_traded["sell"][t]  == prev_trade["seller"][t], name="prev_trade_sell==0_" + str(t))
             #
             model.addConstr(power_trade["seller"][t] <= opti_bes_res_buyer["res_power_trade"][t],
                             name="max_Power_trade_seller")
             model.addConstr(power_trade["seller"][t] >= 0, name="min_Power_trade_seller_1")
             if quantity_bid_seller[t] <= opti_bes_res_buyer["res_power_trade"][t] and quantity_bid_seller[t] != 0:
                 model.addConstr(power_trade["seller"][t] >= quantity_bid_seller[t], name="min_Power_trade_seller_2")
-            # ignored demand
-            model.addConstr(p_imp[t] == opti_res[4]["p_imp"][t])
+
+        # for inflexible market participants with buy and sell quantities in a bidding period
+        if is_buying:
+            if matched_bids_info[0]["ignored_demand"] == True:
+                model.addConstr(p_imp[t] == opti_res[4]["p_imp"][t], name="A1")
+                model.addConstr(p_sell["chp"][t] == opti_res[8]["chp"][t], name="A2")
+                model.addConstr(p_sell["pv"][t] == opti_res[8]["pv"][t], name="A3")
+        else:
+            if matched_bids_info[1]["ignored_demand"] == True:
+                model.addConstr(p_imp[t] == opti_res[4]["p_imp"][t], name="B1")
+                model.addConstr(p_sell["chp"][t] == opti_res[8]["chp"][t], name="B2")
+                model.addConstr(p_sell["pv"][t] == opti_res[8]["pv"][t], name="B3")
+
+    if is_buying:
+        # Trading quantity during negotiation is limited by the bid quantity
+        model.addConstr(sum(power_trade["buyer"][t] for t in time_steps) <= sum(quantity_bid_buyer.values()),
+                        name="sum_p_buy")
+        # Allow the operation to be adjusted --> operation becomes less energy efficient
+        model.addConstr(sum(p_imp[t] for t in time_steps) <= sum(opti_res[4]["p_imp"][t] for t in time_steps)*1.2,
+                        name="sum_p_imp")
+        # todo: Ineffizienz als Sensitivitätsanalyse
+        ## Buyer is not allowed to trade a sell quantity
+        model.addConstr(sum(power_trade["seller"][t] for t in time_steps) == 0,
+                        name="sum_p_sell")
+    else:
+        model.addConstr(sum(power_trade["buyer"][t] for t in time_steps) == 0,
+                        name="sum_p_buy")
+        model.addConstr(sum(p_sell["pv"][t] for t in time_steps) <= sum(opti_res[8]["pv"][t]for t in time_steps)*1.2,
+                        name="sum_p_sell_pv")
+        model.addConstr(sum(p_sell["chp"][t] for t in time_steps) <= sum(opti_res[8]["chp"][t]for t in time_steps)*1.2,
+                        name="sum_p_sell_chp")
+        model.addConstr(sum(power_trade["seller"][t] for t in time_steps) <= sum(quantity_bid_seller.values()),
+                        name="sum_p_sell")
+        for t in time_steps:
+            model.addConstr(p_sell["chp"][t] <= max(opti_res[8]["chp"][t]for t in time_steps), f"MaxConstraint_{t}")
+
+    """
+    # Old version:
+
+    if is_buying:
+        model.addConstr(p_imp[t] == p_grid_buy[t] + power_trade["buyer"][t] + prev_trade["buyer"][t],
+                        name="import=grid+trade+prev_" + str(t))
+        model.addConstr(prev_traded[t] == prev_trade["buyer"][t], name="prev_trade_sell==0_" + str(t))
+        model.addConstr(0 == p_grid_sell[t], name="p_grid_sell==0_" + str(t))
+        model.addConstr(0 == prev_trade["seller"][t], name="prev_trade_sell==0_" + str(t))
+        # power the buyer can trade is limited by the quantity the seller is willing to sell
+        model.addConstr(power_trade["buyer"][t] <= quantity_bid_seller[t], name="max_Power_trade_buyer")
+        model.addConstr(power_trade["buyer"][t] >= 0, name="min_Power_trade_buyer")
+    else:
+        model.addConstr(p_sell["chp"][t] + p_sell["pv"][t] == p_grid_sell[t] + power_trade["seller"][t]
+                        + prev_trade["seller"][t],
+                            name="sold=grid+trade+prev_" + str(t))
+        model.addConstr(prev_traded[t] == prev_trade["seller"][t], name="prev_trade_buy==0_" + str(t))
+        model.addConstr(0 == p_grid_buy[t], name="p_grid_buy==0_" + str(t))
+        model.addConstr(0 == prev_trade["buyer"][t], name="prev_trade_buy==0_" + str(t))
+        #
+        model.addConstr(power_trade["seller"][t] <= opti_bes_res_buyer["res_power_trade"][t],
+                        name="max_Power_trade_seller")
+        model.addConstr(power_trade["seller"][t] >= 0, name="min_Power_trade_seller_1")
+        if quantity_bid_seller[t] <= opti_bes_res_buyer["res_power_trade"][t] and quantity_bid_seller[t] != 0:
+            model.addConstr(power_trade["seller"][t] >= quantity_bid_seller[t], name="min_Power_trade_seller_2")
+        # ignored demand
+        model.addConstr(p_imp[t] == opti_res[4]["p_imp"][t])
 
     if is_buying:
         model.addConstr(sum(power_trade["buyer"][t] for t in time_steps) <= sum(quantity_bid_buyer.values()),
@@ -485,6 +546,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
                         name="sum_p_imp")
         model.addConstr(sum(power_trade["seller"][t] for t in time_steps) <= sum(quantity_bid_seller.values()),
                         name="sum_p_sell")
+
 
     p_rated = {}  # rated power of the house connection (elec)
     p_rated["MFH"] = 69282  # Kleinwandlermessung bis 100A

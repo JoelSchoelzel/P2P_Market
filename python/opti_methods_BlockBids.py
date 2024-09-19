@@ -29,10 +29,12 @@ from fmpy.fmi2 import FMU2Slave
 from fmpy.util import plot_result, download_test_file
 from fmpy import *
 
-def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_length):
+def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_length, scenario_name):
     # Run rolling horizon
     init_val = {}  # not needed for first optimization, thus empty dictionary
     opti_res = {}  # to store the results of the first bes optimization of each optimization step
+    opti_res_check = {}
+
     init_val_opti = {}  # used for SOC comparisons in case of an MPC
     tra_vol = {}        # to hand over the total bought/sold electricity of one time step
     soc_bat_fmu = {}    # SOC of the battery retrieved from the Modelica simulation
@@ -85,8 +87,11 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         #fmu_filename = 'FMU/Small_District_8houses_HP_Boi.fmu'
         #fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_constantinterpol.fmu'
         #fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_DHWCalc.fmu'
-        #fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_DHWCalc_2Sto.fmu'
-        fmu_filename = 'FMU/Medium_District_12houses_HP_Boi_CHP.fmu'
+        if scenario_name == "old/Small_District_BOI+HP":
+            fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_DHWCalc_2Sto.fmu'
+        elif scenario_name == "old/Medium_District_12houses_BOI+HP+CHP":
+            #fmu_filename = 'FMU/Medium_District_12houses_HP_Boi_CHP.fmu'
+            fmu_filename = 'FMU/Medium_District_12houses_HP_Boi_CHP_BWsmall.fmu'
         #fmu_filename = 'FMU/Small_District_6houses_Boi_DHWCalc.fmu'
 
         #start_time = 0 
@@ -132,6 +137,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         trade_sold = []
         trade_bought = []
         hp_elec = []
+        hp_eh_elec = []
         elec_dem = []
         t_tes_list = []
         t_tes_sup_list = []
@@ -201,7 +207,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             trade_res[n_opt] = {}
             tra_vol[n_opt] = {}
 
-            if n_opt == 15:
+            if n_opt == 7:
                 print("hi")
 
             if n_opt == 0:
@@ -231,6 +237,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         else:
                             init_val[n_opt + 1] = 0
                     else: pass
+            #opti_res_check[n_opt] = copy.deepcopy(opti_res[n_opt])
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) +
                   "% of optimizations processed.")
 
@@ -271,21 +278,26 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                             n_opt=n_opt, block_length=block_length, opti_res=opti_res[n_opt])
 
                 #"""
-                no_house = 7
+                if scenario_name == "old/Small_District_BOI+HP":
+                    no_house = 4
+                elif scenario_name == "old/Medium_District_12houses_BOI+HP+CHP":
+                    no_house = 8
+
                 for block_step in par_rh["time_steps"][n_opt][0:block_length]:
                     t_tes_list.append(opti_res[n_opt][no_house][21][block_step] - 273.15)
                     #t_tes_sup_list.append(opti_res[n_opt][7][23][block_step] - 273.15)
                     t_sup_list.append(opti_res[n_opt][no_house][22][block_step] - 273.15)
                     bought_elec.append(opti_res[n_opt][no_house][19][block_step]/1000)
                     #hp_heat.append(opti_res[n_opt][no_house][2]["hp35"][block_step]/1000)
-
                     if nodes[no_house]["devs"]["hp35"]["cap"] > 0:
-                        hp_elec.append((opti_res[n_opt][no_house][2]["hp35"][block_step]/1000)/nodes[no_house]["devs"]["COP_sh35"][block_step])
+                        hp_elec.append((opti_res[n_opt][no_house][1]["hp35"][block_step]/1000))
                         heat_dem.append((nodes[no_house]["heat"][block_step])/1000/nodes[no_house]["devs"]["COP_sh35"][block_step])
+                        hp_eh_elec.append((opti_res[n_opt][no_house][1]["eh"][block_step]+opti_res[n_opt][no_house][1]["hp35"][block_step])/1000)
                     elif nodes[no_house]["devs"]["hp55"]["cap"] > 0:
-                        hp_elec.append((opti_res[n_opt][no_house][2]["hp55"][block_step]/1000)/nodes[no_house]["devs"]["COP_sh55"][block_step])
+                        hp_elec.append((opti_res[n_opt][no_house][1]["hp55"][block_step]/1000))
                         heat_dem.append((nodes[no_house]["heat"][block_step])/1000/nodes[no_house]["devs"]["COP_sh55"][block_step])
-                if n_opt == 24:
+                        hp_eh_elec.append((opti_res[n_opt][no_house][1]["eh"][block_step]+opti_res[n_opt][no_house][1]["hp55"][block_step])/1000)
+                if n_opt == 16:
             
                     fig, ax1 = plt.subplots()
                     ax1.plot(t_tes_list, label = 'End Storage Temperature', color = 'tab:red')
@@ -303,8 +315,19 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     print("HI")
 
                     plt.clf()
-                
                     plt.plot(hp_elec, label = 'HP power', color = 'tab:red')
+                    plt.plot(bought_elec, label = 'bought electricity', color = 'tab:green')
+                    plt.plot(heat_dem, label = 'heat demand', color = 'tab:blue')
+                    plt.legend()
+                    plt.xlabel('time in h', fontsize=14)
+                    plt.ylabel('electricity/heat in kW', fontsize=14)
+                    plt.tight_layout()
+                    plt.grid(True, linewidth = 0.5)
+                    plt.show()
+                    print("HI")
+
+                    plt.clf()
+                    plt.plot(hp_eh_elec, label = 'HP and EH power', color = 'tab:red')
                     plt.plot(bought_elec, label = 'bought electricity', color = 'tab:green')
                     plt.plot(heat_dem, label = 'heat demand', color = 'tab:blue')
                     plt.legend()
@@ -339,8 +362,6 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                             fmu.doStep(currentCommunicationPoint=block_step * 3600 + time, communicationStepSize=step_size) #TODO checken, ob das richtig ist als "time"-Ersatz
                             
                             # Test for the returned values from the FMU
-                            #no_house = 4 #in Modelica ist das Haus 5
-                            no_house = 7 #in Modelica ist das Haus 8
                             no_house1 = 1
                             input1, input2, input3, input4, input5, input6, input7 = fmu.getReal([vr_grid_gen[no_house], vr_grid_load[no_house], vr_Ttop_tes[no_house], vr_trade_check[no_house], vr_heat_dem[no_house], vr_hp_elec[no_house], vr_elec_dem[no_house]])
                             input8 = fmu.getReal([vr_soc_bat[no_house1]])
@@ -348,7 +369,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                             rows.append((n_opt, input1, input2, input3, input4, input5, input6, input7, input8, input9, input10, input11, input12, input13, input14, input15))
                             time += step_size
                     #"""
-                    length = 24
+                    length = 16
                     start = 0
                     if n_opt == length:
                         total_elec = []
@@ -682,11 +703,11 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         # ------------------ CALCULATE RESULTS ------------------
         results = calc_results.calc_results_p2p(par_rh=par_rh, block_length=block_length,
                                                 nego_results=mar_dict["negotiation_results"],
-                                                opti_res=opti_res, grid_transaction=mar_dict["transactions_with_grid"],
+                                                opti_res=opti_res, opti_res_check= opti_res_check, grid_transaction=mar_dict["transactions_with_grid"],
                                                 params = params)
         #res_time, res_val = 1,2
 
-        return mar_dict, characteristics, init_val, results, opti_res
+        return mar_dict, characteristics, init_val, results, opti_res, opti_res_check
 
     elif options["optimization"] == "P2P_typeWeeks":
         # runs optimization for type weeks instead of whole month/year
