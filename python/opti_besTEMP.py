@@ -151,10 +151,11 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         greater_0[t] = model.addVar(vtype="B", lb=0.0, ub=1.0, name="Demand_greater_0_" + str(t))
     
     # Initial storage temperature at the start of the month
-    if node["devs"]["hp55"]["cap"] > 0:
-        t_tes_init = 40 + 273.15
-    else: 
-        t_tes_init = 30 + 273.15
+    #if node["devs"]["hp55"]["cap"] > 0:
+    #    t_tes_init = 40 + 273.15
+    #else: 
+    t_tes_init = 40 + 273.15  # Starttemp erstmal = minimaler Rücklauftemp
+
     # Storage temperature at the beginning of n_opt
     if bool(init_val) == True:
         t_tes_init_rh = init_val["t_tes"]
@@ -319,7 +320,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     if node["devs"]["chp"]["cap"] != 0:
         m_flow = 0.8 # in kg/s 
     else:
-        m_flow = 0.15 # in kg/s 
+        m_flow = 0.2 # in kg/s 
 
     t_flow_min = 37 + 273.15 #TODO ??
     big_m = 100000

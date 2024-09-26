@@ -54,7 +54,7 @@ def get_inputs(par_rh, options, districtData, scenario_name):  # gets inputs for
         for n in nodes:
             if nodes[n]["devs"]["chp"]["cap"] != 0:
                 nodes[n]["devs"]["chp"]["cap"] = 25610
-                nodes[n]["devs"]["chp"]["cap"] = 46000
+                #nodes[n]["devs"]["chp"]["cap"] = 46000
                 #nodes[n]["devs"]["chp"]["mod_lvl"] = 0.3
 
 
