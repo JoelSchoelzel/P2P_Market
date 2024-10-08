@@ -154,7 +154,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     # Run (rolling horizon) optimization for whole year or month
     if options["optimization"] == "P2P":
         # run optimization incl. trading
-        mar_dict, characteristics, init_val, results, opti_res, opti_res_check = (
+        mar_dict, characteristics, init_val, results, opti_res, opti_res_check, rows = (
             opti_methods.rolling_horizon_opti(options=options, nodes=nodes, par_rh=par_rh,
                                               building_params=building_params,
                                               params=params, block_length=options["block_length"], scenario_name=scenario_name))
@@ -165,6 +165,9 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
         if month == 1:
             month_folder = "1_Jan"
             month_suffix = "_jan"
+        elif month == 3:
+            month_folder = "3_Mar"
+            month_suffix = "_mar"
         elif month == 4:
             month_folder = "2_Apr"
             month_suffix = "_apr"
@@ -183,22 +186,30 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 
         # save results
         complete_path = (options["path_results"] + "/" + scenario_folder + "/" + month_folder + "/"
-                         + block_length_folder + "/" + enhanced_folder + "/" + crit_prio_folder)
+                         + block_length_folder)
 
         Path(complete_path).mkdir(parents=True, exist_ok=True)
 
-        with open(complete_path + "/mar_dict_P2P_" + options_DG["scenario_name"] + ".p", 'wb') as file_mar:
+        with open(complete_path + "/mar_dict_P2P.p", 'wb') as file_mar:
             pickle.dump(mar_dict, file_mar)
 
-        with open(complete_path + "/par_rh_P2P_" + options_DG["scenario_name"] + ".p", 'wb') as file_par:
+        with open(complete_path + "/par_rh_P2P.p", 'wb') as file_par:
             pickle.dump(par_rh, file_par)
 
-        with open(complete_path + "/init_val_P2P_" + options_DG["scenario_name"] + ".p", 'wb') as file_init:
-            pickle.dump(par_rh, file_init)
+        with open(complete_path + "/init_val_P2P.p", 'wb') as file_init:
+            pickle.dump(init_val, file_init)
 
-        with open(complete_path + "/results_P2P_" + options_DG["scenario_name"] + month_suffix + ".p",
-                  'wb') as file_res_list:
-            pickle.dump(results, file_res_list)
+        #with open(complete_path + "/results_P2P_" + month_suffix + ".p",
+        #          'wb') as file_res_list:
+        #    pickle.dump(results, file_res_list)
+
+        with open(complete_path + "/opti_res_P2P.p",
+                  'wb') as file_opti_res:
+            pickle.dump(opti_res, file_opti_res)
+
+        with open(complete_path + "/rows_P2P.p",
+                  'wb') as file_rows:
+            pickle.dump(rows, file_rows)
 
         #with open("C:/Users/jsc/Python/Results/AppliedEnergy/Year_r_1/nB=1/nCH=nB/random/opti_res.p",
         #          'wb') as file_res_list:

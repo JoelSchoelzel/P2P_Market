@@ -301,9 +301,9 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
                 # The EH should only exist, when a HP is used. Therefore, either HP35 or HP55 should be found.
                 raise Exception("EH capacity is not 0 but no HP is found.")
 
-            # The HP heats from 25°C to the maximum temperature hp_temp.
+            # The HP heats from 10°C to the maximum temperature hp_temp.
             # EH provides the remaining heat required to raise the DHW temperature to 60°C.
-            model.addConstr(heat["eh"][t] == (60 - hp_temp) / (60 - 25) * demands["dhw"][t],
+            model.addConstr(heat["eh"][t] == (60 - hp_temp) / (60 - 10) * demands["dhw"][t],
                             name="Heat_operation_EH_" + str(t))
 
         # Degree of efficiency of EH is 1
