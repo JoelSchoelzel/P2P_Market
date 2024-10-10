@@ -54,15 +54,15 @@ def read_economics():
                 for key in pC.keys()}
     
     # Always EUR per kWh (meter per anno)
-    params["eco"]["sell_pv"]  = 0.081  # €/kWh valid for pv systems with < 10 kWp 0.082
-    params["eco"]["sell_chp"] = 0.081 # €/kWh https://photovoltaik.org/kosten/einspeiseverguetung
+    params["eco"]["sell_pv"]  = 0.083  # €/kWh valid for pv systems with < 10 kWp 0.082
+    params["eco"]["sell_chp"] = 0.0803 # €/kWh https://photovoltaik.org/kosten/einspeiseverguetung
     params["eco"]["co2_gas"]  = 0.411  # kg/kWh (Germany, 2019; https://de.statista.com/statistik/daten/studie/38897/umfrage/co2-emissionsfaktor-fuer-den-strommix-in-deutschland-seit-1990/)
     params["eco"]["co2_el"]   = 0.241  # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
     params["eco"]["co2_pv"]   = 0.056  # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
 
     # calculate costs with prices of Q3+Q4 2021
-    params["eco"]["pr", "el"] = 0.36  # €/kWh, https://strom-report.com/strompreise/strompreisentwicklung/
-    params["eco"]["gas"]      = 0.081   # €/kWh, https://www.verivox.de/gas/gaspreisentwicklung/
+    params["eco"]["pr", "el"] = 0.4135  # €/kWh, https://strom-report.com/strompreise/strompreisentwicklung/
+    params["eco"]["gas"]      = 0.1068  # €/kWh, https://www.verivox.de/gas/gaspreisentwicklung/
 
     # calculate costs with raised el/gas prices of Q3 2022
     #params["eco"]["pr",   "el"] = 0.4403 # Verivox Q3 2022 (https://www.verivox.de/strom/verbraucherpreisindex/)

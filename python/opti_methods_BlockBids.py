@@ -94,8 +94,9 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             #fmu_filename = 'FMU/Medium_District_12houses_HP_Boi_CHP_BWsmall.fmu'
             #fmu_filename = 'FMU/Medium_District_12houses_HP_Boi_CHP_BWsmall_Tavg.fmu'
             #fmu_filename = 'FMU/Medium_District_12houses_HP_Boi_CHP_BWsmall_Tavg_ConstOpening.fmu'
-            fmu_filename = 'FMU/Final/HeatDem_Tavg_2Sto_ConstOpeningTest.fmu'
-            constOpening = True
+            #fmu_filename = 'FMU/Final/HeatDem_Tavg_2Sto_ConstOpeningTest.fmu'
+            fmu_filename = 'FMU/Final/District_HeatDem_2Sto.fmu'
+            constOpening = False
         #fmu_filename = 'FMU/Small_District_6houses_Boi_DHWCalc.fmu'
 
         #start_time = 0 
@@ -220,8 +221,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         fmu.exitInitializationMode()
 
         # START OPTIMIZATION (Start optimizations for the first time step of the block bids)
-        #for n_opt in range(0, par_rh["n_opt"] - int(36/block_length)-1):
-        for n_opt in range(0, 56):
+        for n_opt in range(0, par_rh["n_opt"] - int(36/block_length)-1):
+        #for n_opt in range(0, 56):
             opti_res[n_opt] = {}
             init_val[0] = {}
             init_val[n_opt+1] = {}
@@ -299,7 +300,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                             n_opt=n_opt, block_length=block_length, opti_res=opti_res[n_opt])
 
                 #"""
-                length = 100
+                length = 300
                 if scenario_name == "old/Small_District_BOI+HP":
                     no_house = 4
                 elif scenario_name == "old/Medium_District_12houses_BOI+HP+CHP":
