@@ -97,7 +97,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 
     # Set options for energy trading
     options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
-               "mpc": True, #True: use of model predictive control with simulation, False: sole optimizatio negotiation
+               "mpc": False, #True: use of model predictive control with simulation, False: sole optimizatio negotiation
                "WithElecDem": False, #True: electric demands for buildings are considered 
                "bid_strategy": "zero",  # zero for zero-intelligence, learning, devices
                "crit_prio": crit_prio,  # "flex_energy",
@@ -154,7 +154,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     # Run (rolling horizon) optimization for whole year or month
     if options["optimization"] == "P2P":
         # run optimization incl. trading
-        mar_dict, characteristics, init_val, results, opti_res, opti_res_check, rows = (
+        mar_dict, characteristics, init_val, results, opti_res, opti_res_check, rows6, rows8, rows11, rows_all = (
             opti_methods.rolling_horizon_opti(options=options, nodes=nodes, par_rh=par_rh,
                                               building_params=building_params,
                                               params=params, block_length=options["block_length"], scenario_name=scenario_name))
@@ -207,9 +207,25 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
                   'wb') as file_opti_res:
             pickle.dump(opti_res, file_opti_res)
 
-        with open(complete_path + "/rows_P2P.p",
-                  'wb') as file_rows:
-            pickle.dump(rows, file_rows)
+        with open(complete_path + "/rows6_P2P.p",
+                  'wb') as file_rows6:
+            pickle.dump(rows6, file_rows6)
+
+        with open(complete_path + "/rows8_P2P.p",
+                  'wb') as file_rows8:
+            pickle.dump(rows8, file_rows8)
+
+        with open(complete_path + "/rows11_P2P.p",
+                  'wb') as file_rows11:
+            pickle.dump(rows11, file_rows11)
+
+        with open(complete_path + "/rows_all_P2P.p",
+                  'wb') as file_rows_all:
+            pickle.dump(rows_all, file_rows_all)
+
+        with open(complete_path + "/nodes_P2P.p",
+                  'wb') as file_nodes:
+            pickle.dump(nodes, file_nodes)
 
         #with open("C:/Users/jsc/Python/Results/AppliedEnergy/Year_r_1/nB=1/nCH=nB/random/opti_res.p",
         #          'wb') as file_res_list:
@@ -241,7 +257,7 @@ if __name__ == '__main__':
     for scenario_name in ["old/Medium_District_12houses_BOI+HP+CHP"]:
         first_run = True
         for month in [3]:  # , 7]:
-            for block_length in [3]:  #1, 3, 5]:
+            for block_length in [3]:  #1, 3, 6]:
                 for enhanced_horizon in [False]: #, True]:
                     for crit_prio in ["quantity"]: #"flex_energy", "quantity", "random", "flex_quantity"
                         mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options = \
