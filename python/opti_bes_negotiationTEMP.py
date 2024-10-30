@@ -372,8 +372,12 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     big_m = 100000
     for t in time_steps:
         # Necessary Supply Temperature
+        #if node["devs"]["chp"]["cap"] != 0:
+        #    model.addConstr(demands["heat"][t] + demands["dhw"][t] == (t_sup[t] - t_flow_min) * cp * m_flow,
+        #                        name="T_supply_HP_" + str(t))
+        #else:
         model.addConstr(demands["heat"][t] == (t_sup[t] - t_flow_min) * cp * m_flow,
-                            name="T_supply_HP_" + str(t))
+                        name="T_supply_HP_" + str(t))
         # Binary that indicates existing Demand
         model.addConstr(greater_0[t] * big_m >= demands["heat"][t], 
                         name="HeatDem_greater_0_" + str(t))

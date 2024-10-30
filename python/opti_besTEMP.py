@@ -326,9 +326,11 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     big_m = 100000
     cp = params["phy"]["c_w"]
     for t in time_steps:
-        # Necessary Supply Temperature
+        # Necessary Supply Temperature 
+        # Alternativ könnte man auch heat + dhw nehmen. Hier allerdings nur der Wärmebedarf berücksichtigt, 
+        # da in Simulation die Erzeugung für beide Untersysteme nicht gleichzeitig passiert. Es geht hier ja um die Berechnung von Ttes > Tsup, somit wäre ein Einebeziehen von DHW Bedarf kritisch
         model.addConstr(demands["heat"][t] == (t_sup[t] - t_flow_min) * cp * m_flow,
-                            name="T_supply_HP_" + str(t))
+                        name="T_supply_HP_" + str(t))
         # Binary that indicates existing Demand
         model.addConstr(greater_0[t] * big_m >= demands["heat"][t], 
                         name="HeatDem_greater_0_" + str(t))

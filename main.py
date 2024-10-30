@@ -97,7 +97,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 
     # Set options for energy trading
     options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
-               "mpc": False, #True: use of model predictive control with simulation, False: sole optimizatio negotiation
+               "mpc": True, #True: use of model predictive control with simulation, False: sole optimizatio negotiation
                "WithElecDem": False, #True: electric demands for buildings are considered 
                "bid_strategy": "zero",  # zero for zero-intelligence, learning, devices
                "crit_prio": crit_prio,  # "flex_energy",
