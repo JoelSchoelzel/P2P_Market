@@ -42,7 +42,24 @@ def bes(pars_rh, numb_bes):
     return new_bes
 
 
+def css(pars_rh, numb_css):
+    """Creates a dictionary to store information about the central supply systems."""
+
+    central_systems = {}
+    for n in range(numb_css):
+        central_systems[n] = {
+            "css_capacity": np.zeros(pars_rh["n_opt"]),
+            "css_el_demand": np.zeros(pars_rh["n_opt"]),
+            "css_el_generation": np.zeros(pars_rh["n_opt"]),
+            "css_heat_generation": np.zeros(pars_rh["n_opt"]),
+            "css_op_cost": np.zeros(pars_rh["n_opt"]),
+            "css_revenue": np.zeros(pars_rh["n_opt"])
+        }
+    return central_systems
+
 def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes, init_val, propensities, strategies):
+    # Todo: Integrate bids for central supply systems by css agents
+
     """
      Compute bids for all buildings. The bids are created by each building's mar_agent.
 
@@ -283,6 +300,7 @@ def traded_volume(transaction, res):
 
 
 def grid_demands(bes, trade_res, options, bids, n_opt):
+    # Todo: Check if the integration of CSS is needed here
     """
     Calculates needs and surpluses that need to be fulfilled by grid. These are inflexible demands that haven't been
     fulfilled by trading.
@@ -305,6 +323,7 @@ def grid_demands(bes, trade_res, options, bids, n_opt):
 
 
 def cost_and_rev_grid(bes, trade_res, options, n_opt, eco):
+    # Todo: Integrate central supply systems
     """Calculates amount and cost or revenue of buying and selling to the grid."""
 
     # iterate through buildings
@@ -370,6 +389,8 @@ def total_sup_and_dem(opti_res, par_rh, n_opt, nb_bes):
 
 
 def update_prop(mar_dict, par_rh, n_opt, bes, options, pars_li, trade_res, strategies): #
+    # Todo: Integrate central supply systems
+
     # update the props depending on trading results for the next step
 
     #clearing_price = trade_res["average_trade_price"]

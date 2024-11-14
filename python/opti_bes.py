@@ -207,6 +207,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     ##### Economic constraints
 
     # Demand related costs (gas)
+    # todo:
     for dev in ("boiler", "chp"):
         model.addConstr(c_dem[dev] == params["eco"]["gas"] * sum(gas[dev][t] for t in time_steps),
                         name="Demand_costs_" + dev)
