@@ -19,6 +19,7 @@ import python.characteristics as characs # MA Lena
 import python.parse_inputs as parse_inputs
 import python.matching_negotiation as mat_neg # MA Lena
 import python.calc_results as calc_results
+import python.opti_css as sharing_opti
 import copy
 
 
@@ -41,11 +42,18 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         for n in range(options["nb_bes"]):
             mar_agent_bes.append(bd.mar_agent_bes(options, par_rh, nodes[n]))
 
+        # todo: compute market agents for central supply system
+        mar_agent_css = bd.mar_agent_css(options, par_rh, nodes)
+
         # needed market dicts
         mar_dict = mar_pre.dict_for_market_data(par_rh)
 
         # create bes for each building
         bes = mar_pre.bes(par_rh, options["nb_bes"])
+
+        # Todo: create central supply system in mar_pre
+        # create central supply system
+        css = mar_pre.css(par_rh, 1)
 
         # create trade_res to store results
         trade_res = {}
@@ -82,9 +90,17 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                              building_params=building_params,
                                                              init_val=init_val[n_opt]["building_" + str(n)],
                                                              n_opt=n_opt, options=options)
+                    # todo: implement sharing operation for optimization to include central supply system
+                    sharing_res = sharing_operation(nodes=nodes, params=params, pars_rh=par_rh,
+                                                             building_params=building_params,
+                                                             init_val=init_val[n_opt]["building_" + str(n)],
+                                                             n_opt=n_opt, options=options)
+                    opti_res[n_opt][n].update(sharing_res)
 
                     if options["negotiation"] == "False":
                         init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
+                                                                                                 par_rh, n_opt)
+                        init_val[n_opt + 1]["building_" + str(n)] = init_val_sharing_operation(opti_res[n_opt][n],
                                                                                                  par_rh, n_opt)
                     else: pass
             else:
@@ -94,10 +110,17 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                              building_params=building_params,
                                                              init_val=init_val[n_opt]["building_" + str(n)],
                                                              n_opt=n_opt, options=options)
+                    sharing_res = sharing_operation(node=nodes[n], params=params, pars_rh=par_rh,
+                                                             building_params=building_params,
+                                                             init_val=init_val[n_opt]["building_" + str(n)],
+                                                             n_opt=n_opt, options=options)
+                    opti_res[n_opt][n].update(sharing_res)
                     if options["negotiation"] == "False":
                         if n_opt < par_rh["n_opt"] - 1:
                             init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
                                                                                                  par_rh, n_opt)
+                            init_val[n_opt + 1]["building_" + str(n)] = init_val_sharing_operation(opti_res[n_opt][n],
+                                                                                                     par_rh, n_opt)
                         else:
                             init_val[n_opt + 1] = 0
                     else: pass
@@ -135,6 +158,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                           matched_bids_info=mar_dict["matched_bids_info"][n_opt],
                                           sorted_bids=mar_dict["sorted_bids"][n_opt], block_length=block_length,
                                           opti_res=opti_res[n_opt])
+# todo: check if to put css opti here
 
                 # trade the remaining power with the grid
                 mar_dict["transactions_with_grid"][n_opt] = \
@@ -347,5 +371,21 @@ def central_operation(nodes, params, pars_rh, building_params, init_val, n_opt, 
 
 def init_val_central_operation(opti_res, nodes, par_rh, n_opt):
     init_val = central_opti.compute_initial_values(opti_res, nodes, par_rh, n_opt)
+
+    return init_val
+
+# todo: implement function for sharing operation with central supply system
+def sharing_operation(nodes, params, pars_rh, building_params, init_val, n_opt, options):
+    """
+    This function computes a deterministic solution.
+    Internally, the results of the subproblem are stored.
+    """
+
+    opti_res = sharing_opti.compute(nodes, params, pars_rh, building_params, init_val, n_opt, options)
+
+    return opti_res
+
+def init_val_sharing_operation(opti_res, nodes, par_rh, n_opt):
+    init_val = sharing_opti.compute_initial_values(opti_res, nodes, par_rh, n_opt)
 
     return init_val

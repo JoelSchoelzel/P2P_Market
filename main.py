@@ -13,16 +13,14 @@ import datetime
 
 import sys
 # Define the path to the 'classes' directory
-classes_path = os.path.join('C:', 'Users', 'muham', 'Documents', 'GitHub', 'districtgenerator', 'classes')
+classes_path = os.path.join('C:', 'Users', 'muham', 'Documents', 'GitHub', 'P2P_Market', 'districtgenerator')
 
 # Append the absolute path to sys.path
 sys.path.append(os.path.abspath(classes_path))
 
-import classes
+from districtgenerator.classes import Datahandler
+# from classes import *
 
-# import DistrictGenerator
-# from classes import Datahandler
-from classes import *
 
 def get_inputs(par_rh, options, districtData):  # gets inputs for optimization
     ### Load Params
@@ -68,9 +66,10 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 
     # DistrictGenerator -> create district with load and generation profiles
     data = Datahandler()
-    # Bei erstem Durchlauf calcUserProfiles=True setzen, danach calcUserProfiles=False
-    data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=True, saveUserProfiles=False)
+    # Bei erstem Durchlauf calcUserProfiles=True und saveUserProfiles=True setzen, danach calcUserProfiles=False und saveUserProfiles=False
+    data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=False)
     data.designDecentralDevices(saveGenerationProfiles=False)
+    data.designCentralDevices()
     data.clusterProfiles(centralEnergySupply = False)
     districtData = data
 

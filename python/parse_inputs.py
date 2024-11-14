@@ -81,6 +81,7 @@ def read_economics():
 
     return params
 
+
 def compute_pars_rh(param, options, districtData): # computes parameters for rolling horizon optimization
 
     # Months and starting hours of months
@@ -496,6 +497,41 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
                 nodes[k][n]["devs"]["boiler"] = devs[n]["boiler"].copy()
                 nodes[k][n]["devs"]["ev"] = devs[n]["ev"].copy()
                 nodes[k][n]["devs"]["bz"] = devs[n]["bz"].copy()
+
+    # Central supply system
+    devs["css"] = {}
+    # Initialize devices for central supply system
+    devs["css"]["s_bat"] = dict(cap=0.0, min_soc=0.05, max_ch=0.6, max_dch=0.6, max_soc=0.95, eta_bat=0.97, k_loss=0)
+    devs["css"]["s_hp35"] = dict(cap=0.0, dT_max=15, exists=0, mod_lvl=1)
+    devs["css"]["s_hp55"] = dict(cap=0.0, dT_max=15, exists=0, mod_lvl=1)
+    devs["css"]["s_pv"] = dict(cap=0.0)
+    devs["css"]["s_wind"] = dict(cap=0.0)
+    devs["css"]["s_COP_sh35"] = np.zeros(8760)  # Assuming hourly data for a year
+    devs["css"]["s_COP_sh55"] = np.zeros(8760)  # Assuming hourly data for a year
+
+
+    # Map devices from district generator to central supply system
+
+    #if 'capacities' in districtData.centralDevices and districtData.centralDevices['capacities']['BAT']:
+    if 'capacities' in districtData.centralDevices and districtData.centralDevices['capacities']['BAT']:
+        devs["css"]["s_bat"]["cap"] = districtData.centralDevices['capacities']['BAT']
+
+    elif 'heater' in districtData.centralDevices and districtData.centralDevices['heater'] == "HP":
+        if districtData.centralDevices['envelope'].construction_year > 1994 or (
+                districtData.centralDevices['envelope'].construction_year > 1983 and districtData.centralDevices[
+            'envelope'].retrofit == 1) or (
+                districtData.centralDevices['envelope'].construction_year > 1958 and districtData.centralDevices[
+            'envelope'].retrofit == 2):
+            devs["css"]["s_hp35"]["cap"] = districtData.centralDevices['capacities']['HP']
+            devs["css"]["s_hp35"]["exists"] = 1
+        else:
+            devs["css"]["s_hp55"]["cap"] = districtData.centralDevices['capacities']['HP']
+            devs["css"]["s_hp55"]["exists"] = 1
+
+    # Add central supply system devices to nodes
+    nodes["css"] = {
+        "devs": devs["css"]
+    }
 
 
     building_params["T_e_mean"] = T_e_mean
