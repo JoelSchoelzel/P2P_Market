@@ -250,8 +250,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                                                             is_buying=True, delta_price=trade_price,
                                                             block_length=block_length, opti_res = opti_res[buyer_id],
                                                             opti_bes_res_buyer = opti_bes_res_buyer)
-                opti_res[buyer_id] = opti_bes_negotiation.replace_opti_res(opti_res[buyer_id], opti_bes_res_buyer,
-                                                                           par_rh, n_opt)
+                
 
                 print(seller_id)
                 opti_bes_res_seller \
@@ -263,6 +262,10 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                                                             is_buying=False, delta_price=trade_price,
                                                             block_length=block_length, opti_res = opti_res[seller_id],
                                                             opti_bes_res_buyer = opti_bes_res_buyer)
+                
+                opti_res[buyer_id] = opti_bes_negotiation.replace_opti_res(opti_res[buyer_id], opti_bes_res_buyer,
+                                                                           par_rh, n_opt)
+
                 opti_res[seller_id] = opti_bes_negotiation.replace_opti_res(opti_res[seller_id], opti_bes_res_seller,
                                                                             par_rh, n_opt)
                 matched_pairs.append([buyer_id, seller_id])

@@ -293,7 +293,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             trade_res[n_opt] = {}
             tra_vol[n_opt] = {}
 
-            if n_opt == 8:
+            if n_opt == 14:
                 print("hi")
 
             if n_opt == 0:
@@ -742,7 +742,10 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         if t_tes_avg[n_opt][n][0] > 328.15:
                             t_tes_avg[n_opt][n][0] = 328.15
                         if nodes[n]["devs"]["eh"]["cap"] != 0 or nodes[n]["devs"]["chp"]["cap"] != 0:
-                            init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = t_tes_avg[n_opt][n][0]
+                            if block_length ==1 and n_opt < 3:
+                                init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = init_val_opti[n_opt + 1]["building_" + str(n)]["t_tes"]
+                            else:
+                                init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = t_tes_avg[n_opt][n][0]
                         elif nodes[n]["devs"]["boiler"]["cap"] != 0:
                             init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = init_val_opti[n_opt + 1]["building_" + str(n)]["t_tes"]
                         #elif nodes[n]["devs"]["chp"]["cap"] != 0:

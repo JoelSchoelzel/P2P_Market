@@ -257,7 +257,7 @@ if __name__ == '__main__':
     for scenario_name in ["old/Medium_District_12houses_BOI+HP+CHP"]:
         first_run = True
         for month in [3]:  # , 7]:
-            for block_length in [3]:  #1, 3, 6]:
+            for block_length in [1]:  #1, 3, 6]:
                 for enhanced_horizon in [False]: #, True]:
                     for crit_prio in ["quantity"]: #"flex_energy", "quantity", "random", "flex_quantity"
                         mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options = \
