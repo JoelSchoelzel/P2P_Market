@@ -260,7 +260,7 @@ class mar_agent_css(object):
             bids.append([p, q, buying, n])
 
         return bids
-
+"""
     def compute_learning_bids(self, n, p_imp, dem_heat, soc, power_hp, options, strategies, weights, node):
         ''' Create learning bids for the CSS based on predefined strategies and weights. '''
         bids = []
@@ -295,7 +295,7 @@ class mar_agent_css(object):
             bids.append([price, energy_quantity, buying, n])
 
         return bids
-
+"""
 
 """    
     def compute_hp_bids(self, p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp, options, strategies,

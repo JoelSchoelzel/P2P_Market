@@ -13,12 +13,12 @@ import datetime
 
 import sys
 # Define the path to the 'classes' directory
-classes_path = os.path.join('C:', 'Users', 'muham', 'Documents', 'GitHub', 'P2P_Market', 'districtgenerator')
+classes_path = os.path.join('C:', 'Users', 'muham', 'Documents', 'GitHub', 'districtgenerator')
 
 # Append the absolute path to sys.path
 sys.path.append(os.path.abspath(classes_path))
 
-from districtgenerator.classes import Datahandler
+from classes import Datahandler
 # from classes import *
 
 
@@ -66,11 +66,13 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 
     # DistrictGenerator -> create district with load and generation profiles
     data = Datahandler()
-    # Bei erstem Durchlauf calcUserProfiles=True und saveUserProfiles=True setzen, danach calcUserProfiles=False und saveUserProfiles=False
-    data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=False)
+    # Bei erstem Durchlauf calcUserProfiles=True und saveUserProfiles=True setzen,
+    # danach calcUserProfiles=False und saveUserProfiles=False
+    data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=False)#, designDevs=True)
+    # todo: added designCentralDevices & designDecentralDevices instead of designDevs=True in generateDistrictComplete
     data.designDecentralDevices(saveGenerationProfiles=False)
     data.designCentralDevices()
-    data.clusterProfiles(centralEnergySupply = False)
+    # data.clusterProfiles(centralEnergySupply = False)
     districtData = data
 
 
@@ -125,8 +127,6 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     # Get following inputs:
     nodes, building_params, params, devs_pre_opti, par_rh = get_inputs(par_rh, options, districtData)
     # pickledump
-    # if not os.path.exists(options["path_results"]):
-    #    os.makedirs(options["path_results"])
     with open(options["path_results"] + "/nodes_input_" + options_DG["scenario_name"] + ".p", 'wb') as file_nodes:
         pickle.dump(nodes, file_nodes)
 

@@ -58,7 +58,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             dhw[param00] = np.mean([node["dhw"][param02], node["dhw"][param02 + param01 - 1]])
             COP35[param00] = np.mean([node["devs"]["COP_sh35"][param02], node["devs"]["COP_sh35"][param02 + param01 - 1]])
             COP55[param00] = np.mean([node["devs"]["COP_sh55"][param02], node["devs"]["COP_sh55"][param02 + param01 - 1]])
-            PV_GEN[param00] = np.mean([node["pv_power"][param02], node["pv_power"][param02 + param01 - 1]])
+            #PV_GEN[param00] = np.mean([node["pv_power"][param02], node["pv_power"][param02 + param01 - 1]])
             #EV_AVAIL[param00] = np.mean([node["ev_avail"][param02], node["ev_avail"][param02 + param01 - 1]])
             #EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave"][param02], node["ev_dem_leave"][param02 + param01 - 1]])
         else:
@@ -67,7 +67,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             dhw[param00] = np.mean([node["dhw_appended"][param02], node["dhw_appended"][param02 + param01 - 1]])
             COP35[param00] = np.mean([node["devs"]["COP_sh35_appended"][param02], node["devs"]["COP_sh35_appended"][param02 + param01 - 1]])
             COP55[param00] = np.mean([node["devs"]["COP_sh55_appended"][param02], node["devs"]["COP_sh55_appended"][param02 + param01 - 1]])
-            PV_GEN[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
+            #[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
             #EV_AVAIL[param00] = np.mean([node["ev_avail_appended"][param02], node["ev_avail_appended"][param02 + param01 - 1]])
             #EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave_appended"][param02], node["ev_dem_leave_appended"][param02 + param01 - 1]])
 
@@ -288,11 +288,11 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         # Degree of efficiency of EH is 1
         model.addConstr(power["eh"][t] == heat["eh"][t], name="Power_equation_EH_" + str(t))
 
-    # Solar components
+    '''# Solar components
     for dev in solar:
         for t in time_steps:
             model.addConstr(power[dev][t] == demands["PV_GEN"][t],
-                            name="Solar_electrical_" + dev + "_" + str(t))
+                            name="Solar_electrical_" + dev + "_" + str(t))'''
 
     # %% BUILDING STORAGES # %% DOMESTIC FLEXIBILITIES
 

@@ -54,6 +54,7 @@ def read_economics():
                 for key in pC.keys()}
     
     # Always EUR per kWh (meter per anno)
+    # todo: check if prices are correct, EEG 2024
     params["eco"]["sell_pv"]  = 0.081  # €/kWh valid for pv systems with < 10 kWp 0.082
     params["eco"]["sell_chp"] = 0.081 # €/kWh https://photovoltaik.org/kosten/einspeiseverguetung
     params["eco"]["co2_gas"]  = 0.411  # kg/kWh (Germany, 2019; https://de.statista.com/statistik/daten/studie/38897/umfrage/co2-emissionsfaktor-fuer-den-strommix-in-deutschland-seit-1990/)
@@ -323,9 +324,9 @@ def read_demands(options, districtData, par_rh):
                 "T_air": districtData.site['T_e'],
                 "type": districtData.district[n]['user'].building,
                 "ev_dem_arrive": districtData.district[n]['user'].car,
-                # Todo: im QG ergänzen
                 #"ev_avail": ev_exists[n] * ev_data["avail"][:, n],
                 #"ev_dem_leave": ev_exists[n] * ev_data["dem_leave"][:, n],
+                # TODO: pv_power correct here? or in map_devices?
                 "pv_power": districtData.district[n]['generationPV'],
                 "devs": {}
             }
@@ -341,8 +342,9 @@ def read_demands(options, districtData, par_rh):
                     nodes[n]["dhw"][t] = 0
                 if nodes[n]["elec"][t] < 0.01:
                     nodes[n]["elec"][t] = 0
-                if nodes[n]["pv_power"][t] < 0.01:
-                    nodes[n]["pv_power"][t] = 0
+                # todo: pv_power correct here? or in map_devices?
+                # if nodes[n]["pv_power"][t] < 0.01:
+                #    nodes[n]["pv_power"][t] = 0
 
                 # Calculation of Coefficient of Power
                 nodes[n]["devs"]["COP_sh35"][t] = 0.4 * (273.15 + 35) / (35 - nodes[n]["T_air"][t])
@@ -380,6 +382,7 @@ def read_demands(options, districtData, par_rh):
                         nodes[k][n]["dhw"][t] = 0
                     if nodes[k][n]["elec"][t] < 0.01:
                         nodes[k][n]["elec"][t] = 0
+                    # todo: pv_power correct here? or in map_devices?
                     #if nodes[k][n]["pv_power"][t] < 0.01:
                     #    nodes[k][n]["pv_power"][t] = 0
 
@@ -392,7 +395,7 @@ def read_demands(options, districtData, par_rh):
                     nodes[k][n]["heat_appended"] = np.append(nodes[k][n]["heat"], nodes[k][n]["heat"])
                     nodes[k][n]["dhw_appended"] = np.append(nodes[k][n]["dhw"], nodes[k][n]["dhw"])
                     nodes[k][n]["elec_appended"] = np.append(nodes[k][n]["elec"], nodes[k][n]["elec"])
-                    #nodes[k][n]["pv_power_appended"] = np.append(nodes[k][n]["pv_power"], nodes[k][n]["pv_power"])
+                    nodes[k][n]["pv_power_appended"] = np.append(nodes[k][n]["pv_power"], nodes[k][n]["pv_power"])
                     nodes[k][n]["devs"]["COP_sh35_appended"] = np.append(nodes[k][n]["devs"]["COP_sh35"], nodes[k][n]["devs"]["COP_sh35"])
                     nodes[k][n]["devs"]["COP_sh55_appended"] = np.append(nodes[k][n]["devs"]["COP_sh55"], nodes[k][n]["devs"]["COP_sh55"])
                     nodes[k][n]["ev_avail_appended"] = np.append(nodes[k][n]["ev_avail"], nodes[k][n]["ev_avail"])
@@ -403,9 +406,6 @@ def read_demands(options, districtData, par_rh):
         building_params["pv_exists"] = pv_exists
 
     return nodes, building_params, options
-
-
-
 
     
 def map_devices(options, nodes, building_params, par_rh, districtData):
@@ -419,22 +419,21 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
 
         devs[n] = {}
         # BATTERY
-        # TODO: k_loss
+        # TODO: k_loss tbd
         devs[n]["bat"] = dict(cap=0.0, min_soc=0.05, max_ch=0.6, max_dch=0.6, max_soc=0.95, eta_bat=0.97, k_loss=0)
         # BOILER
         devs[n]["boiler"] = dict(cap=0.0, eta_th=0.97)
         # HEATPUMP
-        # TODO: mod_lvl
+        # TODO: mod_lvl fixed or adjustable?
         devs[n]["hp35"] = dict(cap=0.0, dT_max=15, exists=0, mod_lvl=1)
         devs[n]["hp55"] = dict(cap=0.0, dT_max=15, exists=0, mod_lvl=1)
         # CHP FOR MULTI-FAMILY HOUSES
-        # TODO: mod_lvl
+        # TODO: mod_lvl fixed or adjustable?
         devs[n]["chp"] = dict(cap=0.0, eta_th=0.62, eta_el=0.30, mod_lvl=0.6)
         devs[n]["bz"] = dict(cap=0.0, eta_th=0.53, eta_el=0.39)
         # ELECTRIC HEATER
         devs[n]["eh"] = dict(cap=0.0)
         # THERMAL ENERGY STORAGE
-        # TODO: k_loss
         devs[n]["tes"] = dict(cap=0.0, dT_max=35, min_soc=0.0, eta_tes=0.98, eta_ch=1, eta_dch=1)
         # ELECTRIC VEHICLE
         devs[n]["ev"] = dict(cap=0.0, eta_ch_ev=0.97, eta_dch_ev=0.97, min_soc=0.05, max_soc=0.95, max_ch_ev=45,
@@ -509,11 +508,9 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
     devs["css"]["s_COP_sh35"] = np.zeros(8760)  # Assuming hourly data for a year
     devs["css"]["s_COP_sh55"] = np.zeros(8760)  # Assuming hourly data for a year
 
-
-    # Map devices from district generator to central supply system
-
-    #if 'capacities' in districtData.centralDevices and districtData.centralDevices['capacities']['BAT']:
-    if 'capacities' in districtData.centralDevices and districtData.centralDevices['capacities']['BAT']:
+    # Todo: Map devices from district generator to central supply system
+    '''
+    if districtData.centralDevices['capacities']['BAT']:
         devs["css"]["s_bat"]["cap"] = districtData.centralDevices['capacities']['BAT']
 
     elif 'heater' in districtData.centralDevices and districtData.centralDevices['heater'] == "HP":
@@ -527,6 +524,7 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         else:
             devs["css"]["s_hp55"]["cap"] = districtData.centralDevices['capacities']['HP']
             devs["css"]["s_hp55"]["exists"] = 1
+    '''
 
     # Add central supply system devices to nodes
     nodes["css"] = {

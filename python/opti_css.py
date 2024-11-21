@@ -50,6 +50,7 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     s_COP35 = {}
     s_COP55 = {}
 
+    # no need for discretisierung, sondern in Stunden
     for i in range(len(time_steps)):
         param00 = time_steps[i]
         param01 = int(dt[param00]/discretization_input_data)
