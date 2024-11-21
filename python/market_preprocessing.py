@@ -23,7 +23,6 @@ def dict_for_market_data(par_rh):
 
     return mar_dict
 
-
 def bes(pars_rh, numb_bes):
     """Creates a dictionary to store information about the inflexible demands and traded amounts of the building."""
 
@@ -40,7 +39,6 @@ def bes(pars_rh, numb_bes):
                       "unflex":  np.zeros(pars_rh["n_opt"])
                       }
     return new_bes
-
 
 def compute_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes, init_val, propensities, strategies):
     """
@@ -144,7 +142,6 @@ def compute_weights(nb_bes, propensities, par_rh, n_opt): # computes
 
     return weights
 
-
 def sort_bids(bid, options, characs, n_opt):
     """
     All bids are sorted by the criteria specified in options["crit_prio"].
@@ -228,7 +225,6 @@ def sort_bids(bid, options, characs, n_opt):
 
     return bids
 
-
 def cost_and_rev_trans(trans, res):
     """
     Calculates the cost and revenue of each trade made within the district as well as the average trade price and the
@@ -250,7 +246,6 @@ def cost_and_rev_trans(trans, res):
 
     return res
 
-
 def clear_book(res, bids, params):
     """
     Not used at the moment! Has been replaced by grid_demands() and cost_and_rev_grid().
@@ -270,7 +265,6 @@ def clear_book(res, bids, params):
 
     return res, bids
 
-
 def traded_volume(transaction, res):
     """Calculates the amount of electricity traded within the district."""
 
@@ -280,7 +274,6 @@ def traded_volume(transaction, res):
         res["el_to_distr"][transaction[i]["seller"]] += transaction[i]["quantity"]
 
     return res
-
 
 def grid_demands(bes, trade_res, options, bids, n_opt):
     """
@@ -303,7 +296,6 @@ def grid_demands(bes, trade_res, options, bids, n_opt):
                 bes[n]["grid_gen"][n_opt] = bes[n]["unflex"][n_opt] - trade_res["el_to_distr"][n]
     return bes
 
-
 def cost_and_rev_grid(bes, trade_res, options, n_opt, eco):
     """Calculates amount and cost or revenue of buying and selling to the grid."""
 
@@ -320,7 +312,6 @@ def cost_and_rev_grid(bes, trade_res, options, n_opt, eco):
             trade_res["cost"][n] += bes[n]["grid_dem"][n_opt] * eco["pr", "el"]
 
     return trade_res
-
 
 def initial_prop(par_rh, options, pars_li): # creates initial propensities for the first market round
     # list of possible bid prices
@@ -348,7 +339,6 @@ def initial_prop(par_rh, options, pars_li): # creates initial propensities for t
 
     return prop, strategies
 
-
 def total_sup_and_dem(opti_res, par_rh, n_opt, nb_bes):
 
     # calculates total generated and demanded electricity
@@ -367,7 +357,6 @@ def total_sup_and_dem(opti_res, par_rh, n_opt, nb_bes):
         sup_total[t] = sum(sup[t])
 
     return dem_total, sup_total
-
 
 def update_prop(mar_dict, par_rh, n_opt, bes, options, pars_li, trade_res, strategies): #
     # update the props depending on trading results for the next step
@@ -446,5 +435,3 @@ def update_prop(mar_dict, par_rh, n_opt, bes, options, pars_li, trade_res, strat
                                                              * (pars_li["exp"] / (len(strategies) - 1)))
 
     return new_prop
-
-

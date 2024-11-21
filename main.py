@@ -10,18 +10,12 @@ import python.parse_inputs as parse_inputs
 import pickle
 import os
 import datetime
-
 import sys
+
 # Define the path to the 'classes' directory
 classes_path = os.path.join('C:', 'Users', 'jsc', 'Python', 'districtgenerator', 'classes')
-
 # Append the absolute path to sys.path
 sys.path.append(os.path.abspath(classes_path))
-
-import classes
-
-# import DistrictGenerator
-# from classes import Datahandler
 from classes import *
 
 def get_inputs(par_rh, options, districtData):  # gets inputs for optimization
@@ -38,21 +32,17 @@ def get_inputs(par_rh, options, districtData):  # gets inputs for optimization
     # Read devices, economic date and other parameters
     nodes, devs, building_params = parse_inputs.map_devices(options, nodes, building_params, par_rh, districtData)
 
-    # Read technical data of the network
-    # TODO: create a pandapower network and extracts node and line information
-    #net_data = net.create_net(options)
-
     return nodes, building_params, params, devs, par_rh
 
 
 def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, enhanced_horizon, month):
     print("""
- _   _           _     ____  _                 _ 
-| \ | | _____  _| |_  / ___|(_)_ __ ___  _   _| |
-|  \| |/ _ \ \/ / __| \___ \| | '_ ` _ \| | | | |
-| |\  |  __/>  <| |_   ___) | | | | | | | |_| | |
-|_| \_|\___/_/\_\\__| |____/|_|_| |_| |_|\__,_|_|
-""")
+     _   _           _     ____  _                 _ 
+    | \ | | _____  _| |_  / ___|(_)_ __ ___  _   _| |
+    |  \| |/ _ \ \/ / __| \___ \| | '_ ` _ \| | | | |
+    | |\  |  __/>  <| |_   ___) | | | | | | | |_| | |
+    |_| \_|\___/_/\_\\__| |____/|_|_| |_| |_|\__,_|_|
+    """)
     print("Start optimization for scenario " + scenario_name + " with calcUserProfiles " + str(calcUserProfiles)
           + " with crit_prio " + crit_prio + ", block_length " + str(block_length)
           + ", enhanced_horizon " + str(enhanced_horizon) + " and month " + str(month) + ".")
@@ -69,7 +59,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     # DistrictGenerator -> create district with load and generation profiles
     data = Datahandler()
     # Bei erstem Durchlauf calcUserProfiles=True setzen, danach calcUserProfiles=False
-    data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=False)
+    data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=True, saveUserProfiles=False)
     data.designDecentralDevices(saveGenerationProfiles=False)
     data.clusterProfiles(centralEnergySupply = False)
     districtData = data
@@ -150,11 +140,13 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
             month_folder = "3_Jul"
             month_suffix = "_jul"
         elif month == 12:
-            month_folder = "Dec"
-            month_suffix = "_dec"
+            month_folder = "Dec"+ "_LimitQuantity_1.05"
+            month_suffix = "_dec"+ "_LimitQuantity"
         elif month == 0:
-            month_folder = "Year_r_" + str(options["max_trading_rounds"])
-            month_suffix = "_year_r_" + str(options["max_trading_rounds"])
+            #month_folder = "Year_r_" + str(options["max_trading_rounds"] )
+            #month_suffix = "_year_r_" + str(options["max_trading_rounds"] )
+            month_folder = "LimitQuantity_1.15"
+            month_suffix = "LimitQuantity_1.15"
         block_length_folder = "nB=" + str(block_length)
         enhanced_folder = "nCH=36" if enhanced_horizon else "nCH=nB"
         crit_prio_folder = crit_prio
@@ -178,24 +170,10 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
                   'wb') as file_res_list:
             pickle.dump(results, file_res_list)
 
-        #with open("C:/Users/jsc/Python/Results/AppliedEnergy/Year_r_1/nB=1/nCH=nB/random/opti_res.p",
+        #with open("C:/Users/jsc/Python/Results/AppliedEnergy/Year_r_5/nB=1/nCH=nB/quantity/opti_res.p",
         #          'wb') as file_res_list:
         #    pickle.dump(opti_res, file_res_list)
 
-
-    # Run (rolling horizon) optimization for type weeks
-    elif options["optimization"] == "P2P_typeWeeks":
-        opti_results, typeweeks_indices, mar_dict, trade_res = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
-                                                                                                 building_params,
-                                                                                                 params)
-        # Compute plots
-        # criteria_typeweeks, criteria_year = output.compute_out_P2P_typeWeeks(options, options_DG, par_rh, opti_results,
-        #                      districtData.weights, params, building_params, trade_res, mar_dict)
-
-        # Save results
-        with open(options["path_results"] + "/P2P_typeWeeks_opti_output/" + options_DG["scenario_name"] + ".p",
-                  'wb') as fp:
-            pickle.dump(opti_results, fp)
 
     # End time (Time measurement)
     time["end"] = datetime.datetime.now()
@@ -204,10 +182,10 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     return mar_dict, characteristics, init_val, results, opti_res,opti_res_check, par_rh, districtData, options
 
 if __name__ == '__main__':
-    for scenario_name in ["AppliedEnergy"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
+    for scenario_name in ["example"]:  # csv file in ...\districtgenerator\data\scenarios
         first_run = True
-        for month in [1]:  # , 7]:
-            for block_length in [1]:  #1, 3, 5]:
+        for month in [0]:  # , 7]:
+            for block_length in [6]:  #1, 3, 6]:
                 for enhanced_horizon in [False]: #, True]:
                     for crit_prio in ["quantity"]: #"flex_energy", "quantity", "random", "flex_quantity"
                         mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options = \

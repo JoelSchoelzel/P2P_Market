@@ -234,6 +234,7 @@ def calc_results_p2p(par_rh, block_length, nego_results, opti_res,opti_res_check
     }
     return results
 
+
 def plots():
 
 
@@ -241,6 +242,9 @@ def plots():
     import matplotlib.pyplot as plt
     import seaborn as sns
     import numpy as np
+    import pandas as pd
+    import tikzplotlib
+
 
     xlabel_fontsize = 16
     ylabel_fontsize = 16
@@ -250,27 +254,6 @@ def plots():
 
 
     results = {}
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r1_len1_random.p", "rb") as file_res_list:
-        results[str(1)+"_"+str(1)+"_random"] = pickle.load(file_res_list)
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r1_len1_quantity.p", "rb") as file_res_list:
-        results[str(1) + "_" + str(1) + "_quantity"] = pickle.load(file_res_list)
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r1_len1_flex.p", "rb") as file_res_list:
-        results[str(1) + "_" + str(1) + "_flex"] = pickle.load(file_res_list)
-
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r1_len3_random.p", "rb") as file_res_list:
-        results[str(1) + "_" + str(3) + "_random"] = pickle.load(file_res_list)
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r1_len3_quantity.p", "rb") as file_res_list:
-        results[str(1) + "_" + str(3) + "_quantity"] = pickle.load(file_res_list)
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r1_len3_flex.p", "rb") as file_res_list:
-        results[str(1) + "_" + str(3) + "_flex"] = pickle.load(file_res_list)
-
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r1_len5_random.p", "rb") as file_res_list:
-        results[str(1) + "_" + str(5) + "_random"] = pickle.load(file_res_list)
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r1_len5_quantity.p", "rb") as file_res_list:
-        results[str(1) + "_" + str(5) + "_quantity"] = pickle.load(file_res_list)
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r1_len5_flex.p", "rb") as file_res_list:
-        results[str(1) + "_" + str(5) + "_flex"] = pickle.load(file_res_list)
-
     with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len1_random.p", "rb") as file_res_list:
         results[str(5)+"_"+str(1)+"_random"] = pickle.load(file_res_list)
     with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len1_quantity.p", "rb") as file_res_list:
@@ -285,12 +268,33 @@ def plots():
     with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len3_flex.p", "rb") as file_res_list:
         results[str(5) + "_" + str(3) + "_flex"] = pickle.load(file_res_list)
 
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len5_random.p", "rb") as file_res_list:
-        results[str(5) + "_" + str(5) + "_random"] = pickle.load(file_res_list)
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len5_quantity.p", "rb") as file_res_list:
-        results[str(5) + "_" + str(5) + "_quantity"] = pickle.load(file_res_list)
-    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len5_flex.p", "rb") as file_res_list:
-        results[str(5) + "_" + str(5) + "_flex"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len6_random.p", "rb") as file_res_list:
+        results[str(5) + "_" + str(6) + "_random"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len6_quantity.p", "rb") as file_res_list:
+        results[str(5) + "_" + str(6) + "_quantity"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len6_flex.p", "rb") as file_res_list:
+        results[str(5) + "_" + str(6) + "_flex"] = pickle.load(file_res_list)
+
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r15_len1_random.p", "rb") as file_res_list:
+        results[str(15)+"_"+str(1)+"_random"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r15_len1_quantity.p", "rb") as file_res_list:
+        results[str(15) + "_" + str(1) + "_quantity"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r15_len1_flex.p", "rb") as file_res_list:
+        results[str(15) + "_" + str(1) + "_flex"] = pickle.load(file_res_list)
+
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r15_len3_random.p", "rb") as file_res_list:
+        results[str(15) + "_" + str(3) + "_random"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r15_len3_quantity.p", "rb") as file_res_list:
+        results[str(15) + "_" + str(3) + "_quantity"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r15_len3_flex.p", "rb") as file_res_list:
+        results[str(15) + "_" + str(3) + "_flex"] = pickle.load(file_res_list)
+
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r15_len6_random.p", "rb") as file_res_list:
+        results[str(15) + "_" + str(6) + "_random"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r15_len6_quantity.p", "rb") as file_res_list:
+        results[str(15) + "_" + str(6) + "_quantity"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r15_len6_flex.p", "rb") as file_res_list:
+        results[str(15) + "_" + str(6) + "_flex"] = pickle.load(file_res_list)
 
 
     """
@@ -311,96 +315,50 @@ def plots():
     # Erstellen einer benutzerdefinierten Farbpalette mit Schattierungen der Hauptfarbe
     cmap = sns.light_palette(main_color, as_cmap=True)
     # Pfad zum Speichern der Datei
-    save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/dgoc_heat_map.png"
-    # Auflösung (DPI)
-    dpi = 300
-    # Benutzerdefinierte Achsenwerte
-    x_labels = ["1", "3", "5"]  # Beispielwerte für x-Achse
-    y_labels = ["1", "10"]  # Beispielwerte für y-Achse
-    # Erstellen der Heatmap
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(dgoc_heat_map, annot=True, fmt=".2f", cmap=cmap, cbar=True, linewidths=.5)
-    # Achsenbeschriftungen
-    plt.xlabel("Length of block bids", fontsize=xlabel_fontsize)
-    plt.ylabel("Max. negotiation rounds", fontsize=ylabel_fontsize)
-    plt.xticks(ticks=np.arange(len(x_labels)) + 0.5, labels=x_labels, fontsize=xtick_fontsize)
-    plt.yticks(ticks=np.arange(len(y_labels)) + 0.5, labels=y_labels, fontsize=ytick_fontsize)
-    # Titel
-    #plt.title("Generic 3x3 Heatmap")
-    # Speichern der Heatmap als PNG
-    plt.savefig(save_path, dpi=dpi)
-    # Anzeige der Heatmap
-    plt.show()
-
-    #### ------------------- traded_supply_bids ------------------- ####
-    # Hauptfarbe
-    main_color = "#00549F"
-    # Erstellen einer benutzerdefinierten Farbpalette mit Schattierungen der Hauptfarbe
-    cmap = sns.light_palette(main_color, as_cmap=True)
-    # Pfad zum Speichern der Datei
-    save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/traded_supply_bids_heat_map.png"
+    save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/DGOC_heat_map.png"
     # Auflösung (DPI)
     dpi = 300
     # Creating the DataFrame
     data = {
-        ('random', 1): [results["1_1_random"]["traded_supply_bids"]*100, results["1_3_random"]["traded_supply_bids"]*100, results["1_5_random"]["traded_supply_bids"]*100],
-        ('random', 10): [results["5_1_random"]["traded_supply_bids"]*100, results["5_3_random"]["traded_supply_bids"]*100, results["5_5_random"]["traded_supply_bids"]*100],
-        ('quantity', 1): [results["1_1_quantity"]["traded_supply_bids"]*100, results["1_3_quantity"]["traded_supply_bids"]*100, results["1_5_quantity"]["traded_supply_bids"]*100],
-        ('quantity', 10): [results["5_1_quantity"]["traded_supply_bids"]*100, results["5_3_quantity"]["traded_supply_bids"]*100, results["5_5_quantity"]["traded_supply_bids"]*100],
-        ('flexibility', 1): [results["1_1_flex"]["traded_supply_bids"]*100, results["1_3_flex"]["traded_supply_bids"]*100, results["1_5_flex"]["traded_supply_bids"]*100],
-        ('flexibility', 10): [results["5_1_flex"]["traded_supply_bids"]*100, results["5_3_flex"]["traded_supply_bids"]*100, results["5_5_flex"]["traded_supply_bids"]*100],
+        ('Random', 5): [np.round(results["5_1_random"]["DGOC"] * 100, 1),
+                        np.round(results["5_3_random"]["DGOC"] * 100, 1),
+                        np.round(results["5_6_random"]["DGOC"] * 100,1)],
+        ('Random', 15): [np.round(results["15_1_random"]["DGOC"] * 100,1),
+                         np.round(results["15_3_random"]["DGOC"] * 100,1),
+                         np.round(results["15_6_random"]["DGOC"] * 100,1)],
+        ('Quantity', 5): [np.round(results["5_1_quantity"]["DGOC"] * 100,1),
+                          np.round(results["5_3_quantity"]["DGOC"] * 100,1),
+                          np.round(results["5_6_quantity"]["DGOC"] * 100,1)],
+        ('Quantity', 15): [np.round(results["15_1_quantity"]["DGOC"] * 100,1),
+                           np.round(results["15_3_quantity"]["DGOC"] * 100,1),
+                           np.round(results["15_6_quantity"]["DGOC"] * 100,1)],
+        ('Flexibility', 5): [np.round(results["5_1_flex"]["DGOC"] * 100,1),
+                             np.round(results["5_3_flex"]["DGOC"] * 100,1),
+                             np.round(results["5_6_flex"]["DGOC"] * 100,1)],
+        ('Flexibility', 15): [np.round(results["15_1_flex"]["DGOC"] * 100,1),
+                              np.round(results["15_3_flex"]["DGOC"] * 100,1),
+                              np.round(results["15_6_flex"]["DGOC"] * 100,1)],
     }
-    df = pd.DataFrame(data, index=[1, 3, 5])
+    df = pd.DataFrame(data, index=[1, 3, 6])
     # Plotting the heatmap
     plt.figure(figsize=(14, 8))
-    sns.heatmap(df, annot=True, fmt=".1f", cmap=cmap, cbar=False, linewidths=.5)
+    # Create and store the heatmap object
+    heatmap = sns.heatmap(df, annot=True, fmt=".1f", cmap=cmap, cbar=True, linewidths=.5, annot_kws={"size": 16})
+    # Change font size of color bar
+    cbar = heatmap.collections[0].colorbar  # Access the color bar
+    cbar.ax.tick_params(labelsize=16)
     # Achsenbeschriftungen
     plt.xlabel("Matching criteria and maximal negotiation rounds", fontsize=xlabel_fontsize)
     plt.ylabel("Length of block bids", fontsize=ylabel_fontsize)
     plt.xticks(fontsize=xtick_fontsize)
     plt.yticks(fontsize=ytick_fontsize)
     # Titel
-    #plt.title("Generic 3x3 Heatmap")
+    # plt.title("Generic 3x3 Heatmap")
     # Speichern der Heatmap als PNG
     plt.savefig(save_path, dpi=dpi)
+    #tikzplotlib.save("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/dgoc.tex")  # , axis_height ='5 cm',axis_width='15 cm')
     # Anzeige der Heatmap
     plt.show()
-
-
-    #### ------------------- traded_demand_bids ------------------- ####
-    # Hauptfarbe
-    main_color = "#00549F"
-    # Erstellen einer benutzerdefinierten Farbpalette mit Schattierungen der Hauptfarbe
-    cmap = sns.light_palette(main_color, as_cmap=True)
-    # Pfad zum Speichern der Datei
-    save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/traded_demand_bids_heat_map.png"
-    # Auflösung (DPI)
-    dpi = 300
-    # Creating the DataFrame
-    data = {
-        ('random', 1): [results["1_1_random"]["traded_demand_bids"]*100, results["1_3_random"]["traded_demand_bids"]*100, results["1_5_random"]["traded_demand_bids"]*100],
-        ('random', 10): [results["5_1_random"]["traded_demand_bids"]*100, results["5_3_random"]["traded_demand_bids"]*100, results["5_5_random"]["traded_demand_bids"]*100],
-        ('quantity', 1): [results["1_1_quantity"]["traded_demand_bids"]*100, results["1_3_quantity"]["traded_demand_bids"]*100, results["1_5_quantity"]["traded_demand_bids"]*100],
-        ('quantity', 10): [results["5_1_quantity"]["traded_demand_bids"]*100, results["5_3_quantity"]["traded_demand_bids"]*100, results["5_5_quantity"]["traded_demand_bids"]*100],
-        ('flexibility', 1): [results["1_1_flex"]["traded_demand_bids"]*100, results["1_3_flex"]["traded_demand_bids"]*100, results["1_5_flex"]["traded_demand_bids"]*100],
-        ('flexibility', 10): [results["5_1_flex"]["traded_demand_bids"]*100, results["5_3_flex"]["traded_demand_bids"]*100, results["5_5_flex"]["traded_demand_bids"]*100],
-    }
-    df = pd.DataFrame(data, index=[1, 3, 5])
-    # Plotting the heatmap
-    plt.figure(figsize=(14, 8))
-    sns.heatmap(df, annot=True, fmt=".1f", cmap=cmap, cbar=False, linewidths=.5)
-    # Achsenbeschriftungen
-    plt.xlabel("Matching criteria and maximal negotiation rounds", fontsize=xlabel_fontsize)
-    plt.ylabel("Length of block bids", fontsize=ylabel_fontsize)
-    plt.xticks(fontsize=xtick_fontsize)
-    plt.yticks(fontsize=ytick_fontsize)
-    # Titel
-    #plt.title("Generic 3x3 Heatmap")
-    # Speichern der Heatmap als PNG
-    plt.savefig(save_path, dpi=dpi)
-    # Anzeige der Heatmap
-    plt.show()
-
 
     #### ------------------- traded_power ------------------- ####
     # Hauptfarbe
@@ -413,24 +371,75 @@ def plots():
     dpi = 300
     # Creating the DataFrame
     data = {
-        ('random', 1): [results["1_1_random"]["traded_power_total"] / 1000,
-                        results["1_3_random"]["traded_power_total"] / 1000,
-                        results["1_5_random"]["traded_power_total"] / 1000],
-        ('random', 10): [results["5_1_random"]["traded_power_total"] / 1000,
-                         results["5_3_random"]["traded_power_total"] / 1000,
-                         results["5_5_random"]["traded_power_total"] / 1000],
-        ('quantity', 1): [results["1_1_quantity"]["traded_power_total"] / 1000,
-                          results["1_3_quantity"]["traded_power_total"] / 1000,
-                          results["1_5_quantity"]["traded_power_total"] / 1000],
-        ('quantity', 10): [results["5_1_quantity"]["traded_power_total"] / 1000,
-                           results["5_3_quantity"]["traded_power_total"] / 1000,
-                           results["5_5_quantity"]["traded_power_total"] / 1000],
-        ('flexibility', 1): [results["1_1_flex"]["traded_power_total"] / 1000,
-                             results["1_3_flex"]["traded_power_total"] / 1000,
-                             results["1_5_flex"]["traded_power_total"] / 1000],
-        ('flexibility', 10): [results["5_1_flex"]["traded_power_total"] / 1000,
-                              results["5_3_flex"]["traded_power_total"] / 1000,
-                              results["5_5_flex"]["traded_power_total"] / 1000],
+        ('Random', 5): [np.round(results["5_1_random"]["traded_power_total"] / 1000 /2,0),
+                        np.round(results["5_3_random"]["traded_power_total"] / 1000 /2,0),
+                        np.round(results["5_6_random"]["traded_power_total"] / 1000 /2,0)],
+        ('Random', 15): [np.round(results["15_1_random"]["traded_power_total"] / 1000 /2,0),
+                         np.round(results["15_3_random"]["traded_power_total"] / 1000 /2,0),
+                         np.round(results["15_6_random"]["traded_power_total"] / 1000 /2,0)],
+        ('Quantity', 5): [np.round(results["5_1_quantity"]["traded_power_total"] / 1000 /2,0),
+                          np.round(results["5_3_quantity"]["traded_power_total"] / 1000 /2,0),
+                          np.round(results["5_6_quantity"]["traded_power_total"] / 1000 /2,0)],
+        ('Quantity', 15): [np.round(results["15_1_quantity"]["traded_power_total"] / 1000 /2,0),
+                           np.round(results["15_3_quantity"]["traded_power_total"] / 1000 /2,0),
+                           np.round(results["15_6_quantity"]["traded_power_total"] / 1000 /2,0)],
+        ('Flexibility', 5): [np.round(results["5_1_flex"]["traded_power_total"] / 1000 /2,0),
+                             np.round(results["5_3_flex"]["traded_power_total"] / 1000 /2,0),
+                             np.round(results["5_6_flex"]["traded_power_total"] / 1000 /2,0)],
+        ('Flexibility', 15): [np.round(results["15_1_flex"]["traded_power_total"] / 1000 /2,0),
+                              np.round(results["15_3_flex"]["traded_power_total"] / 1000 /2,0),
+                              np.round(results["15_6_flex"]["traded_power_total"] / 1000 /2,0)],
+    }
+    df = pd.DataFrame(data, index=[1, 3, 6])
+    # Plotting the heatmap
+    plt.figure(figsize=(14, 8))
+    # Create and store the heatmap object
+    heatmap = sns.heatmap(df, annot=True, fmt=".0f", cmap=cmap, cbar=True, linewidths=.5, annot_kws={"size": 16})
+    # Change font size of color bar
+    cbar = heatmap.collections[0].colorbar  # Access the color bar
+    cbar.ax.tick_params(labelsize=16)
+    # Achsenbeschriftungen
+    plt.xlabel("Matching criteria and maximal negotiation rounds", fontsize=xlabel_fontsize)
+    plt.ylabel("Length of block bids", fontsize=ylabel_fontsize)
+    plt.xticks(fontsize=xtick_fontsize)
+    plt.yticks(fontsize=ytick_fontsize)
+    # Titel
+    # plt.title("Generic 3x3 Heatmap")
+    # Speichern der Heatmap als PNG
+    plt.savefig(save_path, dpi=dpi)
+    tikzplotlib.save("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/traded_power_total.tex")  # , axis_height ='5 cm',axis_width='15 cm')
+    # Anzeige der Heatmap
+    plt.show()
+
+    #### ------------------- peak_feedin ------------------- ####
+    # Hauptfarbe
+    main_color = "#00549F"
+    # Erstellen einer benutzerdefinierten Farbpalette mit Schattierungen der Hauptfarbe
+    cmap = sns.light_palette(main_color, as_cmap=True)
+    # Pfad zum Speichern der Datei
+    save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/peak_feedin_heat_map.png"
+    # Auflösung (DPI)
+    dpi = 300
+    # Creating the DataFrame
+    data = {
+        ('random', 5): [int(results["5_1_random"]["peak_feed_in"]),
+                        int(results["5_3_random"]["peak_feed_in"]),
+                        int(results["5_6_random"]["peak_feed_in"])],
+        ('random', 15): [int(results["15_1_random"]["peak_feed_in"]),
+                         int(results["15_3_random"]["peak_feed_in"]),
+                         int(results["15_6_random"]["peak_feed_in"])],
+        ('quantity', 5): [int(results["5_1_quantity"]["peak_feed_in"]),
+                          int(results["5_3_quantity"]["peak_feed_in"]),
+                          int(results["5_6_quantity"]["peak_feed_in"])],
+        ('quantity', 15): [int(results["15_1_quantity"]["peak_feed_in"]),
+                           int(results["15_3_quantity"]["peak_feed_in"]),
+                           int(results["15_6_quantity"]["peak_feed_in"])],
+        ('flexibility', 5): [int(results["5_1_flex"]["peak_feed_in"]),
+                             int(results["5_3_flex"]["peak_feed_in"]),
+                             int(results["5_6_flex"]["peak_feed_in"])],
+        ('flexibility', 15): [int(results["15_1_flex"]["peak_feed_in"]),
+                              int(results["15_3_flex"]["peak_feed_in"]),
+                              int(results["15_6_flex"]["peak_feed_in"])],
     }
     df = pd.DataFrame(data, index=[1, 3, 5])
     # Plotting the heatmap
@@ -448,33 +457,6 @@ def plots():
     # Anzeige der Heatmap
     plt.show()
 
-    #### ------------------- peak_feedin ------------------- ####
-    # Hauptfarbe
-    main_color = "#00549F"
-    # Erstellen einer benutzerdefinierten Farbpalette mit Schattierungen der Hauptfarbe
-    cmap = sns.light_palette(main_color, as_cmap=True)
-    # Pfad zum Speichern der Datei
-    save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/peak_feedin_heat_map.png"
-    # Auflösung (DPI)
-    dpi = 300
-    # Benutzerdefinierte Achsenwerte
-    x_labels = ["1", "3", "5"]  # Beispielwerte für x-Achse
-    y_labels = ["1", "10"]  # Beispielwerte für y-Achse
-    # Erstellen der Heatmap
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(peak_feedin_heat_map, annot=True, fmt=".2f", cmap=cmap, cbar=True, linewidths=.5)
-    # Achsenbeschriftungen
-    plt.xlabel("Length of block bids", fontsize=xlabel_fontsize)
-    plt.ylabel("Max. negotiation rounds", fontsize=ylabel_fontsize)
-    plt.xticks(ticks=np.arange(len(x_labels)) + 0.5, labels=x_labels, fontsize=xtick_fontsize)
-    plt.yticks(ticks=np.arange(len(y_labels)) + 0.5, labels=y_labels, fontsize=ytick_fontsize)
-    # Titel
-    #plt.title("Generic 3x3 Heatmap")
-    # Speichern der Heatmap als PNG
-    plt.savefig(save_path, dpi=dpi)
-    # Anzeige der Heatmap
-    plt.show()
-
     #### ------------------- peak_purchase ------------------- ####
     # Hauptfarbe
     main_color = "#00549F"
@@ -484,46 +466,223 @@ def plots():
     save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/peak_purchase_heat_map.png"
     # Auflösung (DPI)
     dpi = 300
-    # Benutzerdefinierte Achsenwerte
-    x_labels = ["1", "3", "5"]  # Beispielwerte für x-Achse
-    y_labels = ["1", "10"]  # Beispielwerte für y-Achse
-    # Erstellen der Heatmap
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(peak_purchase_heat_map, annot=True, fmt=".2f", cmap=cmap, cbar=True, linewidths=.5)
+    # Creating the DataFrame
+    data = {
+        ('random', 5): [int(results["5_1_random"]["peak_purchase"]),
+                        int(results["5_3_random"]["peak_purchase"]),
+                        int(results["5_6_random"]["peak_purchase"])],
+        ('random', 15): [int(results["15_1_random"]["peak_purchase"]),
+                         int(results["15_3_random"]["peak_purchase"]),
+                         int(results["15_6_random"]["peak_purchase"])],
+        ('quantity', 5): [int(results["5_1_quantity"]["peak_purchase"]),
+                          int(results["5_3_quantity"]["peak_purchase"]),
+                          int(results["5_6_quantity"]["peak_purchase"])],
+        ('quantity', 15): [int(results["15_1_quantity"]["peak_purchase"]),
+                           int(results["15_3_quantity"]["peak_purchase"]),
+                           int(results["15_6_quantity"]["peak_purchase"])],
+        ('flexibility', 5): [int(results["5_1_flex"]["peak_purchase"]),
+                             int(results["5_3_flex"]["peak_purchase"]),
+                             int(results["5_6_flex"]["peak_purchase"])],
+        ('flexibility', 15): [int(results["15_1_flex"]["peak_purchase"]),
+                              int(results["15_3_flex"]["peak_purchase"]),
+                              int(results["15_6_flex"]["peak_purchase"])],
+    }
+    df = pd.DataFrame(data, index=[1, 3, 6])
+    # Plotting the heatmap
+    plt.figure(figsize=(14, 8))
+    sns.heatmap(df, annot=True, fmt=".1f", cmap=cmap, cbar=True, linewidths=.5)
     # Achsenbeschriftungen
-    plt.xlabel("Length of block bids", fontsize=xlabel_fontsize)
-    plt.ylabel("Max. negotiation rounds", fontsize=ylabel_fontsize)
-    plt.xticks(ticks=np.arange(len(x_labels)) + 0.5, labels=x_labels, fontsize=xtick_fontsize)
-    plt.yticks(ticks=np.arange(len(y_labels)) + 0.5, labels=y_labels, fontsize=ytick_fontsize)
+    plt.xlabel("Matching criteria and maximal negotiation rounds", fontsize=xlabel_fontsize)
+    plt.ylabel("Length of block bids", fontsize=ylabel_fontsize)
+    plt.xticks(fontsize=xtick_fontsize)
+    plt.yticks(fontsize=ytick_fontsize)
     # Titel
-    #plt.title("Generic 3x3 Heatmap")
+    # plt.title("Generic 3x3 Heatmap")
     # Speichern der Heatmap als PNG
     plt.savefig(save_path, dpi=dpi)
     # Anzeige der Heatmap
     plt.show()
 
-    #### ------------------- losses ------------------- ####
+    #### ------------------- tes_losses ------------------- ####
     # Hauptfarbe
     main_color = "#00549F"
     # Erstellen einer benutzerdefinierten Farbpalette mit Schattierungen der Hauptfarbe
     cmap = sns.light_palette(main_color, as_cmap=True)
     # Pfad zum Speichern der Datei
-    save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/energy_losses_heat_map.png"
+    save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/tes_losses_heat_map.png"
     # Auflösung (DPI)
     dpi = 300
-    # Benutzerdefinierte Achsenwerte
-    x_labels = ["1", "3", "5"]  # Beispielwerte für x-Achse
-    y_labels = ["1", "10"]  # Beispielwerte für y-Achse
-    # Erstellen der Heatmap
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(energy_losses_heat_map, annot=True, fmt=".2f", cmap=cmap, cbar=True, linewidths=.5)
+    # Creating the DataFrame
+    data = {
+        ('random', 5): [int(results["5_1_random"]["tes_losses"]/1000),
+                        int(results["5_3_random"]["tes_losses"]/1000),
+                        int(results["5_6_random"]["tes_losses"]/1000)],
+        ('random', 15): [int(results["15_1_random"]["tes_losses"]/1000),
+                         int(results["15_3_random"]["tes_losses"]/1000),
+                         int(results["15_6_random"]["tes_losses"]/1000)],
+        ('quantity', 5): [int(results["5_1_quantity"]["tes_losses"]/1000),
+                          int(results["5_3_quantity"]["tes_losses"]/1000),
+                          int(results["5_6_quantity"]["tes_losses"]/1000)],
+        ('quantity', 15): [int(results["15_1_quantity"]["tes_losses"]/1000),
+                           int(results["15_3_quantity"]["tes_losses"]/1000),
+                           int(results["15_6_quantity"]["tes_losses"]/1000)],
+        ('flexibility', 5): [int(results["5_1_flex"]["tes_losses"]/1000),
+                             int(results["5_3_flex"]["tes_losses"]/1000),
+                             int(results["5_6_flex"]["tes_losses"]/1000)],
+        ('flexibility', 15): [int(results["15_1_flex"]["tes_losses"]/1000),
+                              int(results["15_3_flex"]["tes_losses"]/1000),
+                              int(results["15_6_flex"]["tes_losses"]/1000)],
+    }
+    df = pd.DataFrame(data, index=[1, 3, 6])
+    # Plotting the heatmap
+    plt.figure(figsize=(14, 8))
+    sns.heatmap(df, annot=True, fmt=".1f", cmap=cmap, cbar=True, linewidths=.5)
     # Achsenbeschriftungen
-    plt.xlabel("Matching creLength of block bids", fontsize=xlabel_fontsize)
-    plt.ylabel("Max. negotiation rounds", fontsize=ylabel_fontsize)
-    plt.xticks(ticks=np.arange(len(x_labels)) + 0.5, labels=x_labels, fontsize=xtick_fontsize)
-    plt.yticks(ticks=np.arange(len(y_labels)) + 0.5, labels=y_labels, fontsize=ytick_fontsize)
+    plt.xlabel("Matching criteria and maximal negotiation rounds", fontsize=xlabel_fontsize)
+    plt.ylabel("Length of block bids", fontsize=ylabel_fontsize)
+    plt.xticks(fontsize=xtick_fontsize)
+    plt.yticks(fontsize=ytick_fontsize)
     # Titel
-    #plt.title("Generic 3x3 Heatmap")
+    # plt.title("Generic 3x3 Heatmap")
+    # Speichern der Heatmap als PNG
+    plt.savefig(save_path, dpi=dpi)
+    # Anzeige der Heatmap
+    plt.show()
+
+
+    #### ------------------- bat_losses ------------------- ####
+    # Hauptfarbe
+    main_color = "#00549F"
+    # Erstellen einer benutzerdefinierten Farbpalette mit Schattierungen der Hauptfarbe
+    cmap = sns.light_palette(main_color, as_cmap=True)
+    # Pfad zum Speichern der Datei
+    save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/bat_losses_heat_map.png"
+    # Auflösung (DPI)
+    dpi = 300
+    # Creating the DataFrame
+    data = {
+        ('random', 5): [int(results["5_1_random"]["bat_losses"]/1000),
+                        int(results["5_3_random"]["bat_losses"]/1000),
+                        int(results["5_6_random"]["bat_losses"]/1000)],
+        ('random', 15): [int(results["15_1_random"]["bat_losses"]/1000),
+                         int(results["15_3_random"]["bat_losses"]/1000),
+                         int(results["15_6_random"]["bat_losses"]/1000)],
+        ('quantity', 5): [int(results["5_1_quantity"]["bat_losses"]/1000),
+                          int(results["5_3_quantity"]["bat_losses"]/1000),
+                          int(results["5_6_quantity"]["bat_losses"]/1000)],
+        ('quantity', 15): [int(results["15_1_quantity"]["bat_losses"]/1000),
+                           int(results["15_3_quantity"]["bat_losses"]/1000),
+                           int(results["15_6_quantity"]["bat_losses"]/1000)],
+        ('flexibility', 5): [int(results["5_1_flex"]["bat_losses"]/1000),
+                             int(results["5_3_flex"]["bat_losses"]/1000),
+                             int(results["5_6_flex"]["bat_losses"]/1000)],
+        ('flexibility', 15): [int(results["15_1_flex"]["bat_losses"]/1000),
+                              int(results["15_3_flex"]["bat_losses"]/1000),
+                              int(results["15_6_flex"]["bat_losses"]/1000)],
+    }
+    df = pd.DataFrame(data, index=[1, 3, 6])
+    # Plotting the heatmap
+    plt.figure(figsize=(14, 8))
+    sns.heatmap(df, annot=True, fmt=".1f", cmap=cmap, cbar=True, linewidths=.5)
+    # Achsenbeschriftungen
+    plt.xlabel("Matching criteria and maximal negotiation rounds", fontsize=xlabel_fontsize)
+    plt.ylabel("Length of block bids", fontsize=ylabel_fontsize)
+    plt.xticks(fontsize=xtick_fontsize)
+    plt.yticks(fontsize=ytick_fontsize)
+    # Titel
+    # plt.title("Generic 3x3 Heatmap")
+    # Speichern der Heatmap als PNG
+    plt.savefig(save_path, dpi=dpi)
+    # Anzeige der Heatmap
+    plt.show()
+
+    #### ------------------- district_import ------------------- ####
+    # Hauptfarbe
+    main_color = "#00549F"
+    # Erstellen einer benutzerdefinierten Farbpalette mit Schattierungen der Hauptfarbe
+    cmap = sns.light_palette(main_color, as_cmap=True)
+    # Pfad zum Speichern der Datei
+    save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/district_import_heat_map.png"
+    # Auflösung (DPI)
+    dpi = 300
+    # Creating the DataFrame
+    data = {
+        ('random', 5): [int(results["5_1_random"]["district_import"]/1000),
+                        int(results["5_3_random"]["district_import"]/1000),
+                        int(results["5_6_random"]["district_import"]/1000)],
+        ('random', 15): [int(results["15_1_random"]["district_import"]/1000),
+                         int(results["15_3_random"]["district_import"]/1000),
+                         int(results["15_6_random"]["district_import"]/1000)],
+        ('quantity', 5): [int(results["5_1_quantity"]["district_import"]/1000),
+                          int(results["5_3_quantity"]["district_import"]/1000),
+                          int(results["5_6_quantity"]["district_import"]/1000)],
+        ('quantity', 15): [int(results["15_1_quantity"]["district_import"]/1000),
+                           int(results["15_3_quantity"]["district_import"]/1000),
+                           int(results["15_6_quantity"]["district_import"]/1000)],
+        ('flexibility', 5): [int(results["5_1_flex"]["district_import"]/1000),
+                             int(results["5_3_flex"]["district_import"]/1000),
+                             int(results["5_6_flex"]["district_import"]/1000)],
+        ('flexibility', 15): [int(results["15_1_flex"]["district_import"]/1000),
+                              int(results["15_3_flex"]["district_import"]/1000),
+                              int(results["15_6_flex"]["district_import"]/1000)],
+    }
+    df = pd.DataFrame(data, index=[1, 3, 6])
+    # Plotting the heatmap
+    plt.figure(figsize=(14, 8))
+    sns.heatmap(df, annot=True, fmt=".1f", cmap=cmap, cbar=False, linewidths=.5)
+    # Achsenbeschriftungen
+    plt.xlabel("Matching criteria and maximal negotiation rounds", fontsize=xlabel_fontsize)
+    plt.ylabel("Length of block bids", fontsize=ylabel_fontsize)
+    plt.xticks(fontsize=xtick_fontsize)
+    plt.yticks(fontsize=ytick_fontsize)
+    # Titel
+    # plt.title("Generic 3x3 Heatmap")
+    # Speichern der Heatmap als PNG
+    plt.savefig(save_path, dpi=dpi)
+    # Anzeige der Heatmap
+    plt.show()
+
+    #### ------------------- district_export ------------------- ####
+    # Hauptfarbe
+    main_color = "#00549F"
+    # Erstellen einer benutzerdefinierten Farbpalette mit Schattierungen der Hauptfarbe
+    cmap = sns.light_palette(main_color, as_cmap=True)
+    # Pfad zum Speichern der Datei
+    save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/district_export_heat_map.png"
+    # Auflösung (DPI)
+    dpi = 300
+    # Creating the DataFrame
+    data = {
+        ('random', 5): [int(results["5_1_random"]["district_export"]/1000),
+                        int(results["5_3_random"]["district_export"]/1000),
+                        int(results["5_6_random"]["district_export"]/1000)],
+        ('random', 15): [int(results["15_1_random"]["district_export"]/1000),
+                         int(results["15_3_random"]["district_export"]/1000),
+                         int(results["15_6_random"]["district_export"]/1000)],
+        ('quantity', 5): [int(results["5_1_quantity"]["district_export"]/1000),
+                          int(results["5_3_quantity"]["district_export"]/1000),
+                          int(results["5_6_quantity"]["district_export"]/1000)],
+        ('quantity', 15): [int(results["15_1_quantity"]["district_export"]/1000),
+                           int(results["15_3_quantity"]["district_export"]/1000),
+                           int(results["15_6_quantity"]["district_export"]/1000)],
+        ('flexibility', 5): [int(results["5_1_flex"]["district_export"]/1000),
+                             int(results["5_3_flex"]["district_export"]/1000),
+                             int(results["5_6_flex"]["district_export"]/1000)],
+        ('flexibility', 15): [int(results["15_1_flex"]["district_export"]/1000),
+                              int(results["15_3_flex"]["district_export"]/1000),
+                              int(results["15_6_flex"]["district_export"]/1000)],
+    }
+    df = pd.DataFrame(data, index=[1, 3, 6])
+    # Plotting the heatmap
+    plt.figure(figsize=(14, 8))
+    sns.heatmap(df, annot=True, fmt=".1f", cmap=cmap, cbar=False, linewidths=.5, annot_kws={"size": 12, "color": "black"})
+    # Achsenbeschriftungen
+    plt.xlabel("Matching criteria and maximal negotiation rounds", fontsize=xlabel_fontsize)
+    plt.ylabel("Length of block bids", fontsize=ylabel_fontsize)
+    plt.xticks(fontsize=xtick_fontsize)
+    plt.yticks(fontsize=ytick_fontsize)
+    # Titel
+    # plt.title("Generic 3x3 Heatmap")
     # Speichern der Heatmap als PNG
     plt.savefig(save_path, dpi=dpi)
     # Anzeige der Heatmap
@@ -647,7 +806,6 @@ def plots():
 
     return
 
-
 def calc_gain():
 
     import pickle
@@ -661,12 +819,12 @@ def calc_gain():
     ytick_fontsize = 16
     legend_fontsize = 16
 
-    list_opti_res_dec = ["C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r1_len1_random.p"]
+    list_opti_res_dec = ["C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r5_len1_quantity.p"]
     for i in list_opti_res_dec:
         with open(i, "rb") as file_res_list:
             results_dec = pickle.load(file_res_list)
 
-    results_block_bid_length_r1 = ["C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r10_len5_quantity.p"]
+    results_block_bid_length_r1 = ["C:/Users/jsc/Python/Results/AppliedEnergy/all_results/r15_len6_quantity.p"]
     for i in results_block_bid_length_r1:
         with open(i, "rb") as file_res_list:
             results_bb = pickle.load(file_res_list)
@@ -676,45 +834,47 @@ def calc_gain():
         with open(i, "rb") as file_par_rh_list:
             par_rh = pickle.load(file_par_rh_list)
 
-    list_par_rh5 = ["C:/Users/jsc/Python/Results/AppliedEnergy/all_results/par_rh5.p"]
+    list_par_rh5 = ["C:/Users/jsc/Python/Results/AppliedEnergy/all_results/par_rh6.p"]
     for i in list_par_rh5:
         with open(i, "rb") as file_par_rh5_list:
             par_rh5 = pickle.load(file_par_rh5_list)
 
-    list_opti_res = ["C:/Users/jsc/Python/Results/AppliedEnergy/opti_res/opti_res.p"]
-    for i in list_opti_res:
-        with open(i, "rb") as file_opti_res_list:
-            opti_res = pickle.load(file_opti_res_list)
+    #list_opti_res = ["C:/Users/jsc/Python/Results/AppliedEnergy/opti_res/opti_res.p"]
+    #for i in list_opti_res:
+    #    with open(i, "rb") as file_opti_res_list:
+    #        opti_res = pickle.load(file_opti_res_list)
 
-    list_mar_dict = ["C:/Users/jsc/Python/Results/AppliedEnergy/opti_res/mar_dict_r10_b5_quan.p"]
+    list_mar_dict = ["C:/Users/jsc/Python/Results/AppliedEnergy/opti_res/mar_dict_r5_b6_quan.p"]
     for i in list_mar_dict:
         with open(i, "rb") as file_mar_dict_list:
             mar_dict = pickle.load(file_mar_dict_list)
 
-    total_p_purchase = np.zeros((45, 8760))
-    total_feed_in = np.zeros((45, 8760))
-    for n_opt in range(par_rh["n_opt"] - int(36/1)-1):
-        for n in range(45):
-            for t in range(par_rh["hour_start"][n_opt], par_rh["hour_start"][n_opt] + 1):
-                total_p_purchase[n, t - par_rh["hour_start"][0]] += opti_res[n_opt][n][4]["p_imp"]["p_imp"][t] / 1000 # kW
-                total_feed_in[n, t - par_rh["hour_start"][0]] += (opti_res[n_opt][n][8]["chp"][t] \
-                                                              + opti_res[n_opt][n][8]["pv"][t]) / 1000 # kW
+    #total_p_purchase = np.zeros((45, 8760))
+    #total_feed_in = np.zeros((45, 8760))
+    #for n_opt in range(par_rh["n_opt"] - int(36/1)-1):
+    #    for n in range(45):
+    #        for t in range(par_rh["hour_start"][n_opt], par_rh["hour_start"][n_opt] + 1):
+    #            total_p_purchase[n, t - par_rh["hour_start"][0]] += opti_res[n_opt][n][4]["p_imp"]["p_imp"][t] / 1000 # kW
+    #            total_feed_in[n, t - par_rh["hour_start"][0]] += (opti_res[n_opt][n][8]["chp"][t] \
+    #                                                          + opti_res[n_opt][n][8]["pv"][t]) / 1000 # kW
 
-    cost_per_building_without_LEM = np.sum(total_p_purchase, axis=1) * 0.36
-    revenue_per_building_without_LEM = np.sum(total_feed_in, axis=1)* 0.081
+    #cost_per_building_without_LEM = np.sum(total_p_purchase, axis=1) * 0.36
+    #revenue_per_building_without_LEM = np.sum(total_feed_in, axis=1)* 0.081
 
-    costs_power_from_grid = np.zeros((45, 8760))
-    revenue_power_to_grid = np.zeros((45, 8760))
-    for n_opt in range(par_rh5["n_opt"] - int(36/5)-1 ):
-        for n in range(len(opti_res[0])):
-            for t in range(par_rh5["hour_start"][n_opt], par_rh5["hour_start"][n_opt] + 5):
-                costs_power_from_grid[n, t - par_rh5["hour_start"][0]] += mar_dict["transactions_with_grid"][n_opt]["costs_power_from_grid"][n][t]
-                revenue_power_to_grid[n, t - par_rh5["hour_start"][0]] += mar_dict["transactions_with_grid"][n_opt]["revenue_power_to_grid"][n][t]
+    #costs_power_from_grid = np.zeros((45, 8760))
+    #revenue_power_to_grid = np.zeros((45, 8760))
+    #for n_opt in range(par_rh5["n_opt"] - int(36/5)-1 ):
+    #    for n in range(len(opti_res[0])):
+    #        for t in range(par_rh5["hour_start"][n_opt], par_rh5["hour_start"][n_opt] + 5):
+    #            costs_power_from_grid[n, t - par_rh5["hour_start"][0]] += mar_dict["transactions_with_grid"][n_opt]["costs_power_from_grid"][n][t]
+    #            revenue_power_to_grid[n, t - par_rh5["hour_start"][0]] += mar_dict["transactions_with_grid"][n_opt]["revenue_power_to_grid"][n][t]
 
 
-    trading_costs_per_building = results_bb["trading_costs_per_building"]+np.sum(costs_power_from_grid, axis=1)
-    trading_revenue_per_building = results_bb["trading_revenue_per_building"]+np.sum(costs_power_from_grid, axis=1)
-    gain_per_bulding = cost_per_building_without_LEM - trading_costs_per_building + trading_revenue_per_building - revenue_per_building_without_LEM
+    #trading_costs_per_building = results_bb["trading_costs_per_building"]+np.sum(costs_power_from_grid, axis=1)
+    #trading_revenue_per_building = results_bb["trading_revenue_per_building"]+np.sum(costs_power_from_grid, axis=1)
+    #gain_per_bulding = cost_per_building_without_LEM - trading_costs_per_building + trading_revenue_per_building - revenue_per_building_without_LEM
+    # gas is included :)
+    gain_per_bulding = results_dec["total_cost_without_LEM_per_buildung"] - results_bb["total_cost_per_buildung"]
     rel_gain_per_bulding = results_bb["total_cost_per_buildung"]/ results_dec["total_cost_without_LEM_per_buildung"]
 
     av_rel_gain_per_group = np.zeros(9)
@@ -735,7 +895,7 @@ def calc_gain():
     legend_labels = ["User group 1", "User group 2", "User group 3", "User group 4", "User group 5",
                      "User group 6", "User group 7", "User group 8", "User group 9"]
     # Erstellen des Balkendiagramms
-    fig, ax = plt.subplots(figsize=(20, 8))
+    fig, ax = plt.subplots(figsize=(16, 6))
     bar_width = 0.4
     bar_positions = np.arange(num_user_groups)
     bars = ax.bar(bar_positions, av_rel_gain_per_group, bar_width, color=colors[0])
@@ -757,6 +917,8 @@ def calc_gain():
     # Titel
     #plt.title('User Groups Gain')
     # Anzeige des Diagramms
+    save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/rel_savings_per_group.png"
+    plt.savefig(save_path, dpi=300)
     tikzplotlib.save("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/rel_savings_per_group.tex", axis_height ='5 cm',axis_width='15 cm')
     plt.show()
 
@@ -777,7 +939,7 @@ def calc_gain():
     legend_labels = ["User group 1", "User group 2", "User group 3", "User group 4", "User group 5",
                      "User group 6", "User group 7", "User group 8", "User group 9"]
     # Erstellen des Balkendiagramms
-    fig, ax = plt.subplots(figsize=(20, 8))
+    fig, ax = plt.subplots(figsize=(16, 6))
     bar_width = 0.4
     bar_positions = np.arange(num_user_groups)
     bars = ax.bar(bar_positions, av_abs_gain_per_group, bar_width, color=colors[0])
@@ -798,10 +960,15 @@ def calc_gain():
     ax.legend()
     # Titel
     # plt.title('User Groups Gain')
+    save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/abs_gain_per_group.png"
+    plt.savefig(save_path, dpi=300)
     # Anzeige des Diagramms
     tikzplotlib.save(
         "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/abs_gain_per_group.tex", axis_height ='5 cm',axis_width='15 cm')
     plt.show()
+
+
+    ######################### check
 
     volume = 0
     for n_opt in range(par_rh["n_opt"] - int(36/5)-1):
@@ -831,5 +998,61 @@ def calc_gain():
             B[t] = min(from_grid[t], to_grid[t])
 
 
+    ### ------------------------- time series for residual load ------------------------- ###
+
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import pickle
+
+    # Generate random data for four time series
+    np.random.seed(42)  # For reproducibility
+    time_points = np.arange(168)  # Time points from 0 to 167
+    xlabel_fontsize = 16
+    ylabel_fontsize = 16
+    xtick_fontsize = 16
+    ytick_fontsize = 16
+    legend_fontsize = 16
+
+    results = {}
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/subchapter/r5_len1_quantity.p", "rb") as file_res_list:
+        results[str(5)+"_"+str(1)+"_quantity"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/subchapter/r15_len6_quantity.p", "rb") as file_res_list:
+        results[str(15) + "_" + str(6) + "_quantity"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/subchapter/r15_len6_quantity_105.p", "rb") as file_res_list:
+        results["r15_len6_quantity_105"] = pickle.load(file_res_list)
+    with open("C:/Users/jsc/Python/Results/AppliedEnergy/all_results/subchapter/r15_len6_quantity_110.p", "rb") as file_res_list:
+        results["r15_len6_quantity_110"] = pickle.load(file_res_list)
+
+    series1 = results["5_1_quantity"]["residual_load"][8300:8300+168]
+    series2 = results["15_6_quantity"]["residual_load"][8300:8300+168]
+    series3 = results["r15_len6_quantity_105"]["residual_load"][8300:8300+168]
+    series4 = results["r15_len6_quantity_110"]["residual_load"][8300:8300+168]
+
+    # Define the x-axis as days of the week starting from zero
+    days = np.arange(0, 7, 1 / 24)  # 7 days, with 24 points per day (hours)
+
+    # Create the plot
+    plt.figure(figsize=(16, 6))
+
+    plt.plot(days, series1, label='Simple Bids', color="black")
+    plt.plot(days, series2, label='Block bids', color="#CC071E")
+    plt.plot(days, series3, label='Block bids with restriction', color="#FFED00")
+    #plt.plot(time_points, series4, label='Series 4')
+
+    # Set y-axis limits
+    plt.ylim(-180, 80)
+    plt.xlim(0, 7)
+
+    # Add labels and legend
+    plt.xlabel('Day of the week', fontsize=xlabel_fontsize)
+    plt.ylabel('Power in kW', fontsize=ylabel_fontsize)
+    plt.xticks(np.arange(7), ['1', '2', '3', '4', '5', '6', '7'], fontsize=xtick_fontsize)
+    plt.yticks(fontsize=ytick_fontsize)
+    #plt.title('Four Random Time Series')
+    plt.legend(fontsize=legend_fontsize)
+    save_path = "C:/Users/jsc/Python/Results/AppliedEnergy/all_results/pictures/residual_load.png"
+    plt.savefig(save_path, dpi=300)
+    plt.grid(True)
+    plt.show()
 
     return

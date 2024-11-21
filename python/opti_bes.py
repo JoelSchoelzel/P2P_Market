@@ -72,12 +72,12 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             #EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave_appended"][param02], node["ev_dem_leave_appended"][param02 + param01 - 1]])
 
         demands = {
-        "elec": elec,
-        "heat": heat,
-        "dhw": dhw,
-        "COP35": COP35,
-        "COP55": COP55,
-        "PV_GEN": PV_GEN,
+        "elec": node["elec"],
+        "heat": node["heat"],
+        "dhw": node["dhw"],
+        "COP35": node["devs"]["COP_sh35"],
+        "COP55": node["devs"]["COP_sh55"],
+        "PV_GEN": node["pv_power"],
         #"EV_AVAIL": EV_AVAIL,
         #"EV_DEM_LEAVE": EV_DEM_LEAVE,
         }

@@ -10,8 +10,6 @@ from __future__ import division
 import gurobipy as gp
 import numpy as np
 import datetime
-from itertools import islice
-
 
 def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_info, prev_traded, r,
                  is_buying, delta_price, block_length, opti_res, opti_bes_res_buyer):
@@ -43,48 +41,13 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     discretization_input_data = options["discretization_input_data"]
 
     # get elec, heat etc. for optimization n_opt
-    demands = {}
-    elec = {}
-    dhw = {}
-    heat = {}
-    COP35 = {}
-    COP55 = {}
-    PV_GEN = {}
-    #EV_AVAIL = {}
-    #EV_DEM_LEAVE = {}
-
-    for i in range(len(time_steps)):
-        param00 = time_steps[i]
-        param01 = int(dt[param00]/discretization_input_data)
-        param02 = int(par_rh["org_time_steps"][n_opt][i]/discretization_input_data)
-        if param01 < 1:
-            raise ValueError("Interpolation of input data necessary")
-        elif options["number_typeWeeks"] == 0:
-            elec[param00] = np.mean([node["elec"][param02], node["elec"][param02 + param01 - 1]])
-            heat[param00] = np.mean([node["heat"][param02], node["heat"][param02 + param01 - 1]])
-            dhw[param00] = np.mean([node["dhw"][param02], node["dhw"][param02 + param01 - 1]])
-            COP35[param00] = np.mean([node["devs"]["COP_sh35"][param02], node["devs"]["COP_sh35"][param02 + param01 - 1]])
-            COP55[param00] = np.mean([node["devs"]["COP_sh55"][param02], node["devs"]["COP_sh55"][param02 + param01 - 1]])
-            PV_GEN[param00] = np.mean([node["pv_power"][param02], node["pv_power"][param02 + param01 - 1]])
-            #EV_AVAIL[param00] = np.mean([node["ev_avail"][param02], node["ev_avail"][param02 + param01 - 1]])
-            #EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave"][param02], node["ev_dem_leave"][param02 + param01 - 1]])
-        else:
-            elec[param00] = np.mean([node["elec_appended"][param02], node["elec_appended"][param02 + param01 - 1]])
-            heat[param00] = np.mean([node["heat_appended"][param02], node["heat_appended"][param02 + param01 - 1]])
-            dhw[param00] = np.mean([node["dhw_appended"][param02], node["dhw_appended"][param02 + param01 - 1]])
-            COP35[param00] = np.mean([node["devs"]["COP_sh35_appended"][param02], node["devs"]["COP_sh35_appended"][param02 + param01 - 1]])
-            COP55[param00] = np.mean([node["devs"]["COP_sh55_appended"][param02], node["devs"]["COP_sh55_appended"][param02 + param01 - 1]])
-            PV_GEN[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
-            #EV_AVAIL[param00] = np.mean([node["ev_avail_appended"][param02], node["ev_avail_appended"][param02 + param01 - 1]])
-            #EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave_appended"][param02], node["ev_dem_leave_appended"][param02 + param01 - 1]])
-
-        demands = {
-        "elec": elec,
-        "heat": heat,
-        "dhw": dhw,
-        "COP35": COP35,
-        "COP55": COP55,
-        "PV_GEN": PV_GEN,
+    demands = {
+        "elec": node["elec"],
+        "heat": node["heat"],
+        "dhw": node["dhw"],
+        "COP35": node["devs"]["COP_sh35"],
+        "COP55": node["devs"]["COP_sh55"],
+        "PV_GEN": node["pv_power"],
         #"EV_AVAIL": EV_AVAIL,
         #"EV_DEM_LEAVE": EV_DEM_LEAVE,
         }
@@ -492,23 +455,30 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         model.addConstr(sum(power_trade["buyer"][t] for t in time_steps) <= sum(quantity_bid_buyer.values()),
                         name="sum_p_buy")
         # Allow the operation to be adjusted --> operation becomes less energy efficient
-        model.addConstr(sum(p_imp[t] for t in time_steps) <= sum(opti_res[4]["p_imp"][t] for t in time_steps)*1.2,
+        model.addConstr(sum(p_imp[t] for t in time_steps) <= sum(opti_res[4]["p_imp"][t] for t in time_steps)*1.15,
                         name="sum_p_imp")
         # todo: Ineffizienz als Sensitivitätsanalyse
         ## Buyer is not allowed to trade a sell quantity
         model.addConstr(sum(power_trade["seller"][t] for t in time_steps) == 0,
                         name="sum_p_sell")
+        #for t in time_steps:
+        #    model.addConstr(p_imp[t] <= max(opti_res[4]["p_imp"][t]for t in time_steps), f"MaxLoad_{t}")
+        #    model.addConstr(p_sell["chp"][t] <= max(opti_res[8]["chp"][t]for t in time_steps), f"MaxFeedInCHP_{t}")
+        #    model.addConstr(p_sell["pv"][t] <= max(opti_res[8]["pv"][t] for t in time_steps), f"MaxFeedInPV_{t}")
     else:
         model.addConstr(sum(power_trade["buyer"][t] for t in time_steps) == 0,
                         name="sum_p_buy")
-        model.addConstr(sum(p_sell["pv"][t] for t in time_steps) <= sum(opti_res[8]["pv"][t]for t in time_steps)*1.2,
+        model.addConstr(sum(p_sell["pv"][t] for t in time_steps) <= sum(opti_res[8]["pv"][t]for t in time_steps)*1.15,
                         name="sum_p_sell_pv")
-        model.addConstr(sum(p_sell["chp"][t] for t in time_steps) <= sum(opti_res[8]["chp"][t]for t in time_steps)*1.2,
+        model.addConstr(sum(p_sell["chp"][t] for t in time_steps) <= sum(opti_res[8]["chp"][t]for t in time_steps)*1.15,
                         name="sum_p_sell_chp")
         model.addConstr(sum(power_trade["seller"][t] for t in time_steps) <= sum(quantity_bid_seller.values()),
                         name="sum_p_sell")
-        for t in time_steps:
-            model.addConstr(p_sell["chp"][t] <= max(opti_res[8]["chp"][t]for t in time_steps), f"MaxConstraint_{t}")
+        #for t in time_steps:
+        #    model.addConstr(p_sell["chp"][t] <= max(opti_res[8]["chp"][t]for t in time_steps), f"MaxFeedInCHP_{t}")
+        #    model.addConstr(p_sell["pv"][t] <= max(opti_res[8]["pv"][t] for t in time_steps), f"MaxFeedInPV_{t}")
+        #    model.addConstr(p_imp[t] <= max(opti_res[4]["p_imp"][t]for t in time_steps), f"MaxLoad_{t}")
+
 
     p_rated = {}  # rated power of the house connection (elec)
     p_rated["MFH"] = 69282  # Kleinwandlermessung bis 100A

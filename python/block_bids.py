@@ -1,7 +1,5 @@
-import numpy as np
 import copy
 import random
-random.seed(42)
 
 def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes,
                        strategies, block_length):
@@ -30,34 +28,24 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
             bid_strategy = options["bid_strategy"]
             dem_heat = nodes[n]["heat"][t]
             dem_dhw = nodes[n]["dhw"][t]
-            dem_elec = nodes[n]["elec"][t]
-            pv_peak = np.max(nodes[n]["pv_power"])
             p_ch_bat = opti_res[n][5]["bat"][t]
-            p_dch_bat = opti_res[n][6]["bat"][t]
             soc_bat = opti_res[n][3]["bat"][t]
             soc_tes = opti_res[n][3]["tes"][t]
-            heat_hp = opti_res[n][2]["hp35"][t] + opti_res[n][2]["hp55"][t]
-            heat_chp = opti_res[n][2]["chp"][t]
             power_hp = max(opti_res[n][1]["hp35"][t], opti_res[n][1]["hp55"][t])
-            heat_devs = sum([opti_res[n][2]["hp35"][t], opti_res[n][2]["hp55"][t], opti_res[n][2]["chp"][t],
-                             opti_res[n][2]["boiler"][t], dem_dhw * 0.5])
 
             # ------------- COMPUTE BLOCK BIDS -------------
-
             # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
-            # if power_hp >= 0.0 and p_imp > 0.0 and pv_sell == 0:
             if power_hp >= 0.0 and p_imp > 0.0 and pv_sell < 1e-3:
                 block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
                     mar_agent_prosumer[n].compute_hp_bids(p_imp=p_imp, n=n, bid_strategy=bid_strategy, dem_heat=dem_heat,
                                                           dem_dhw=dem_dhw, soc=soc_tes, power_hp=power_hp, options=options,
-                                                          strategies=strategies, weights=weights, heat_hp=heat_hp,
-                                                          heat_devs=heat_devs, node=nodes[n])
+                                                          strategies=strategies, weights=weights)
 
             # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
             elif pv_sell > 0:
                 block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_pv_bids(
-                    dem_elec=dem_elec, soc_bat=soc_bat, p_ch_bat=p_ch_bat, p_dch_bat=p_dch_bat,
-                    pv_sell=pv_sell, pv_peak=pv_peak, n=n, bid_strategy=options["bid_strategy"],
+                    soc_bat=soc_bat, p_ch_bat=p_ch_bat,
+                    pv_sell=pv_sell, n=n, bid_strategy=options["bid_strategy"],
                     strategies=strategies, weights=weights, options=options)
 
 
@@ -66,8 +54,7 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
                 block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
                     mar_agent_prosumer[n].compute_chp_bids(chp_sell=chp_sell, n=n, bid_strategy=bid_strategy,
                                                            dem_heat=dem_heat, dem_dhw=dem_dhw, soc=soc_tes,
-                                                           options=options,strategies=strategies, weights=weights,
-                                                           heat_chp=heat_chp, heat_devs=heat_devs, node=nodes[n])
+                                                           options=options,strategies=strategies, weights=weights)
 
             # when no electricity needs to be bought or sold, compute_empty_bids() of the mar_agent is called
             else:
@@ -77,11 +64,14 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
 
     return block_bid, bes
 
-
-# CALCULATE CRITERIA FOR SORTING BLOCK BIDS (mean price, mean quantity, or characteristic)
 def mean_all(block_bid):
-    """Calculates the mean value of the matching criteria of a block bid.
-     Returns: mean_price, mean_quantity, mean_energy_forced, mean_energy_delayed, bes_id"""
+    """
+    CALCULATE CRITERIA FOR SORTING BLOCK BIDS (mean price, mean quantity, or characteristic)
+
+    Calculates the mean value of the matching criteria of a block bid.
+
+    Returns: mean_price, mean_quantity, mean_energy_forced, mean_energy_delayed, bes_id
+    """
 
     # calculate mean price, mean quantity (stored in block_bid)
     # total_price = 0
