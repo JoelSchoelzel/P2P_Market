@@ -447,12 +447,12 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
 
     # Execute calculation
     model.optimize()
-    #        model.write("model.ilp")
+    # model.write("model.ilp")
 
     # Write errorfile if optimization problem is infeasible or unbounded
     if model.status == gp.GRB.Status.INFEASIBLE or model.status == gp.GRB.Status.INF_OR_UNBD:
         model.computeIIS()
-        f = open('errorfile_hp.txt', 'w')
+        f = open('errorfile_1.txt', 'w')
         f.write(str(datetime.datetime.now()) + '\nThe following constraint(s) cannot be satisfied:\n')
         for c in model.getConstrs():
             if c.IISConstr:

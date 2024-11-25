@@ -3,8 +3,7 @@ import copy
 import random
 random.seed(42)
 
-def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options, nodes,
-                       strategies, block_length):
+def compute_block_bids(bes, opti_res, par_rh, mar_agent_bes, n_opt, options, block_length):
     """
     Compute block bids with length of control horizon for all buildings.
     The bids are created by each building's mar_agent.
@@ -14,74 +13,37 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_prosumer, n_opt, options
         bes (object): inflexible demand is stored in bes for each building
     """
 
-    weights = {}
     block_bid = {}
-
     # ITERATE THROUGH ALL BUILDINGS
     for n in range(len(opti_res)):
         block_bid["bes_" + str(n)] = {}
 
         # GET PARAMETERS AT EACH TIMESTEP T FOR BIDDING
         for t in par_rh["time_steps"][n_opt][0:block_length]:
-            # t = par_rh["time_steps"][n_opt][0]
-            p_imp = opti_res[n][4]["p_imp"][t]
-            chp_sell = opti_res[n][8]["chp"][t]
-            pv_sell = opti_res[n][8]["pv"][t]
-            bid_strategy = options["bid_strategy"]
-            dem_heat = nodes[n]["heat"][t]
-            dem_dhw = nodes[n]["dhw"][t]
-            dem_elec = nodes[n]["elec"][t]
-            pv_peak = np.max(nodes[n]["pv_power"])
-            p_ch_bat = opti_res[n][5]["bat"][t]
-            p_dch_bat = opti_res[n][6]["bat"][t]
-            soc_bat = opti_res[n][3]["bat"][t]
-            soc_tes = opti_res[n][3]["tes"][t]
-            heat_hp = opti_res[n][2]["hp35"][t] + opti_res[n][2]["hp55"][t]
-            heat_chp = opti_res[n][2]["chp"][t]
-            power_hp = max(opti_res[n][1]["hp35"][t], opti_res[n][1]["hp55"][t])
-            heat_devs = sum([opti_res[n][2]["hp35"][t], opti_res[n][2]["hp55"][t], opti_res[n][2]["chp"][t],
-                             opti_res[n][2]["boiler"][t], dem_dhw * 0.5])
+            buying_quantity = opti_res[n][4]["p_imp"][t]  # p_imp
+            selling_quantity = opti_res[n][8]["chp"][t] + opti_res[n][8]["pv"][t]  # chp_sell + pv_sell
 
-            # ------------- COMPUTE BLOCK BIDS -------------
+            # compute bids with ZERO-INTELLIGENCE
+            if options["bid_strategy"] == "zero":
+                block_bid["bes_" + str(n)][t] = mar_agent_bes[n].zero_bids(buying_quantity, selling_quantity)
+            # compute bids with erev-roth learning strategy
+            elif options["bid_strategy"] == "erev_roth_learning":
+                block_bid["bes_" + str(n)][t] = mar_agent_bes[n].erev_roth_learning_bids(buying_quantity, selling_quantity)
+            # TODO: add here q_learning bidding strategy
+            #elif options["bid_strategy"] == "q_learning":
+            #    block_bid["bes_" + str(n)][t] = mar_agent_bes[n].q_learning_bids()
 
-            # when electricity needs to be bought, compute_hp_bids() of the mar_agent is called
-            # if power_hp >= 0.0 and p_imp > 0.0 and pv_sell == 0:
-            if power_hp >= 0.0 and p_imp > 0.0 and pv_sell < 1e-3:
-                block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
-                    mar_agent_prosumer[n].compute_hp_bids(p_imp=p_imp, n=n, bid_strategy=bid_strategy, dem_heat=dem_heat,
-                                                          dem_dhw=dem_dhw, soc=soc_tes, power_hp=power_hp, options=options,
-                                                          strategies=strategies, weights=weights, heat_hp=heat_hp,
-                                                          heat_devs=heat_devs, node=nodes[n])
-
-            # when electricity from pv needs to be sold, compute_pv_bids() of the mar_agent is called
-            elif pv_sell > 0:
-                block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_pv_bids(
-                    dem_elec=dem_elec, soc_bat=soc_bat, p_ch_bat=p_ch_bat, p_dch_bat=p_dch_bat,
-                    pv_sell=pv_sell, pv_peak=pv_peak, n=n, bid_strategy=options["bid_strategy"],
-                    strategies=strategies, weights=weights, options=options)
-
-
-            # when electricity from chp needs to be sold, compute_chp_bids() of the mar_agent is called
-            elif chp_sell > 0:
-                block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = \
-                    mar_agent_prosumer[n].compute_chp_bids(chp_sell=chp_sell, n=n, bid_strategy=bid_strategy,
-                                                           dem_heat=dem_heat, dem_dhw=dem_dhw, soc=soc_tes,
-                                                           options=options,strategies=strategies, weights=weights,
-                                                           heat_chp=heat_chp, heat_devs=heat_devs, node=nodes[n])
-
-            # when no electricity needs to be bought or sold, compute_empty_bids() of the mar_agent is called
-            else:
-                block_bid["bes_" + str(n)][t], bes[n]["unflex"][n_opt] = mar_agent_prosumer[n].compute_empty_bids(n)
-
-        block_bid["bes_" + str(n)] = mar_agent_prosumer[n].one_price(block_bid["bes_" + str(n)], par_rh, n_opt, block_length)
+        block_bid["bes_" + str(n)] = mar_agent_bes[n].one_price(block_bid["bes_" + str(n)], par_rh, n_opt, block_length)
 
     return block_bid, bes
 
 
 # CALCULATE CRITERIA FOR SORTING BLOCK BIDS (mean price, mean quantity, or characteristic)
 def mean_all(block_bid):
-    """Calculates the mean value of the matching criteria of a block bid.
-     Returns: mean_price, mean_quantity, mean_energy_forced, mean_energy_delayed, bes_id"""
+    """
+    Calculates the mean value of the matching criteria of a block bid.
+    Return: mean_price, sum_energy, mean_quantity
+    """
 
     # calculate mean price, mean quantity (stored in block_bid)
     # total_price = 0
@@ -99,23 +61,6 @@ def mean_all(block_bid):
     mean_price = block_bid[t][0]
     mean_quantity = sum_energy / count if count > 0 else 0
     bes_id = bes_id_list[0]
-
-    """# calculate mean energy forced and delayed (stored in new_characs)
-    total_energy_forced = 0
-    total_energy_delayed = 0
-    count_energy_forced = 0
-    count_energy_delayed = 0
-
-    # calculate flexible energy for every bes_id in new_characs for all time_steps in block_bid:
-    for t in list(new_characs[bes_id]["energy_forced"])[:block_length]:
-        total_energy_forced += new_characs[bes_id]["energy_forced"][t]
-        count_energy_forced += 1
-    for t in list(new_characs[bes_id]["energy_delayed"])[:block_length]:
-        total_energy_delayed += new_characs[bes_id]["energy_delayed"][t]
-        count_energy_delayed += 1
-
-    mean_energy_forced = total_energy_forced / count_energy_forced if count > 0 else 0
-    mean_energy_delayed = total_energy_delayed / count_energy_delayed if count > 0 else 0"""
 
     return bes_id, mean_price, sum_energy, mean_quantity
 

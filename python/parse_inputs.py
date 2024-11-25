@@ -509,6 +509,8 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
     devs["css"]["s_COP_sh55"] = np.zeros(8760)  # Assuming hourly data for a year
 
     # Todo: Map devices from district generator to central supply system
+    # Todo: jsc: um es einfacher zu halten, legen wir hier die Leistungen und Kapazitäten der zentralen
+    # Todo: jsc: Anlagen fest. Dementsprechend keine Änderungen im Quartiersgenerator
     '''
     if districtData.centralDevices['capacities']['BAT']:
         devs["css"]["s_bat"]["cap"] = districtData.centralDevices['capacities']['BAT']
@@ -535,110 +537,3 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
     building_params["T_e_mean"] = T_e_mean
 
     return nodes, devs, building_params
-
-def get_design_heat(options, demands, building_params): # gets
-
-    buildings = options["nb_bes"]
-
-    # Calculation of design heat loads per building
-    design_heat = np.zeros(shape=buildings)
-    design_dhw = np.zeros(shape=buildings)
-    daily_mean_heat = np.zeros(shape=buildings)
-    daily_mean_temp = np.zeros(shape=(buildings, 365))
-    for n in range(buildings):
-        design_heat[n] = 1.2 * np.max(demands[n]["heat"] + demands[n]["dhw"])
-        design_dhw[n] = 2 * np.max(demands[n]["dhw"])
-        for t in range(365):
-            # calc daily heat demand in kWh
-            daily_mean_temp[n, t] = np.sum(demands[n]["heat"][24*t:24*t+24]) \
-                                    + np.sum(demands[n]["dhw"][24*t:24*t+24])
-        daily_mean_heat[n] = np.mean(daily_mean_temp[n, :])
-
-    building_params["design"] = design_heat
-    building_params["design_dhw"] = design_dhw
-    building_params["mean_heat"] = daily_mean_heat
-
-    return building_params
-
-def get_ev_dat(ev_raw): # gets EV data from district generator
-
-    # manual parameters for ev
-    ev_param = {}
-    ev_param["soc_nom_ev"] = 35.0  # 35 kWh are the average EV battery capcity # todo: outdated
-    ev_param["soc_init_ev"] = 0.05 * ev_param["soc_nom_ev"]
-    ev_param["eta_ch_ev"] = 0.97
-    ev_param["p_max_ev"] = 11.0  # in kW
-    ev_param["p_min_ev"] = 0
-    ev_param["ev_operation"] = "grid_reactive"  # possible entries are "on_demand", "grid_reactive" and "bi-directional"
-
-    ev_dat = {}
-    # convert 15 min data to hourly data # resolution
-    ev_dat["bed"] = {}
-    ev_dat["bed"]["avail"] = np.zeros(shape=(len(ev_raw["EV_occurrence"][0]), 8760))
-    ev_dat["bed"]["dem_arrive"] = np.zeros(shape=(len(ev_raw["EV_uncontrolled_charging_profile"][0]), 8760))
-    for n in range(len(ev_raw["EV_occurrence"][0])):
-        for t in range(8760):
-            ev_dat["bed"]["avail"][n, t] = np.round(np.sum(ev_raw["EV_occurrence"][t * 4:(t * 4 + 4), n]) / 4)
-
-    daily_dem = ev_raw["EV_daily_demand"]
-
-    # map demand to end of available phase (grid-ractive and bi directional charging)
-    index_leave = {}
-    for i in range(len(ev_dat["bed"]["avail"])):
-        index_leave[i] = ev_dat["bed"]["avail"][i, :-1] > ev_dat["bed"]["avail"][i, 1:]
-        # last charging phase of the year ends with t=T -> set last entry True
-        index_leave[i] = np.append(index_leave[i], True)
-
-    # EVs are still available at t=0 but have been charged the evening before -> delete first True entry
-    for i in range(len(ev_dat["bed"]["avail"])):
-        temp = next(x for x, val in enumerate(index_leave[i]) if val == True)
-        index_leave[i][temp] = False
-
-    ev_dat["bed"]["dem_leave"] = np.zeros([20, 8760]) # resolution
-    for n in range(20):
-        for i in range(1, 365):
-            ev_dat["bed"]["dem_leave"][n, (24 * i):(24 * i + 24)] = index_leave[n][(24 * i):(24 * i + 24)] * daily_dem[
-                n - 1, 0]
-        ev_dat["bed"]["dem_leave"][n, 8759] = index_leave[n][8759] * daily_dem[n, 0]
-
-    # map demands to beginning of available phase (on-demand charging)
-    index_arrive = {}
-    index_temp = {}
-    for i in range(len(ev_dat["bed"]["avail"])):
-        index_temp[i] = ev_dat["bed"]["avail"][i, :-1] < ev_dat["bed"]["avail"][i, 1:]
-        index_arrive[i] = False
-        index_arrive[i] = np.append(index_arrive[i], index_temp[i])
-
-    ev_dat["bed"]["dem_arrive"] = np.zeros([20, 8760])
-    for n in range(20):
-        for i in range(0, 365):
-            ev_dat["bed"]["dem_arrive"][n, (24 * i):(24 * i + 24)] = index_arrive[n][(24 * i):(24 * i + 24)] * \
-                                                                     daily_dem[n, 0]
-
-    ev_dat["demands"] = {}
-    ev_dat["demands"]["bed"] = {}
-    ev_dat["demands"]["bed"]["ev"] = {}
-
-    number_evs_max = len(ev_dat["bed"]["avail"])
-
-    return ev_param, ev_dat, number_evs_max
-
-
-def learning_bidding(): #
-    pars_li = {
-                "rec": 0.08,   # recency parameter for learning intelligence agent [0,1]
-                "exp": 0.99,   # experimentation parameter for learning intelligence agent [0,1]
-                "step": 0.01,  # step size for bidding (zero, learning)
-                "init_prop": dict(buy=0.01, sell=0.01) # initial propensities for learning intelligence agent
-    }
-    #try:
-    #    filename = "results//0.08_scn_1.pkl"  # change name!!!!!!!!!!!!!!!!!!
-    #    with open(filename, "rb") as f:
-    #        init_prop = p.load(f)
-    #
-    #    pars_li["init_prop"] = init_prop
-    #except Exception as e:
-    #    print(e, "Setting new inital propensities.")
-    #    pars_li["init_prop"] = dict(buy=0.01, sell=0.01)  # initial propensities for learning intelligence agent
-
-    return pars_li

@@ -36,21 +36,17 @@ def get_inputs(par_rh, options, districtData):  # gets inputs for optimization
     # Read devices, economic date and other parameters
     nodes, devs, building_params = parse_inputs.map_devices(options, nodes, building_params, par_rh, districtData)
 
-    # Read technical data of the network
-    # TODO: create a pandapower network and extracts node and line information
-    # net_data = net.create_net(options)
-
     return nodes, building_params, params, devs, par_rh
 
 
 def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, enhanced_horizon, month):
     print("""
- _   _           _     ____  _                 _ 
-| \ | | _____  _| |_  / ___|(_)_ __ ___  _   _| |
-|  \| |/ _ \ \/ / __| \___ \| | '_ ` _ \| | | | |
-| |\  |  __/>  <| |_   ___) | | | | | | | |_| | |
-|_| \_|\___/_/\_\\__| |____/|_|_| |_| |_|\__,_|_|
-""")
+     _   _           _     ____  _                 _ 
+    | \ | | _____  _| |_  / ___|(_)_ __ ___  _   _| |
+    |  \| |/ _ \ \/ / __| \___ \| | '_ ` _ \| | | | |
+    | |\  |  __/>  <| |_   ___) | | | | | | | |_| | |
+    |_| \_|\___/_/\_\\__| |____/|_|_| |_| |_|\__,_|_|
+    """)
     print("Start optimization for scenario " + scenario_name + " with calcUserProfiles " + str(calcUserProfiles)
           + " with crit_prio " + crit_prio + ", block_length " + str(block_length)
           + ", enhanced_horizon " + str(enhanced_horizon) + " and month " + str(month) + ".")
@@ -68,10 +64,10 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     data = Datahandler()
     # Bei erstem Durchlauf calcUserProfiles=True und saveUserProfiles=True setzen,
     # danach calcUserProfiles=False und saveUserProfiles=False
-    data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=False)#, designDevs=True)
+    data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=True, saveUserProfiles=False)#, designDevs=True)
     # todo: added designCentralDevices & designDecentralDevices instead of designDevs=True in generateDistrictComplete
     data.designDecentralDevices(saveGenerationProfiles=False)
-    data.designCentralDevices()
+    #data.designCentralDevices()
     # data.clusterProfiles(centralEnergySupply = False)
     districtData = data
 
@@ -89,9 +85,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
                "descending": True,  # True: highest value of chosen has highest priority, False: lowest
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
                "trading_rounds": 0,  # Number of trading rounds for multi round trading, 0 for unlimited
-               "flexible_demands": False,  # True: flexible demands aren't necessarily fulfilled every step
                "number_typeWeeks": 0,  # set 0 in case no type weeks are investigated
-
                "grid": False,  # True -> consider grid constraints, False -> dont
                "discretization_input_data": districtData.time['timeResolution'] / 3600, # in h - for: elec, dhw and heat
                # path to the project
@@ -205,7 +199,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     return mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options
 
 if __name__ == '__main__':
-    for scenario_name in ["AppliedEnergy"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
+    for scenario_name in ["example"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
         first_run = True
         for month in [1]:  # , 7]:
             for block_length in [1]:  # 1, 3, 5]:

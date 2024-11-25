@@ -1,12 +1,9 @@
 from python import opti_bes_negotiation
-from python import characs_single_build
 from python import characteristics
 
 import random
 import copy
 import numpy as np
-from python.last_opti import compute_last_opti
-
 
 def matching(sorted_block_bids):
     """Match the sorted block bids of the buyers to the ones of the sellers.
@@ -27,104 +24,15 @@ def matching(sorted_block_bids):
 
     return matched_bids_info
 
-def matching_nego(sorted_block_bids, matched_pairs):
-    """Match the sorted block bids of the buyers to the ones of the sellers.
-    Returns:
-        matched_bids_info (list): List of all matched block_bids in tuples.
-        Each tuple contains a dict (key [O]= buyer, [1]= seller).
-        Buyer and seller each have a dict (time steps t as key) which contains a
-        list [price, quantity, buying:True/False/None, building_id]"""
-
-    # Create a list of tuples where each tuple contains matched buy and sell bids (1st buy bid matches with 1st
-    # sell bid, 2nd buy bid matches with 2nd sell bid, etc.)
-    matched_bids_info = {}
-    possible_matches = []
-    not_possible_matches = []
-    if len(sorted_block_bids["buy_blocks"]) != 0 and len(sorted_block_bids["sell_blocks"]) != 0:
-        if len(sorted_block_bids["buy_blocks"]) <= len(sorted_block_bids["sell_blocks"]):
-            for b in range(len(sorted_block_bids["buy_blocks"])):
-                if [sorted_block_bids["buy_blocks"][b]["bes_id"], sorted_block_bids["sell_blocks"][b]["bes_id"]] not in matched_pairs:
-                    possible_matches.append([sorted_block_bids["buy_blocks"][b]["bes_id"], sorted_block_bids["sell_blocks"][b]["bes_id"]])
-                else:
-                    not_possible_matches.append([sorted_block_bids["buy_blocks"][b]["bes_id"], sorted_block_bids["sell_blocks"][b]["bes_id"]])
-            x = len(not_possible_matches)
-            max= 0
-            while x > 1 and max < 5:
-                ndarray = np.array(not_possible_matches)
-                # Rotate the second column
-                second_column = ndarray[:, 1]
-                rotated_second_column = np.roll(second_column, 1)
-                ndarray[:, 1] = rotated_second_column
-                # Convert back to list
-                not_possible_matches = ndarray.tolist()
-                not_possible_matches_2 = copy.deepcopy(not_possible_matches)
-                for b in range(x):
-                    if not_possible_matches_2[b] not in matched_pairs:
-                        possible_matches.append(not_possible_matches_2[b])
-                        try:
-                            not_possible_matches.remove(not_possible_matches_2[b])
-                        except:
-                            pass
-                x = len(not_possible_matches)
-                max += 1
-            for i in range(len(possible_matches)):
-                for b in range(len(sorted_block_bids["buy_blocks"])):
-                    if sorted_block_bids["buy_blocks"][b]["bes_id"] == possible_matches[i][0]:
-                        matched_bids_info[i] = [sorted_block_bids["buy_blocks"][b], []]
-                for s in range(len(sorted_block_bids["sell_blocks"])):
-                    if sorted_block_bids["sell_blocks"][s]["bes_id"] == possible_matches[i][1]:
-                        matched_bids_info[i][1] = sorted_block_bids["sell_blocks"][s]
-
-        elif len(sorted_block_bids["sell_blocks"]) < len(sorted_block_bids["buy_blocks"]):
-            for s in range(len(sorted_block_bids["sell_blocks"])):
-                if [sorted_block_bids["buy_blocks"][s]["bes_id"], sorted_block_bids["sell_blocks"][s]["bes_id"]] not in matched_pairs:
-                    possible_matches.append([sorted_block_bids["buy_blocks"][s]["bes_id"], sorted_block_bids["sell_blocks"][s]["bes_id"]])
-                else:
-                    not_possible_matches.append([sorted_block_bids["buy_blocks"][s]["bes_id"], sorted_block_bids["sell_blocks"][s]["bes_id"]])
-            x = len(not_possible_matches)
-            max = 0
-            while x > 1 and max < 5:
-                ndarray = np.array(not_possible_matches)
-                # Rotate the second column
-                second_column = ndarray[:, 1]
-                rotated_second_column = np.roll(second_column, 1)
-                ndarray[:, 1] = rotated_second_column
-                # Convert back to list
-                not_possible_matches = ndarray.tolist()
-                not_possible_matches_2 = copy.deepcopy(not_possible_matches)
-                for b in range(x):
-                    if not_possible_matches_2[b] not in matched_pairs:
-                        possible_matches.append(not_possible_matches_2[b])
-                        try:
-                            not_possible_matches.remove(not_possible_matches_2[b])
-                        except:
-                            pass
-                x = len(not_possible_matches)
-                max += 1
-
-            for i in range(len(possible_matches)):
-                for b in range(len(sorted_block_bids["buy_blocks"])):
-                    if sorted_block_bids["buy_blocks"][b]["bes_id"] == possible_matches[i][0]:
-                        matched_bids_info[i] = [sorted_block_bids["buy_blocks"][b], []]
-                for s in range(len(sorted_block_bids["sell_blocks"])):
-                    if sorted_block_bids["sell_blocks"][s]["bes_id"] == possible_matches[i][1]:
-                        matched_bids_info[i][1] = sorted_block_bids["sell_blocks"][s]
-
-    else:
-        matched_bids_info = []
-        print("No matched bids for this optimization period.")
-
-    return matched_bids_info
-
 # Function to remove all but the first occurrence of sublists starting with the specified number
-def remove_subsequent_sublists(main_list, num, buy):
-    first_found = False
-    for i in range(len(main_list) - 1, -1, -1):
-        if main_list[i][buy] == num:
-            if not first_found:
-                first_found = True
-            else:
-                del main_list[i]
+#def remove_subsequent_sublists(main_list, num, buy):
+#    first_found = False
+#    for i in range(len(main_list) - 1, -1, -1):
+#        if main_list[i][buy] == num:
+#            if not first_found:
+#                first_found = True
+#            else:
+#                del main_list[i]
 
 
 def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_info, sorted_bids, block_length,
@@ -468,7 +376,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                 sorted_bids_nego[r + 1]["buy_blocks"].append(e)
 
         # match all buyers and sellers for the next trading round
-        matched_bids_info_nego[r + 1] = matching_nego(sorted_bids_nego[r + 1], matched_pairs)
+        matched_bids_info_nego[r + 1] = matching_during_negotiation(sorted_bids_nego[r + 1], matched_pairs)
 
         # go to next negotiation trading round
         r += 1
@@ -477,6 +385,95 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     return (nego_transactions, sorted_bids_nego, last_time_step,
             matched_bids_info_nego), opti_res
+
+def matching_during_negotiation(sorted_block_bids, matched_pairs):
+    """Match the sorted block bids of the buyers to the ones of the sellers.
+    Returns:
+        matched_bids_info (list): List of all matched block_bids in tuples.
+        Each tuple contains a dict (key [O]= buyer, [1]= seller).
+        Buyer and seller each have a dict (time steps t as key) which contains a
+        list [price, quantity, buying:True/False/None, building_id]"""
+
+    # Create a list of tuples where each tuple contains matched buy and sell bids (1st buy bid matches with 1st
+    # sell bid, 2nd buy bid matches with 2nd sell bid, etc.)
+    matched_bids_info = {}
+    possible_matches = []
+    not_possible_matches = []
+    if len(sorted_block_bids["buy_blocks"]) != 0 and len(sorted_block_bids["sell_blocks"]) != 0:
+        if len(sorted_block_bids["buy_blocks"]) <= len(sorted_block_bids["sell_blocks"]):
+            for b in range(len(sorted_block_bids["buy_blocks"])):
+                if [sorted_block_bids["buy_blocks"][b]["bes_id"], sorted_block_bids["sell_blocks"][b]["bes_id"]] not in matched_pairs:
+                    possible_matches.append([sorted_block_bids["buy_blocks"][b]["bes_id"], sorted_block_bids["sell_blocks"][b]["bes_id"]])
+                else:
+                    not_possible_matches.append([sorted_block_bids["buy_blocks"][b]["bes_id"], sorted_block_bids["sell_blocks"][b]["bes_id"]])
+            x = len(not_possible_matches)
+            max= 0
+            while x > 1 and max < 5:
+                ndarray = np.array(not_possible_matches)
+                # Rotate the second column
+                second_column = ndarray[:, 1]
+                rotated_second_column = np.roll(second_column, 1)
+                ndarray[:, 1] = rotated_second_column
+                # Convert back to list
+                not_possible_matches = ndarray.tolist()
+                not_possible_matches_2 = copy.deepcopy(not_possible_matches)
+                for b in range(x):
+                    if not_possible_matches_2[b] not in matched_pairs:
+                        possible_matches.append(not_possible_matches_2[b])
+                        try:
+                            not_possible_matches.remove(not_possible_matches_2[b])
+                        except:
+                            pass
+                x = len(not_possible_matches)
+                max += 1
+            for i in range(len(possible_matches)):
+                for b in range(len(sorted_block_bids["buy_blocks"])):
+                    if sorted_block_bids["buy_blocks"][b]["bes_id"] == possible_matches[i][0]:
+                        matched_bids_info[i] = [sorted_block_bids["buy_blocks"][b], []]
+                for s in range(len(sorted_block_bids["sell_blocks"])):
+                    if sorted_block_bids["sell_blocks"][s]["bes_id"] == possible_matches[i][1]:
+                        matched_bids_info[i][1] = sorted_block_bids["sell_blocks"][s]
+
+        elif len(sorted_block_bids["sell_blocks"]) < len(sorted_block_bids["buy_blocks"]):
+            for s in range(len(sorted_block_bids["sell_blocks"])):
+                if [sorted_block_bids["buy_blocks"][s]["bes_id"], sorted_block_bids["sell_blocks"][s]["bes_id"]] not in matched_pairs:
+                    possible_matches.append([sorted_block_bids["buy_blocks"][s]["bes_id"], sorted_block_bids["sell_blocks"][s]["bes_id"]])
+                else:
+                    not_possible_matches.append([sorted_block_bids["buy_blocks"][s]["bes_id"], sorted_block_bids["sell_blocks"][s]["bes_id"]])
+            x = len(not_possible_matches)
+            max = 0
+            while x > 1 and max < 5:
+                ndarray = np.array(not_possible_matches)
+                # Rotate the second column
+                second_column = ndarray[:, 1]
+                rotated_second_column = np.roll(second_column, 1)
+                ndarray[:, 1] = rotated_second_column
+                # Convert back to list
+                not_possible_matches = ndarray.tolist()
+                not_possible_matches_2 = copy.deepcopy(not_possible_matches)
+                for b in range(x):
+                    if not_possible_matches_2[b] not in matched_pairs:
+                        possible_matches.append(not_possible_matches_2[b])
+                        try:
+                            not_possible_matches.remove(not_possible_matches_2[b])
+                        except:
+                            pass
+                x = len(not_possible_matches)
+                max += 1
+
+            for i in range(len(possible_matches)):
+                for b in range(len(sorted_block_bids["buy_blocks"])):
+                    if sorted_block_bids["buy_blocks"][b]["bes_id"] == possible_matches[i][0]:
+                        matched_bids_info[i] = [sorted_block_bids["buy_blocks"][b], []]
+                for s in range(len(sorted_block_bids["sell_blocks"])):
+                    if sorted_block_bids["sell_blocks"][s]["bes_id"] == possible_matches[i][1]:
+                        matched_bids_info[i][1] = sorted_block_bids["sell_blocks"][s]
+
+    else:
+        matched_bids_info = []
+        print("No matched bids for this optimization period.")
+
+    return matched_bids_info
 
 def trade_with_grid(sorted_bids, params, par_rh, n_opt, block_length, opti_res):
 

@@ -543,7 +543,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         print(matched_bids_info[0]["bes_id"])
         model.computeIIS()
         model.write("model.ilp")
-        f = open('errorfile.txt', 'w')
+        f = open('errorfile_2.txt', 'w')
         f.write(str(datetime.datetime.now()) + '\nThe following constraint(s) cannot be satisfied:\n')
         for c in model.getConstrs():
             if c.IISConstr:
