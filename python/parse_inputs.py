@@ -217,7 +217,7 @@ def compute_pars_rh(param, options, districtData): # computes parameters for rol
 
 
     # adjust the following values
-        param["datapoints"] = int(8760/options["discretization_input_data"])
+        #param["datapoints"] = int(8760/options["discretization_input_data"])
 
        # if param["month"] == 0:
        #     param["start_time"] = param["month_start"][1]
@@ -314,105 +314,47 @@ def read_demands(options, districtData, par_rh):
     building_params = {}
     nodes = {}
 
-    if options["number_typeWeeks"] == 0: # input data not clustered
-        pv_exists = np.zeros(shape=(options["nb_bes"], 1))
-        for n in range(options["nb_bes"]):
-            nodes[n] = {
-                "elec": districtData.district[n]['user'].elec,
-                "heat": districtData.district[n]['user'].heat,
-                "dhw": districtData.district[n]['user'].dhw,
-                "T_air": districtData.site['T_e'],
-                "type": districtData.district[n]['user'].building,
-                "ev_dem_arrive": districtData.district[n]['user'].car,
-                #"ev_avail": ev_exists[n] * ev_data["avail"][:, n],
-                #"ev_dem_leave": ev_exists[n] * ev_data["dem_leave"][:, n],
-                # TODO: pv_power correct here? or in map_devices?
-                "pv_power": districtData.district[n]['generationPV'],
-                "devs": {}
-            }
-            nodes[n]["devs"]["COP_sh35"] = np.zeros(len(nodes[0]["T_air"]))
-            nodes[n]["devs"]["COP_sh55"] = np.zeros(len(nodes[0]["T_air"]))
-            pv_exists[n] = districtData.scenario.PV[n]
+    pv_exists = np.zeros(shape=(options["nb_bes"], 1))
+    for n in range(options["nb_bes"]):
+        nodes[n] = {
+            "elec": districtData.district[n]['user'].elec,
+            "heat": districtData.district[n]['user'].heat,
+            "dhw": districtData.district[n]['user'].dhw,
+            "T_air": districtData.site['T_e'],
+            "type": districtData.district[n]['user'].building,
+            "ev_dem_arrive": districtData.district[n]['user'].car,
+            #"ev_avail": ev_exists[n] * ev_data["avail"][:, n],
+            #"ev_dem_leave": ev_exists[n] * ev_data["dem_leave"][:, n],
+            # TODO: pv_power correct here? or in map_devices?
+            "pv_power": districtData.district[n]['generationPV'],
+            "devs": {}
+        }
+        nodes[n]["devs"]["COP_sh35"] = np.zeros(len(nodes[0]["T_air"]))
+        nodes[n]["devs"]["COP_sh55"] = np.zeros(len(nodes[0]["T_air"]))
+        pv_exists[n] = districtData.scenario.PV[n]
 
-            # Check small demand values
-            for t in range(len(nodes[0]["heat"])):
-                if nodes[n]["heat"][t] < 0.01:
-                    nodes[n]["heat"][t] = 0
-                if nodes[n]["dhw"][t] < 0.01:
-                    nodes[n]["dhw"][t] = 0
-                if nodes[n]["elec"][t] < 0.01:
-                    nodes[n]["elec"][t] = 0
-                # todo: pv_power correct here? or in map_devices?
-                # if nodes[n]["pv_power"][t] < 0.01:
-                #    nodes[n]["pv_power"][t] = 0
+        # Check small demand values
+        for t in range(len(nodes[0]["heat"])):
+            if nodes[n]["heat"][t] < 0.01:
+                nodes[n]["heat"][t] = 0
+            if nodes[n]["dhw"][t] < 0.01:
+                nodes[n]["dhw"][t] = 0
+            if nodes[n]["elec"][t] < 0.01:
+                nodes[n]["elec"][t] = 0
+            # todo: pv_power correct here? or in map_devices?
+            # if nodes[n]["pv_power"][t] < 0.01:
+            #    nodes[n]["pv_power"][t] = 0
 
-                # Calculation of Coefficient of Power
-                nodes[n]["devs"]["COP_sh35"][t] = 0.4 * (273.15 + 35) / (35 - nodes[n]["T_air"][t])
-                nodes[n]["devs"]["COP_sh55"][t] = 0.4 * (273.15 + 55) / (55 - nodes[n]["T_air"][t])
+            # Calculation of Coefficient of Power
+            nodes[n]["devs"]["COP_sh35"][t] = 0.4 * (273.15 + 35) / (35 - nodes[n]["T_air"][t])
+            nodes[n]["devs"]["COP_sh55"][t] = 0.4 * (273.15 + 55) / (55 - nodes[n]["T_air"][t])
 
-        building_params["ev_exists"] = np.zeros(shape=(options["nb_bes"], 1))
-        building_params["pv_exists"] = pv_exists
-
-    else: # clustered input data
-        pv_exists = np.zeros(shape=(options["nb_bes"], 1))
-        for k in range(options["number_typeWeeks"]):
-            nodes[k] = {}
-            for n in range(options["nb_bes"]):
-                nodes[k][n] = {
-                    "elec": districtData.district[n]['user'].elec_cluster[k],
-                    "heat": districtData.district[n]['user'].heat_cluster[k],
-                    "dhw": districtData.district[n]['user'].dhw_cluster[k],
-                    "T_air": districtData.site['T_e_cluster'][k],
-                    "type": districtData.district[n]['user'].building,
-                    #"ev_avail": ev_exists[n] * ev_data["avail"][:, n],
-                    #"ev_dem_arrive": ev_exists[n] * ev_data["dem_arrive"][:, n],
-                    #"ev_dem_leave": ev_exists[n] * ev_data["dem_leave"][:, n],
-                    #"pv_power": districtData.district[n]['generation_cluster'][k],
-                    "devs": {}
-                }
-                nodes[k][n]["devs"]["COP_sh35"] = np.zeros(len(nodes[0][0]["T_air"]))
-                nodes[k][n]["devs"]["COP_sh55"] = np.zeros(len(nodes[0][0]["T_air"]))
-                pv_exists[n] = districtData.scenario.PV[n]
-
-                # Check small demand values
-                for t in range(len(nodes[0][0]["heat"])):
-                    if nodes[k][n]["heat"][t] < 0.01:
-                        nodes[k][n]["heat"][t] = 0
-                    if nodes[k][n]["dhw"][t] < 0.01:
-                        nodes[k][n]["dhw"][t] = 0
-                    if nodes[k][n]["elec"][t] < 0.01:
-                        nodes[k][n]["elec"][t] = 0
-                    # todo: pv_power correct here? or in map_devices?
-                    #if nodes[k][n]["pv_power"][t] < 0.01:
-                    #    nodes[k][n]["pv_power"][t] = 0
-
-                    # Calculation of Coefficient of Power
-                    nodes[k][n]["devs"]["COP_sh35"][t] = 0.4 * (273.15 + 35) / (35 - nodes[k][n]["T_air"][t])
-                    nodes[k][n]["devs"]["COP_sh55"][t] = 0.4 * (273.15 + 55) / (55 - nodes[k][n]["T_air"][t])
-
-                append_demands = True # double data for rolling horizon opti
-                if append_demands:
-                    nodes[k][n]["heat_appended"] = np.append(nodes[k][n]["heat"], nodes[k][n]["heat"])
-                    nodes[k][n]["dhw_appended"] = np.append(nodes[k][n]["dhw"], nodes[k][n]["dhw"])
-                    nodes[k][n]["elec_appended"] = np.append(nodes[k][n]["elec"], nodes[k][n]["elec"])
-                    nodes[k][n]["pv_power_appended"] = np.append(nodes[k][n]["pv_power"], nodes[k][n]["pv_power"])
-                    nodes[k][n]["devs"]["COP_sh35_appended"] = np.append(nodes[k][n]["devs"]["COP_sh35"], nodes[k][n]["devs"]["COP_sh35"])
-                    nodes[k][n]["devs"]["COP_sh55_appended"] = np.append(nodes[k][n]["devs"]["COP_sh55"], nodes[k][n]["devs"]["COP_sh55"])
-                    nodes[k][n]["ev_avail_appended"] = np.append(nodes[k][n]["ev_avail"], nodes[k][n]["ev_avail"])
-                    nodes[k][n]["ev_dem_leave_appended"] = np.append(nodes[k][n]["ev_dem_leave"], nodes[k][n]["ev_dem_leave"])
-
-
-        building_params["ev_exists"] = np.zeros(shape=(options["nb_bes"], 1))
-        building_params["pv_exists"] = pv_exists
+    building_params["ev_exists"] = np.zeros(shape=(options["nb_bes"], 1))
+    building_params["pv_exists"] = pv_exists
 
     return nodes, building_params, options
 
-    
 def map_devices(options, nodes, building_params, par_rh, districtData):
-
-    T_e_mean = [] # mean of outdoor temperature
-    for k in range(options["number_typeWeeks"]):
-        T_e_mean.append(np.mean(nodes[k][0]["T_air"]))
 
     devs = {}
     for n in range(options["nb_bes"]):
@@ -472,30 +414,16 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         else:
             pass
 
-        if options["number_typeWeeks"] == 0:
-            nodes[n]["devs"]["bat"] = devs[n]["bat"]
-            nodes[n]["devs"]["eh"] = devs[n]["eh"]
-            nodes[n]["devs"]["hp35"] = devs[n]["hp35"]
-            nodes[n]["devs"]["hp55"] = devs[n]["hp55"]
-            nodes[n]["devs"]["tes"] = devs[n]["tes"]
-            nodes[n]["devs"]["chp"] = devs[n]["chp"]
-            nodes[n]["devs"]["boiler"] = devs[n]["boiler"]
-            nodes[n]["devs"]["ev"] = devs[n]["ev"]
-            nodes[n]["devs"]["bz"] = devs[n]["bz"]
+        nodes[n]["devs"]["bat"] = devs[n]["bat"]
+        nodes[n]["devs"]["eh"] = devs[n]["eh"]
+        nodes[n]["devs"]["hp35"] = devs[n]["hp35"]
+        nodes[n]["devs"]["hp55"] = devs[n]["hp55"]
+        nodes[n]["devs"]["tes"] = devs[n]["tes"]
+        nodes[n]["devs"]["chp"] = devs[n]["chp"]
+        nodes[n]["devs"]["boiler"] = devs[n]["boiler"]
+        nodes[n]["devs"]["ev"] = devs[n]["ev"]
+        nodes[n]["devs"]["bz"] = devs[n]["bz"]
 
-
-        else:
-            for k in range(options["number_typeWeeks"]):
-
-                nodes[k][n]["devs"]["bat"] = devs[n]["bat"].copy()
-                nodes[k][n]["devs"]["eh"] = devs[n]["eh"].copy()
-                nodes[k][n]["devs"]["hp35"] = devs[n]["hp35"].copy()
-                nodes[k][n]["devs"]["hp55"] = devs[n]["hp55"].copy()
-                nodes[k][n]["devs"]["tes"] = devs[n]["tes"].copy()
-                nodes[k][n]["devs"]["chp"] = devs[n]["chp"].copy()
-                nodes[k][n]["devs"]["boiler"] = devs[n]["boiler"].copy()
-                nodes[k][n]["devs"]["ev"] = devs[n]["ev"].copy()
-                nodes[k][n]["devs"]["bz"] = devs[n]["bz"].copy()
 
     # Central supply system
     devs["css"] = {}
@@ -532,8 +460,5 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
     nodes["css"] = {
         "devs": devs["css"]
     }
-
-
-    building_params["T_e_mean"] = T_e_mean
 
     return nodes, devs, building_params

@@ -61,33 +61,22 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     }
 
     # DistrictGenerator -> create district with load and generation profiles
-    data = Datahandler()
+    districtData = Datahandler()
     # Bei erstem Durchlauf calcUserProfiles=True und saveUserProfiles=True setzen,
     # danach calcUserProfiles=False und saveUserProfiles=False
-    data.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=True, saveUserProfiles=False)#, designDevs=True)
+    districtData.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=True, saveUserProfiles=False)#, designDevs=True)
     # todo: added designCentralDevices & designDecentralDevices instead of designDevs=True in generateDistrictComplete
-    data.designDecentralDevices(saveGenerationProfiles=False)
-    #data.designCentralDevices()
-    # data.clusterProfiles(centralEnergySupply = False)
-    districtData = data
-
+    districtData.designDecentralDevices(saveGenerationProfiles=False)
 
     # Set options for energy trading
-    options = {"optimization": "P2P",  # P2P, P2P_typeWeeks
+    options = {"optimization": "P2P",  # P2P
                "bid_strategy": "zero",  # zero for zero-intelligence, learning, devices
                "crit_prio": crit_prio,  # "flex_energy",
                # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
                "block_length": block_length,  # length of block bid in hours
-               "max_trading_rounds": 15,
+               "max_trading_rounds": 15, # Number of trading rounds for multi round trading
                 "negotiation": True,  # True: negotiation, False: auction
-               "enhanced_horizon": enhanced_horizon,  # False: only block bid length, True: all 36hours
-               "flex_price_delta": True,  # True: flex price delta, False: identical delta
-               "descending": True,  # True: highest value of chosen has highest priority, False: lowest
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
-               "trading_rounds": 0,  # Number of trading rounds for multi round trading, 0 for unlimited
-               "number_typeWeeks": 0,  # set 0 in case no type weeks are investigated
-               "grid": False,  # True -> consider grid constraints, False -> dont
-               "discretization_input_data": districtData.time['timeResolution'] / 3600, # in h - for: elec, dhw and heat
                # path to the project
                "path_file": os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                # path to where the result should be stored
@@ -127,10 +116,11 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     # Run (rolling horizon) optimization for whole year or month
     if options["optimization"] == "P2P":
         # run optimization incl. trading
-        mar_dict, characteristics, init_val, results, opti_res, opti_res_check = (
+        mar_dict, characteristics, init_val, results, opti_res, opti_res_check =\
             opti_methods.rolling_horizon_opti(options=options, nodes=nodes, par_rh=par_rh,
                                               building_params=building_params,
-                                              params=params, block_length=options["block_length"]))
+                                              params=params, block_length=options["block_length"],
+                                              districtData=districtData)
 
         scenario_folder = scenario_name.replace("_", " ")
         month_folder = ""
@@ -201,7 +191,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 if __name__ == '__main__':
     for scenario_name in ["example"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
         first_run = True
-        for month in [1]:  # , 7]:
+        for month in [6]:  # , 7]:
             for block_length in [1]:  # 1, 3, 5]:
                 for enhanced_horizon in [False]:  # , True]:
                     for crit_prio in ["quantity"]:  # "flex_energy", "quantity", "random", "flex_quantity"

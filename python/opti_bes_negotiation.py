@@ -14,7 +14,7 @@ from itertools import islice
 
 
 def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_info, prev_traded, r,
-                 is_buying, delta_price, block_length, opti_res, opti_bes_res_buyer):
+                 is_buying, trading_price, block_length, opti_res, opti_bes_res_buyer):
 
     """Optimization model for the buyers and sellers participating in the negotiation. It is the same as the initial
     optimization model run in opti_bes, but with the difference that there are additional constraints and variables
@@ -31,60 +31,20 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # Extract parameters
     dt = par_rh["duration"][n_opt]
-    if options["enhanced_horizon"]:
-        time_steps = par_rh["time_steps"][n_opt]
-    else:
-        time_steps = par_rh["time_steps"][n_opt][0:block_length]
-
-    # Durations of time steps # for aggregated RH
-    #duration = par_rh["duration"][n_opt]
-
-    # get relevant input data (elec, dhw, heat) for prediction horizon
-    discretization_input_data = options["discretization_input_data"]
+    # todo:
+    #if first_opti == "True":
+    #    time_steps = par_rh["time_steps"][n_opt]
+    #else:
+    time_steps = par_rh["time_steps"][n_opt][0:block_length]
 
     # get elec, heat etc. for optimization n_opt
-    demands = {}
-    elec = {}
-    dhw = {}
-    heat = {}
-    COP35 = {}
-    COP55 = {}
-    PV_GEN = {}
-    #EV_AVAIL = {}
-    #EV_DEM_LEAVE = {}
-
-    for i in range(len(time_steps)):
-        param00 = time_steps[i]
-        param01 = int(dt[param00]/discretization_input_data)
-        param02 = int(par_rh["org_time_steps"][n_opt][i]/discretization_input_data)
-        if param01 < 1:
-            raise ValueError("Interpolation of input data necessary")
-        elif options["number_typeWeeks"] == 0:
-            elec[param00] = np.mean([node["elec"][param02], node["elec"][param02 + param01 - 1]])
-            heat[param00] = np.mean([node["heat"][param02], node["heat"][param02 + param01 - 1]])
-            dhw[param00] = np.mean([node["dhw"][param02], node["dhw"][param02 + param01 - 1]])
-            COP35[param00] = np.mean([node["devs"]["COP_sh35"][param02], node["devs"]["COP_sh35"][param02 + param01 - 1]])
-            COP55[param00] = np.mean([node["devs"]["COP_sh55"][param02], node["devs"]["COP_sh55"][param02 + param01 - 1]])
-            PV_GEN[param00] = np.mean([node["pv_power"][param02], node["pv_power"][param02 + param01 - 1]])
-            #EV_AVAIL[param00] = np.mean([node["ev_avail"][param02], node["ev_avail"][param02 + param01 - 1]])
-            #EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave"][param02], node["ev_dem_leave"][param02 + param01 - 1]])
-        else:
-            elec[param00] = np.mean([node["elec_appended"][param02], node["elec_appended"][param02 + param01 - 1]])
-            heat[param00] = np.mean([node["heat_appended"][param02], node["heat_appended"][param02 + param01 - 1]])
-            dhw[param00] = np.mean([node["dhw_appended"][param02], node["dhw_appended"][param02 + param01 - 1]])
-            COP35[param00] = np.mean([node["devs"]["COP_sh35_appended"][param02], node["devs"]["COP_sh35_appended"][param02 + param01 - 1]])
-            COP55[param00] = np.mean([node["devs"]["COP_sh55_appended"][param02], node["devs"]["COP_sh55_appended"][param02 + param01 - 1]])
-            PV_GEN[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
-            #EV_AVAIL[param00] = np.mean([node["ev_avail_appended"][param02], node["ev_avail_appended"][param02 + param01 - 1]])
-            #EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave_appended"][param02], node["ev_dem_leave_appended"][param02 + param01 - 1]])
-
-        demands = {
-        "elec": elec,
-        "heat": heat,
-        "dhw": dhw,
-        "COP35": COP35,
-        "COP55": COP55,
-        "PV_GEN": PV_GEN,
+    demands = {
+        "elec": node["elec"],
+        "heat": node["heat"],
+        "dhw": node["dhw"],
+        "COP35": node["devs"]["COP_sh35"],
+        "COP55": node["devs"]["COP_sh55"],
+        "PV_GEN": node["pv_power"],
         #"EV_AVAIL": EV_AVAIL,
         #"EV_DEM_LEAVE": EV_DEM_LEAVE,
         }
@@ -173,27 +133,11 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     # Import bid power quantity and bid price of matched trading partners
     quantity_bid_seller = {}
     quantity_bid_buyer = {}
-    price_bid_buyer = {}
-    price_bid_seller = {}
 
     # quantity and price of the buyer and seller is only set for block length
-    if options["enhanced_horizon"]:
-        for t in time_steps[0:block_length]:
-            price_bid_buyer[t] = matched_bids_info[0][t][0]
-            quantity_bid_buyer[t] = matched_bids_info[0][t][1]
-            price_bid_seller[t] = matched_bids_info[1][t][0]
-            quantity_bid_seller[t] = matched_bids_info[1][t][1]
-        for t in time_steps[block_length:]:
-            price_bid_buyer[t] = 0
-            quantity_bid_buyer[t] = 0
-            price_bid_seller[t] = 0
-            quantity_bid_seller[t] = 0
-    else:
-        for t in time_steps:
-            price_bid_buyer[t] = matched_bids_info[0][t][0]
-            quantity_bid_buyer[t] = matched_bids_info[0][t][1]
-            price_bid_seller[t] = matched_bids_info[1][t][0]
-            quantity_bid_seller[t] = matched_bids_info[1][t][1]
+    for t in time_steps:
+        quantity_bid_buyer[t] = matched_bids_info[0][t][1]
+        quantity_bid_seller[t] = matched_bids_info[1][t][1]
 
     # Electricity imports, sold and self-used electricity
     p_imp = {}
@@ -262,10 +206,10 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # Costs and revenues of trade
     if is_buying:
-        model.addConstr(cost_trade == sum(power_trade["buyer"][t] * delta_price[t] for t in time_steps),
+        model.addConstr(cost_trade == sum(power_trade["buyer"][t] * trading_price[t] for t in time_steps),
                         name="Power_trade_costs")
     else:
-        model.addConstr(revenue_trade == sum(power_trade["seller"][t] * delta_price[t] for t in time_steps),
+        model.addConstr(revenue_trade == sum(power_trade["seller"][t] * trading_price[t] for t in time_steps),
                         name="Power_trade_revenue")
 
     # --------------- TECHNICAL CONSTRAINTS ---------------
@@ -491,22 +435,25 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         # Trading quantity during negotiation is limited by the bid quantity
         model.addConstr(sum(power_trade["buyer"][t] for t in time_steps) <= sum(quantity_bid_buyer.values()),
                         name="sum_p_buy")
-        # Allow the operation to be adjusted --> operation becomes less energy efficient
+        # Limitation of imported electricity volumes (more electricity needed through flexibility
+        # utilisation and heat losses) based on the initial bids
+        # todo: Ineffizienz als Sensitivitätsanalyse
         model.addConstr(sum(p_imp[t] for t in time_steps) <= sum(opti_res[4]["p_imp"][t] for t in time_steps)*1.2,
                         name="sum_p_imp")
-        # todo: Ineffizienz als Sensitivitätsanalyse
         ## Buyer is not allowed to trade a sell quantity
         model.addConstr(sum(power_trade["seller"][t] for t in time_steps) == 0,
                         name="sum_p_sell")
     else:
         model.addConstr(sum(power_trade["buyer"][t] for t in time_steps) == 0,
                         name="sum_p_buy")
-        model.addConstr(sum(p_sell["pv"][t] for t in time_steps) <= sum(opti_res[8]["pv"][t]for t in time_steps)*1.2,
-                        name="sum_p_sell_pv")
+        # Limitation of exported electricity volumes (more electricity generation through flexibility
+        # utilisation and heat losses) based on the initial bids
         model.addConstr(sum(p_sell["chp"][t] for t in time_steps) <= sum(opti_res[8]["chp"][t]for t in time_steps)*1.2,
                         name="sum_p_sell_chp")
+        # The sum of power_trade cannot be greater than total trading quantity of the block bid
         model.addConstr(sum(power_trade["seller"][t] for t in time_steps) <= sum(quantity_bid_seller.values()),
                         name="sum_p_sell")
+        # Limiting the load peak within the block bid based on the initial bids
         for t in time_steps:
             model.addConstr(p_sell["chp"][t] <= max(opti_res[8]["chp"][t]for t in time_steps), f"MaxConstraint_{t}")
 
@@ -525,8 +472,6 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         model.addConstr((1 - y["house_load"][t]) * ratedPower >= p_sell["pv"][t] + p_sell["chp"][t],
                         name="binary_export_" + str(t))  #+ power_trade["seller"][t]
 
-
-
     # Set solver parameters
     model.Params.TimeLimit = params["gp"]["time_limit"]
     model.Params.MIPGap = params["gp"]["mip_gap"]
@@ -535,7 +480,6 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # Execute calculation
     model.optimize()
-
 
     # Write errorfile if optimization problem is infeasible or unbounded
     if model.status == gp.GRB.Status.INFEASIBLE or model.status == gp.GRB.Status.INF_OR_UNBD:
@@ -605,11 +549,11 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     res_p_grid_sell = {(t): p_grid_sell[t].X for t in time_steps}
 
     if is_buying:
-        res_price_trade = {(t): delta_price[t] for t in time_steps}
+        res_price_trade = {(t): trading_price[t] for t in time_steps}
         res_power_trade = {(t): power_trade["buyer"][t].X for t in time_steps}
         res_prev_trade = {(t): prev_trade["buyer"][t].X for t in time_steps}
     else:
-        res_price_trade = {(t): delta_price[t] for t in time_steps}
+        res_price_trade = {(t): trading_price[t] for t in time_steps}
         res_power_trade = {(t): power_trade["seller"][t].X for t in time_steps}
         res_prev_trade = {(t): prev_trade["seller"][t].X for t in time_steps}
 
@@ -701,7 +645,7 @@ def replace_opti_res(opti_res, opti_res_block_bid, par_rh, n_opt):
 
     return opti_res
 
-def compute_initial_values_block(nb_buildings, opti_res, last_time_step, length_block_bid):
+def initial_values_block(nb_buildings, opti_res, block_bid_time_steps, length_block_bid):
     """
     Computes the SoC values for each BES at the last time step of the block bid
     for the current optimization step.
@@ -712,6 +656,9 @@ def compute_initial_values_block(nb_buildings, opti_res, last_time_step, length_
     init_val_block: dict with SoC values of all BES at the last time step of the block bid for the
     current optimization step
     """
+    # Get the last time step of the block bid
+    last_time_step = block_bid_time_steps[-1]
+
     init_val_block = {}
     # create dict to store initial values of all BES
     for n in range(nb_buildings):

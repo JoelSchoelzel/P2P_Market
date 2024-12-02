@@ -29,55 +29,15 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     first_time_step = time_steps[0]
     last_time_step = time_steps[-1]
     time_steps_block_bid = [time_steps[0], time_steps[1], time_steps[2], time_steps[3]]
-    # Durations of time steps # for aggregated RH
-    #duration = par_rh["duration"][n_opt]
-
-    # get relevant input data (elec, dhw, heat) for prediction horizon
-    discretization_input_data = options["discretization_input_data"]
 
     # get elec, heat etc. for optimization n_opt
-    demands = {}
-    elec = {}
-    dhw = {}
-    heat = {}
-    COP35 = {}
-    COP55 = {}
-    PV_GEN = {}
-    #EV_AVAIL = {}
-    #EV_DEM_LEAVE = {}
-
-    for i in range(len(time_steps)):
-        param00 = time_steps[i]
-        param01 = int(dt[param00]/discretization_input_data)
-        param02 = int(par_rh["org_time_steps"][n_opt][i]/discretization_input_data)
-        if param01 < 1:
-            raise ValueError("Interpolation of input data necessary")
-        elif options["number_typeWeeks"] == 0:
-            elec[param00] = np.mean([node["elec"][param02], node["elec"][param02 + param01 - 1]])
-            heat[param00] = np.mean([node["heat"][param02], node["heat"][param02 + param01 - 1]])
-            dhw[param00] = np.mean([node["dhw"][param02], node["dhw"][param02 + param01 - 1]])
-            COP35[param00] = np.mean([node["devs"]["COP_sh35"][param02], node["devs"]["COP_sh35"][param02 + param01 - 1]])
-            COP55[param00] = np.mean([node["devs"]["COP_sh55"][param02], node["devs"]["COP_sh55"][param02 + param01 - 1]])
-            #PV_GEN[param00] = np.mean([node["pv_power"][param02], node["pv_power"][param02 + param01 - 1]])
-            #EV_AVAIL[param00] = np.mean([node["ev_avail"][param02], node["ev_avail"][param02 + param01 - 1]])
-            #EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave"][param02], node["ev_dem_leave"][param02 + param01 - 1]])
-        else:
-            elec[param00] = np.mean([node["elec_appended"][param02], node["elec_appended"][param02 + param01 - 1]])
-            heat[param00] = np.mean([node["heat_appended"][param02], node["heat_appended"][param02 + param01 - 1]])
-            dhw[param00] = np.mean([node["dhw_appended"][param02], node["dhw_appended"][param02 + param01 - 1]])
-            COP35[param00] = np.mean([node["devs"]["COP_sh35_appended"][param02], node["devs"]["COP_sh35_appended"][param02 + param01 - 1]])
-            COP55[param00] = np.mean([node["devs"]["COP_sh55_appended"][param02], node["devs"]["COP_sh55_appended"][param02 + param01 - 1]])
-            #[param00] = np.mean([node["pv_power_appended"][param02], node["pv_power_appended"][param02 + param01 - 1]])
-            #EV_AVAIL[param00] = np.mean([node["ev_avail_appended"][param02], node["ev_avail_appended"][param02 + param01 - 1]])
-            #EV_DEM_LEAVE[param00] = np.mean([node["ev_dem_leave_appended"][param02], node["ev_dem_leave_appended"][param02 + param01 - 1]])
-
-        demands = {
-        "elec": elec,
-        "heat": heat,
-        "dhw": dhw,
-        "COP35": COP35,
-        "COP55": COP55,
-        "PV_GEN": PV_GEN,
+    demands = {
+        "elec": node["elec"],
+        "heat": node["heat"],
+        "dhw": node["dhw"],
+        "COP35": node["devs"]["COP_sh35"],
+        "COP55": node["devs"]["COP_sh55"],
+        "PV_GEN": node["pv_power"],
         #"EV_AVAIL": EV_AVAIL,
         #"EV_DEM_LEAVE": EV_DEM_LEAVE,
         }
@@ -288,11 +248,11 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
         # Degree of efficiency of EH is 1
         model.addConstr(power["eh"][t] == heat["eh"][t], name="Power_equation_EH_" + str(t))
 
-    '''# Solar components
+    # Solar components
     for dev in solar:
         for t in time_steps:
             model.addConstr(power[dev][t] == demands["PV_GEN"][t],
-                            name="Solar_electrical_" + dev + "_" + str(t))'''
+                            name="Solar_electrical_" + dev + "_" + str(t))
 
     # %% BUILDING STORAGES # %% DOMESTIC FLEXIBILITIES
 

@@ -1,9 +1,10 @@
 import numpy as np
 import copy
 import random
-random.seed(42)
+from python import characteristics
 
-def compute_block_bids(bes, opti_res, par_rh, mar_agent_bes, n_opt, options, block_length):
+
+def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_length):
     """
     Compute block bids with length of control horizon for all buildings.
     The bids are created by each building's mar_agent.
@@ -35,8 +36,77 @@ def compute_block_bids(bes, opti_res, par_rh, mar_agent_bes, n_opt, options, blo
 
         block_bid["bes_" + str(n)] = mar_agent_bes[n].one_price(block_bid["bes_" + str(n)], par_rh, n_opt, block_length)
 
-    return block_bid, bes
+    return block_bid
 
+def compute_block_bids_during_negotiation(matched_bids, r, match, remaining_demand, block_bid_time_steps, nodes,
+                                          block_length, buyer_id, opti_bes_res_buyer, opti_res, buy_list_next_round,
+                                          remaining_supply, seller_id, opti_bes_res_seller, sell_list_next_round):
+    new_sum_energy = 0
+
+    # add bids only if there is untraded demand
+    if sum(remaining_demand.values()) > 1e-3:
+        add_buy_bid = True
+    else:
+        add_buy_bid = False
+    # add unsatisfied buyers and sellers to next trading round with remaining demand/supply
+    if add_buy_bid == True:
+        block_bid = {}
+        # copy_of_buy_bid = copy.deepcopy(matched_bids_info_nego[r][match][0])
+        for t in block_bid_time_steps:
+            # Subtract the traded power from the original demand to get the new remaining demand
+            block_bid[t] = [matched_bids[r][match][0][t][0],  # price
+                            max(0, remaining_demand[t]),  # remaining demand
+                            'True',  # True --> buying
+                            matched_bids[r][match][0][t][3]  # bes_id
+                            ]
+            new_sum_energy += block_bid[t][1]
+        block_bid["bes_id"] = matched_bids[r][match][0][t][3]
+        block_bid["quantity"] = new_sum_energy / len(block_bid_time_steps)
+        block_bid["sum_energy"] = new_sum_energy
+        block_bid["total_price"] = matched_bids[r][match][0][t][0]
+        block_bid["ignored_demand"] = matched_bids[r][match][0]["ignored_demand"]
+        flex_energy = characteristics.calc_characs_single(nodes=nodes, block_length=block_length,
+                                                          bes_id=buyer_id, soc_state=opti_bes_res_buyer["res_soc"],
+                                                          opti_res=opti_res[buyer_id], buyer=True)
+
+        block_bid["flex_energy"] = flex_energy
+        ### add block bid with remaining demand to next round
+        buy_list_next_round.append(block_bid)
+
+    # add bids only if there is untraded supply
+    if sum(remaining_supply.values()) > 1e-3:
+        add_sell_bid = True
+    else:
+        add_sell_bid = False
+    if add_sell_bid == True:
+        block_bid = {}
+        # copy_of_sell_bid = copy.deepcopy(matched_bids_info_nego[r][match][1])
+        for t in block_bid_time_steps:
+            # Subtract the traded power from the original supply to get the new remaining supply
+            block_bid[t] = [matched_bids[r][match][1][t][0],  # price
+                            max(0, remaining_supply[t]),
+                            # remaining demand
+                            'False',  # False --> selling
+                            matched_bids[r][match][1][t][3]  # bes_id
+                            ]
+            # copy_of_buy_bid[t][1] = new_remaining_demand[t]
+            # new_total_price += copy_of_buy_bid[t][0]
+            # count += 1
+            new_sum_energy += block_bid[t][1]
+        block_bid["bes_id"] = matched_bids[r][match][1][t][3]
+        block_bid["quantity"] = new_sum_energy / len(block_bid_time_steps)
+        block_bid["sum_energy"] = new_sum_energy
+        block_bid["total_price"] = matched_bids[r][match][1][t][0]
+        block_bid["ignored_demand"] = matched_bids[r][match][1]["ignored_demand"]
+        flex_energy = characteristics.calc_characs_single(nodes=nodes, block_length=block_length,
+                                                          bes_id=seller_id, soc_state=opti_bes_res_seller["res_soc"],
+                                                          opti_res=opti_res[seller_id], buyer=False)
+
+        block_bid["flex_energy"] = flex_energy
+        ### add block bid with remaining supply to next round
+        sell_list_next_round.append(block_bid)
+
+    return buy_list_next_round, sell_list_next_round
 
 # CALCULATE CRITERIA FOR SORTING BLOCK BIDS (mean price, mean quantity, or characteristic)
 def mean_all(block_bid):
@@ -64,18 +134,10 @@ def mean_all(block_bid):
 
     return bes_id, mean_price, sum_energy, mean_quantity
 
-
-def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
-    """All block bids are sorted by the criteria specified in options["crit_prio"].
-    Returns:
-        block_bids (nested dict): {buy/sell: position i: time steps t0-t2: [p, q, n]} """
-
+def seperate_block_bids(block_bid, characs):
+    # ------------------- SEPARATE BLOCK BIDS INTO BUY AND SELL LISTS ------------------- #
     buy_list = []  # list for all buying bids
     sell_list = []  # list for all selling bids
-    sorted_buy_list = []  # list for all sorted buying bids
-    sorted_sell_list = []  # list for all sorted selling bids
-
-    # ------------------- SEPARATE BLOCK BIDS INTO BUY AND SELL LISTS -------------------
     for n in range(len(block_bid)):  # iterate through buildings
         # Add str whether buying or not to bool_list
         bool_list = []
@@ -127,8 +189,7 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
                 bid_info = {"ignored_demand": False}
 
             # append block_bid_info to sell_list
-            bes_id, mean_price, sum_energy, mean_quantity \
-                = mean_all(block_bid=sell_list[i])
+            bes_id, mean_price, sum_energy, mean_quantity = mean_all(block_bid=sell_list[i])
             # add flexible energy forced & delayed to sell_list (only first timestep, since it is calculated for 36h)
             sell_block_bid_info = {"bes_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
                                    "quantity": mean_quantity,
@@ -163,35 +224,37 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
             if buy_block_bid_info["quantity"] == 0:
                 del buy_list[i]
 
+    return buy_list, sell_list
+
+def sort_block_bids(options, buy_list, sell_list, sorted_bids, r):
+    """
+    All block bids are sorted by the criteria specified in options["crit_prio"].
+    Returns:
+        block_bids (nested dict): {buy/sell: position i: time steps t0-t2: [p, q, n]}
+    """
+
     # ------------------- SORT BLOCK BIDS BY CRITERIA DEFINED IN OPTIONS -------------------
 
     # sort buy_list and sell_list by mean price of block_bids if mean price has been specified as criteria in options
     if options["crit_prio"] == "mean_price":
-        # highest paying and lowest asking first if descending has been set True in options
-        if options["descending"]:
-            sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_price"], reverse=True)
-            sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_price"], reverse=True)
+        sorted_buy_list = sorted(buy_list, key=lambda x: x["mean_price"], reverse=True)
+        sorted_sell_list = sorted(sell_list, key=lambda x: x["mean_price"], reverse=True)
 
     # sort buy_list and sell_list by mean quantity if mean quantity has been specified as criteria in options
     elif options["crit_prio"] == "quantity":
-        # highest quantity first if descending has been set True in options
-        if options["descending"]:
-            sorted_buy_list = sorted(buy_list, key=lambda x: x["quantity"], reverse=True)
-            sorted_sell_list = sorted(sell_list, key=lambda x: x["quantity"], reverse=True)
+        sorted_buy_list = sorted(buy_list, key=lambda x: x["quantity"], reverse=True)
+        sorted_sell_list = sorted(sell_list, key=lambda x: x["quantity"], reverse=True)
 
     elif options["crit_prio"] == "flex_quantity":
-        if options["descending"]:
-            sorted_sell_list = sorted(sell_list, key=lambda x: x["quantity"], reverse=True)
-            sorted_buy_list = sorted(buy_list, key=lambda x: x["flex_energy"], reverse=True)
+        sorted_sell_list = sorted(sell_list, key=lambda x: x["quantity"], reverse=True)
+        sorted_buy_list = sorted(buy_list, key=lambda x: x["flex_energy"], reverse=True)
 
     # sort buy_list and sell_list by flexible mean energy if mean energy has been specified as criteria in options
     elif options["crit_prio"] == "flex_energy":
-        # highest energy flexibility of seller (lowest flexibility of buyer) first if descending has been set True in options
-        if options["descending"]:
-            # most flexible seller is the one, that can sell less than given in sell quantity (soc of tes is low -> energy_forced high)
-            sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"]], reverse=True)  # delayed
-            # least flexible buyer is the one, that can not buy less than given buy quantity (soc of tes is low -> energy_delayed low)
-            sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"]])
+        # most flexible seller is the one, that can sell less than given in sell quantity (soc of tes is low -> energy_forced high)
+        sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"]], reverse=True)  # delayed
+        # least flexible buyer is the one, that can not buy less than given buy quantity (soc of tes is low -> energy_delayed low)
+        sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"]])
 
     elif options["crit_prio"] == "random":
         sorted_buy_list = buy_list
@@ -201,7 +264,11 @@ def sort_block_bids(block_bid, options, characs, n_opt, par_rh):
         random.shuffle(sorted_sell_list)
 
     # STORE SORTED BUY AND SELL LISTS IN ONE DICTIONARY TO RETURN
-    sorted_block_bids = {"buy_blocks": sorted_buy_list,
+    if r == False:
+        sorted_bids[0] = {"buy_blocks": sorted_buy_list,
                          "sell_blocks": sorted_sell_list}
+    else:
+        sorted_bids[r+1] = {"buy_blocks": sorted_buy_list,
+                          "sell_blocks": sorted_sell_list}
 
-    return sorted_block_bids, sell_list, buy_list
+    return sorted_bids

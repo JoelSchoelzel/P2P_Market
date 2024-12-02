@@ -1,5 +1,6 @@
 import numpy as np
-
+from python.css_functions.solar import Sun
+import python.css_functions.wind_turbines as wind_turbines
 
 class mar_agent_bes(object):
     """
@@ -220,215 +221,38 @@ class mar_agent_bes(object):
 # TODO: Implement the market agent for the central supply system (CSS) that creates the bids.
 class mar_agent_css(object):
     """Market agent for the central supply system (CSS) that creates the bids."""
-    def __init__(self, options, par_rh, node):
+    def __init__(self, options, districtData):
         self.p_min = options["p_min"] + 0.001
         self.p_max = options["p_max"] - 0.001
-        self.p = {}
-        self.q = {}
-        self.dt = next(iter(par_rh["duration"][0].values()))
-        # self.soc_nom_tes = node.get("devs", {}).get("tes", {}).get("cap", 0)
-        #self.soc_nom_bat = node["devs"]["bat"]["cap"]
-        #self.power_nom_bat = node["devs"]["bat"]["max_ch"]
-        #self.heat_hp_min = 0
-        #self.heat_hp_max = node["devs"]["hp35"]["cap"] + node["devs"]["hp55"]["cap"]
-        #self.heat_chp_min = 0
-        #self.heat_chp_max = node["devs"]["chp"]["cap"]
-        #self.eta_ch = node["devs"]["tes"]["eta_ch"]
-        #self.eta_dch = node["devs"]["tes"]["eta_dch"]
+        self.filePath = districtData.filePath
+        self.time = districtData.time
+        self.site = districtData.site
 
+        self.pv_area = 100 # m^2
+        self.wind_turbine_model = "WT_Enercon_E40" # csv: wind_speed in m/s; power in kW
+        self.bat_capacity = 300 # kWh
+        self.bat_soc_max = 0.9 # 0.9 = 90% of the capacity
+        self.bat_soc_min = 0.1  # 0.1 = 10% of the capacity
+        self.bat_eta = 0.97 # 0.97 --> 3% losses during charging
+        self.bat_soc_ch_max = 0.5 # 0.5 = 50% of capacity as charging power in kW
+        self.bat_soc_dch_max = 0.5 # 0.5 = 50% of capacity as charging power in kW
 
-    def compute_zero_bids(self, n, p_imp, dem_heat, soc, power_hp, options, p_min, p_max,
-                          energy_range, buy_price_range, sell_price_range, node):
-        ''' Create zero bids for the CSS based on random intelligence. '''
-        bids = []
+        self.pv_power, self.wind_power = self.generation()
 
-        if 's_hp35' in node["devs"] or 's_hp55' in node["devs"]:
-            q = np.random.uniform(*energy_range)
-            p = np.random.randint(self.p_min * 1000, self.p_max * 1000) / 1000
-            buying = str("True")
-            bids.append([p, q, buying, n])
+    def generation(self):
 
-        if 's_bat' in node["devs"]:
-            q = np.random.uniform(*energy_range)
-            p = np.random.uniform(*buy_price_range)
-            buying = str("True")
-            bids.append([p, q, buying, n])
+        global sun
+        sun = Sun(filePath=self.filePath)
+        # calculate theoretical PV generation
+        potentialPV, defaultSTC = \
+            sun.calcPVAndSTCProfile(time=self.time,
+                                    site=self.site,
+                                    area_roof=self.pv_area,
+                                    beta=[35], # In Germany, this is a roof pitch between 30 and 35 degrees
+                                    gamma=[0], # surface azimuth angles (Orientation to the south: 0°)
+                                    usageFactorPV=1,
+                                    usageFactorSTC=0)
 
-            q = np.random.uniform(*energy_range)
-            p = np.random.uniform(*sell_price_range)
-            buying = str("False")
-            bids.append([p, q, buying, n])
+        potentialWIND = wind_turbines.wind_turbine_generation(self.site["wind_speed"], self.wind_turbine_model)
 
-        if 's_pv' in node["devs"]:
-            q = np.random.uniform(*energy_range)
-            p = np.random.uniform(*sell_price_range)
-            buying = str("False")
-            bids.append([p, q, buying, n])
-
-        if 's_wind' in node["devs"]:
-            q = np.random.uniform(*energy_range)
-            p = np.random.uniform(*sell_price_range)
-            buying = str("False")
-            bids.append([p, q, buying, n])
-
-        return bids
-"""
-    def compute_learning_bids(self, n, p_imp, dem_heat, soc, power_hp, options, strategies, weights, node):
-        ''' Create learning bids for the CSS based on predefined strategies and weights. '''
-        bids = []
-
-        if 's_hp35' in node["devs"] or 's_hp55' in node["devs"]:
-            price = np.random.choice(strategies, p=weights["css_hp_buy"])
-            energy_quantity = p_imp
-            buying = str("True")
-            bids.append([price, energy_quantity, buying, n])
-
-        if 's_bat' in node["devs"]:
-            price = np.random.choice(strategies, p=weights["css_bat_buy"])
-            energy_quantity = p_imp
-            buying = str("True")
-            bids.append([price, energy_quantity, buying, n])
-
-            price = np.random.choice(strategies, p=weights["css_bat_sell"])
-            energy_quantity = p_imp
-            buying = str("False")
-            bids.append([price, energy_quantity, buying, n])
-
-        if 's_pv' in node["devs"]:
-            price = np.random.choice(strategies, p=weights["css_pv_sell"])
-            energy_quantity = p_imp
-            buying = str("False")
-            bids.append([price, energy_quantity, buying, n])
-
-        if 's_wind' in node["devs"]:
-            price = np.random.choice(strategies, p=weights["css_wind_sell"])
-            energy_quantity = p_imp
-            buying = str("False")
-            bids.append([price, energy_quantity, buying, n])
-
-        return bids
-"""
-
-"""    
-    def compute_hp_bids(self, p_imp, n, bid_strategy, dem_heat, dem_dhw, soc, power_hp, options, strategies,
-                        weights, heat_hp, heat_devs, node):  # soc_set_max
-        '''Compute the bid when electricity for the heat pump needs to be bought.'''
-
-        # compute bids with DEVICE ORIENTED STRATEGY
-        if bid_strategy == "devices":
-            x = []
-            for i in range(7):
-                x.append(sum(node["heat"][i * 24:i * 24 + 24]) + 0.5 * sum(node["dhw"][i * 24:i * 24 + 24]))
-            # soc_set_max = max(x)
-            soc_set_max = self.soc_nom_tes
-            soc_set_min = (dem_heat + 0.5 * dem_dhw) * self.dt
-            charge = self.eta_ch * heat_devs
-            discharge = 1 / self.eta_dch * (dem_heat + 0.5 * dem_dhw)
-
-            if self.soc_nom_tes == 0:
-                p = self.p_max
-
-    def compute_battery_bids(self, p_imp, soc, bid_strategy, dem_elec, elec_devs, options, strategies, weights):
-        '''Compute the bid for the shared battery.'''
-
-        # compute bids with DEVICE ORIENTED STRATEGY
-        if bid_strategy == "devices":
-            soc_set_max = self.soc_nom_bat
-            soc_set_min = dem_elec * self.dt
-            charge = self.eta_ch * elec_devs
-            discharge = 1 / self.eta_dch * dem_elec
-            if soc <= self.soc_set_min:
-                p = self.p_max
-            elif soc >= self.soc_nom_bat:
-                p = self.p_min
-            else:
-                p = self.p_min + (self.p_max - self.p_min) * (soc / self.soc_nom_bat)
-            q = p_imp
-            buying = str("True")
-
-            return [p, q, buying]
-
-        # compute bids with LEARNING STRATEGY
-        # ToDo: Implement learning strategy
-        '''
-        elif bid_strategy == "learning":
-            p = 
-            q = p_imp
-            buying = str("True")
-
-            return [p, q, buying]
-        '''
-
-    def compute_pv_bids(self, dem_elec, soc_bat, p_ch_bat, p_dch_bat, pv_sell, pv_peak, n, bid_strategy,
-                        strategies, weights, options): # power_pv,
-        '''Compute the bid for the shared PV park.'''
-        # compute bids with DEVICE ORIENTED STRATEGY
-        # ToDo: bid price for DO-Strategy is based on demand and supply?
-        # compute bids with device oriented strategy
-        if bid_strategy == "devices":
-            soc_nom = self.soc_nom_bat
-            # soc_set_max = soc_nom - (p_ch_bat + pv_sell) * self.dt
-            soc_set_max = soc_nom
-            soc_set_min = p_dch_bat * self.dt
-            # power_nom = self.power_nom_bat
-
-            if self.soc_nom_bat == 0:
-                p = self.p_min
-            else:
-                # flexi mit bat    --> soc_bat nach Markt anpassen --> mar_dat --> init_val
-                if soc_bat <= 0:  # soc_set_min:
-                    p = self.p_max  # p_max, weil noch ausreichend Kapazität vorhanden ist, um Strom einzuspeichern
-                elif p_dch_bat > p_ch_bat and soc_set_min <= soc_bat < soc_set_max:
-                    p = self.p_max + (self.p_min - self.p_max) * (pv_sell / pv_peak)
-                elif p_ch_bat > p_dch_bat and soc_set_min <= soc_bat < soc_set_max:
-                    p = self.p_min + (self.p_max - self.p_min) * (np.absolute(pv_sell - dem_elec) / pv_peak)
-                else:  # soc_bat <= soc_set_max:
-                    p = self.p_min  # p_min, weil Speicher fast voll und Strom weg muss
-
-        # compute bids with zero-intelligence
-        if bid_strategy == "zero":
-            # create random price between p_min and p_max
-            p = np.random.randint(self.p_min * 1000, self.p_max * 1000) / 1000
-        # compute bids with learning
-        elif bid_strategy == "learning":
-            p = np.random.choice(strategies, p=weights["bes_" + str(n) + "_sell"])
-
-        unflex = 0
-        soc_set_max = self.soc_nom_bat - (p_ch_bat + pv_sell) * self.dt
-        if options["flexible_demands"]:
-            if soc_bat >= soc_set_max:
-                unflex = pv_sell
-            else:
-                unflex = 0
-        else:
-            unflex = pv_sell
-
-        q = pv_sell
-        buying = str("False")
-
-        return [p, q, buying, n], unflex
-        # compute bids with LEARNING STRATEGY
-        # ToDo: Implement learning strategy
-        '''
-        elif bid_strategy == "learning":
-            p = 
-            q = pv_sell
-            buying = str("False")
-
-            return [p, q, buying]
-        '''
-
-    def compute_wind_bids(self, dem_elec, soc_bat, p_ch_bat, p_dch_bat, wind_sell, wind_peak, n, bid_strategy,
-                        strategies, weights, options): # power_wind,
-        '''Compute the bid for the shared wind park.'''
-        if bid_strategy == "devices":
-            p = self.p_min + (self.p_max - self.p_min) * (wind_sell / wind_peak)
-            q = wind_sell
-            buying = str("False")
-            return [p, q, buying]
-
-        # compute bids with LEARNING STRATEGY
-        # ToDo: Implement learning strategy
-    
-"""
-
+        return potentialPV, potentialWIND
