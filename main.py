@@ -64,13 +64,13 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     districtData = Datahandler()
     # Bei erstem Durchlauf calcUserProfiles=True und saveUserProfiles=True setzen,
     # danach calcUserProfiles=False und saveUserProfiles=False
-    districtData.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=True, saveUserProfiles=False)#, designDevs=True)
+    districtData.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=False)#, designDevs=True)
     # todo: added designCentralDevices & designDecentralDevices instead of designDevs=True in generateDistrictComplete
     districtData.designDecentralDevices(saveGenerationProfiles=False)
 
     # Set options for energy trading
     options = {"optimization": "P2P",  # P2P
-               "bid_strategy": "zero",  # zero for zero-intelligence, learning, devices
+               "bid_strategy": "q_learning",  # "zero", "erev_roth_learning" or "q_learning"
                "crit_prio": crit_prio,  # "flex_energy",
                # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
                "block_length": block_length,  # length of block bid in hours
@@ -189,7 +189,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     return mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options
 
 if __name__ == '__main__':
-    for scenario_name in ["example"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
+    for scenario_name in ["AppliedEnergy"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
         first_run = True
         for month in [6]:  # , 7]:
             for block_length in [1]:  # 1, 3, 5]:

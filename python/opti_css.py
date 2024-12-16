@@ -108,6 +108,7 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_t
     # Update model
     model.update()
 
+    # todo: Aufladen und Entladen der Batterie
     # Objective function
     model.setObjective( - revenue["grid"] - revenue["trading"], gp.GRB.MINIMIZE)
 

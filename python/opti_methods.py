@@ -113,7 +113,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 mar_dict["block_bids"][n_opt] = \
                     block_bids.compute_block_bids(opti_res=opti_res[n_opt], par_rh=par_rh,
                                                   mar_agent_bes=mar_agent_bes, n_opt=n_opt, options=options,
-                                                  block_length=block_length)
+                                                  block_length=block_length, mar_dict=mar_dict)
 
                 # ------------------- SEPARATE BLOCK BIDS INTO BUY AND SELL LISTS ------------------- #
                 mar_dict["sell_list"][n_opt], mar_dict["buy_list"][n_opt] = \
@@ -138,7 +138,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                           matched_bids_info=mar_dict["matched_bids_info"][n_opt],
                                           sorted_bids=mar_dict["sorted_bids"][n_opt], block_length=block_length,
                                           opti_res=opti_res[n_opt])
-                # todo: check if need to put css opti here --> jsc:Yes
+                # todo: Ray: Insert css opti here
                 #opti_res_css[n_opt] = opti_css.compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids,
                  #                                      prev_traded, trading_price, block_length)
 
@@ -184,14 +184,14 @@ def init_val_decentral_operation(opti_bes, par_rh, n_opt):
     return init_val
 
 
-# todo: implement function for sharing operation with central supply system
+# todo: Ray: implement function for sharing operation with central supply system
 def sharing_operation(nodes, params, pars_rh, building_params, init_val, n_opt, options):
     """
     This function computes a deterministic solution.
     Internally, the results of the subproblem are stored.
     """
 
-    opti_res = sharing_opti.compute(nodes, params, pars_rh, building_params, init_val, n_opt, options)
+    opti_res = sharing_opti.compute(nodes, params, pars_rh, init_val, n_opt)
 
     return opti_res
 

@@ -1,6 +1,7 @@
 import numpy as np
 from python.css_functions.solar import Sun
 import python.css_functions.wind_turbines as wind_turbines
+import random
 
 class mar_agent_bes(object):
     """
@@ -18,6 +19,13 @@ class mar_agent_bes(object):
         self.exp_erev_roth = 0.99  # experimentation parameter for learning intelligence agent [0,1]
 
         self.initial_propensity = 0.01 # initial propensities for learning intelligence agent
+
+        self.p_feed_in = 0.05 # feed-in tariff price (per kWh)
+        self.p_rate = 0.03 # utility service rate (per kWh)
+        self.p_reg = 0.001 # price regulation for CES
+        self.gbuy, gsell, hbuy, hsell, penalty = 5, 2.5, 2, 2, 0 # coefficients for rewards and penalties
+        self.alpha, self.gamma, self.epsilon = 0.1, 0.1, 0.1 # learning rate, discount factor, exploration rate
+
 
 
     def zero_bids(self, buying_quantity, selling_quantity):
@@ -69,10 +77,131 @@ class mar_agent_bes(object):
 
         return [p, q, buying, self.bes_id]
 
-    # TODO: add here the code for calculating the bidding price with q learning
-    def q_learning_bids(self):
+    # TODO: Ray: code for calculating the bidding price with q learning for BES
+    def q_learning_bids(self, buying_quantity, selling_quantity, min_sell_offer_price, max_buy_bid_price, soc_state):
 
-        return
+        """
+           Q-learning algorithm for bid pricing in energy markets.
+
+           :param p_feed_in: Feed-in tariff price (per kWh).
+           :param p_rate: Utility service rate (per kWh).
+           :param p_reg: Price regulation for CES.
+           :param p_i_sell: List of seller prices.
+           :param p_j_buy: List of buyer prices.
+           :param e_t_SES: Current SES energy level.
+           :param E_SES: Total SES capacity.
+           :param gbuy: Coefficient for buy reward.
+           :param gsell: Coefficient for sell reward.
+           :param hbuy: Coefficient for buy penalty (SOC effect).
+           :param hsell: Coefficient for sell reward (SOC effect).
+           :param beta: Penalty for trying to sell without buyers.
+           :param alpha: Learning rate.
+           :param gamma: Discount factor.
+           :param epsilon: Exploration rate for epsilon-greedy policy.
+           :return: Selected action, updated Q-table, and generated bid.
+           """
+
+        state_space = (10, 10, 10) # Tuple defining state space of 10 x 10 x 10 ((ot, bt, ct))
+        actions_BES = ['buy', 'sell', 'idle'] # Actions for BES
+
+        # Initialize Q-tables for BES
+        q_table_BES = np.zeros(state_space + (len(actions_BES),)) # Q-table for BES (10 x 10 x 10 x 3)
+
+        def get_state(min_sell_offer_price, max_buy_bid_price, soc_state):
+            """
+            Map input variables to a discrete state index.
+
+            :param ot: Seller's offer state (integer, 0-9).
+            :param bt: Buyer's bid state (integer, 0-9).
+            :param ct: CES SOC state (integer, 0-9).
+            :return: Tuple representing the state (ot, bt, ct).
+            """
+
+            def discretize(value):
+                for n in range(0, 9):  # Range is [1, 8] inclusive
+                    lower_bound = 0.11 * (n - 1)
+                    upper_bound = 0.11 * n
+
+                    # Check if value satisfies the condition for this n
+                    if value == 0:
+                        discr_value = 0
+                    elif lower_bound <= value < upper_bound:
+                        discr_value = n
+                    else:
+                        discr_value = 9
+                    return discr_value
+
+            # Calculate p_t_charge first, then discretize to get ot
+            p_t_charge = ((min_sell_offer_price - self.p_feed_in) /
+                          (self.p_rate - (self.p_feed_in + self.p_reg)))
+            ot = discretize(p_t_charge)
+
+            # calculate p_t_discharge first, then discretize to get bt
+            p_t_discharge = ((max_buy_bid_price - self.p_feed_in - self.p_reg) /
+                             (self.p_rate - (self.p_feed_in + self.p_reg)))
+            bt = discretize(p_t_discharge)
+
+            # calculate soc_t_SES first, then discretize to get ct
+            soc_t_SES = soc_state
+            ct = discretize(soc_t_SES)
+
+            return (ot, bt, ct)
+
+        state_space = get_state(min_sell_offer_price, max_buy_bid_price, soc_state)
+
+        # Epsilon-greedy action selection
+        def select_action(state):
+            if random.uniform(0, 1) < self.epsilon:
+                return random.choice(actions_BES)
+            else:
+                state_index = tuple(state)
+                return actions_BES[np.argmax(q_table_BES[state_index])]
+
+        action = select_action(state_space)
+
+        # Calculate reward
+        def calculate_reward(action, state, soc_t_BES, p_i_sell, p_j_buy):
+            if action == "charge":
+                return self.gbuy * (self.p_rate - self.p_reg - min(p_i_sell)) - self.hbuy * soc_t_BES
+            elif action == "discharge":
+                if state[1] == 0:  # No buyers
+                    return -self.penalty
+                return self.gsell * (max(p_j_buy) - p_i_sell) + self.hsell * soc_t_BES
+            else:
+                return 0
+
+        reward = calculate_reward(action, state_space, soc_state, min_sell_offer_price, max_buy_bid_price)
+
+        # Update Q-table
+        def update_q_table(state, action, reward, next_state):
+            state_index = tuple(state)
+            next_state_index = tuple(next_state)
+            action_index = actions_BES.index(action)
+
+            current_q = q_table_BES[state_index + (action_index,)]
+            max_future_q = np.max(q_table_BES[next_state_index])
+            new_q = (1 - self.alpha) * current_q + self.alpha * (reward + self.gamma * max_future_q)
+            q_table_BES[state_index + (action_index,)] = new_q
+
+        # Simulate next state and update Q-table
+        next_state = get_state()
+        update_q_table(state_space, action, reward, next_state)
+
+        # Generate bid based on action
+        if action == "buy":
+            p = random.uniform(self.p_min, self.p_max)  # Price within range
+            q = buying_quantity if buying_quantity > 0 else 0
+            buying = "True"
+        elif action == "sell":
+            p = random.uniform(self.p_min, self.p_max)  # Price within range
+            q = selling_quantity if selling_quantity > 0 else 0
+            buying = "False"
+        else:
+            p = 0
+            q = 0
+            buying = "None"
+        # Return the bid
+        return [p, q, buying, self.bes_id]
 
     def initial_propensities_erev_roth(self):
         """
@@ -178,7 +307,7 @@ class mar_agent_bes(object):
 
         return mar_dict["propensities"]
 
-    def compute_weights(self):
+    def compute_weights(self, propensities):
         # calculates the weights of the bid prices depending on propensities
         weights = {}
 
@@ -256,3 +385,133 @@ class mar_agent_css(object):
         potentialWIND = wind_turbines.wind_turbine_generation(self.site["wind_speed"], self.wind_turbine_model)
 
         return potentialPV, potentialWIND
+
+    def q_learning_bids(self, p_feed_in, p_rate, p_reg,
+                        p_i_sell, p_j_buy, e_t_SES, E_SES,
+                        min_offer_price, max_bid_price,
+                        gbuy, gsell, hbuy, hsell, beta,
+                        alpha=0.1, gamma=0.9, epsilon=0.1):
+
+        """
+           Q-learning algorithm for bid pricing in energy markets.
+
+           :param p_feed_in: Feed-in tariff price (per kWh).
+           :param p_rate: Utility service rate (per kWh).
+           :param p_reg: Price regulation for CES.
+           :param state_space: Tuple defining state space dimensions (e.g., (10, 10, 10)).
+           :param p_i_sell: List of seller prices.
+           :param p_j_buy: List of buyer prices.
+           :param e_t_SES: Current SES energy level.
+           :param E_SES: Total SES capacity.
+           :param min_offer_price: Minimum price offered by sellers.
+           :param max_bid_price: Maximum price offered by buyers.
+           :param gbuy: Coefficient for buy reward.
+           :param gsell: Coefficient for sell reward.
+           :param hbuy: Coefficient for buy penalty (SOC effect).
+           :param hsell: Coefficient for sell reward (SOC effect).
+           :param beta: Penalty for trying to sell without buyers.
+           :param alpha: Learning rate.
+           :param gamma: Discount factor.
+           :param epsilon: Exploration rate for epsilon-greedy policy.
+           :return: Selected action, updated Q-table, and generated bid.
+           """
+        state_space = (10, 10, 10)  # Tuple defining state space dimensions ((ot, bt, ct))
+        actions_SES = ['charge', 'discharge', 'idle']
+        actions_RES = ['peers', 'battery', 'grid', 'idle']
+
+        # Initialize Q-tables for CES & BES
+        q_table_ces = np.zeros(state_space + (len(actions_SES),))
+        q_table_PV = np.zeros(state_space + (len(actions_RES),))
+        q_table_WT = np.zeros(state_space + (len(actions_RES),))
+
+        def get_state(self, p_i_sell, p_j_buy, e_t_SES, E_SES):
+            """
+            Map input variables to a discrete state index.
+
+            :param ot: Seller's offer state (integer, 0-9).
+            :param bt: Buyer's bid state (integer, 0-9).
+            :param ct: CES SOC state (integer, 0-9).
+            :return: Tuple representing the state (ot, bt, ct).
+            """
+
+            def discretize(value):
+                for n in range(0, 9):  # Range is [1, 8] inclusive
+                    lower_bound = 0.11 * (n - 1)
+                    upper_bound = 0.11 * n
+
+                    # Check if value satisfies the condition for this n
+                    if p_i_sell == 0:
+                        discr_value = 0
+                    elif lower_bound <= value < upper_bound:
+                        discr_value = n
+                    else:
+                        discr_value = 9
+                    return discr_value
+
+            # Calculate p_t_charge first, then discretize to get ot
+            p_t_charge = ((min(p_i_sell) - p_feed_in) /
+                          (p_rate - (p_feed_in + p_reg)))
+            ot = discretize(p_t_charge)
+
+            # calculate p_t_discharge first, then discretize to get bt
+            p_t_discharge = ((max(p_j_buy) - self.p_feed_in - self.p_reg) /
+                             (self.p_rate - (self.p_feed_in + self.p_reg)))
+            bt = discretize(p_t_discharge)
+
+            # calculate soc_t_SES first, then discretize to get ct
+            soc_t_SES = e_t_SES / E_SES
+            ct = discretize(soc_t_SES)
+
+            state = (ot, bt, ct)
+            return state
+
+        state = get_state(p_i_sell, p_j_buy, e_t_SES, E_SES)
+
+        # Epsilon-greedy action selection
+        def select_action(state):
+            if random.uniform(0, 1) < epsilon:
+                return random.choice(actions_SES)
+            else:
+                state_index = tuple(state)
+                return actions_SES[np.argmax(q_table_ces[state_index])]
+
+        action = select_action(state)
+
+        # Calculate reward
+        def calculate_reward(action, state, soc_t_SES, min_offer_price, max_bid_price):
+            if action == "charge":
+                return gbuy * (p_rate - p_reg - min_offer_price) - hbuy * soc_t_SES
+            elif action == "discharge":
+                if state[1] == 0:  # No buyers
+                    return -beta
+                return gsell * (max_bid_price - min_offer_price) + hsell * soc_t_SES
+            else:
+                return 0
+
+        reward = calculate_reward(action, state, e_t_SES / E_SES, min_offer_price, max_bid_price)
+
+        # Update Q-table
+        def update_q_table(state, action, reward, next_state):
+            state_index = tuple(state)
+            next_state_index = tuple(next_state)
+            action_index = actions_SES.index(action)
+
+            current_q = q_table_ces[state_index + (action_index,)]
+            max_future_q = np.max(q_table_ces[next_state_index])
+            new_q = (1 - alpha) * current_q + alpha * (reward + gamma * max_future_q)
+            q_table_ces[state_index + (action_index,)] = new_q
+
+        # Generate bid
+        def generate_bid(action):
+            if action == "charge":
+                return {"action": "buy", "price": "min_offer_price"}
+            elif action == "discharge":
+                return {"action": "sell", "price": "max_bid_price"}
+            else:
+                return {"action": "idle"}
+
+        # Simulate next state and update Q-table
+        next_state = get_state()
+        update_q_table(state, action, reward, next_state)
+
+        return action, q_table_ces, generate_bid(action)
