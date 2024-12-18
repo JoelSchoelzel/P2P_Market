@@ -82,31 +82,20 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         else:
             strategies = {}
 
-                # FMU IMPORT AND INITIALIZATION
-        #fmu_filename = 'FMU/Small_District_6houses_Boi.fmu'
-        #fmu_filename = 'FMU/Small_District_8houses_HP_Boi.fmu'
-        #fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_constantinterpol.fmu'
-        #fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_DHWCalc.fmu'
+        # FMU IMPORT AND INITIALIZATION
         if scenario_name == "old/Small_District_BOI+HP":
             fmu_filename = 'FMU/Small_District_8houses_HeatDemand_HP_Boi_DHWCalc_2Sto.fmu'
         elif scenario_name == "old/Medium_District_12houses_BOI+HP+CHP":
-            #fmu_filename = 'FMU/Medium_District_12houses_HP_Boi_CHP.fmu'
-            #fmu_filename = 'FMU/Medium_District_12houses_HP_Boi_CHP_BWsmall.fmu'
-            #fmu_filename = 'FMU/Medium_District_12houses_HP_Boi_CHP_BWsmall_Tavg.fmu'
-            #fmu_filename = 'FMU/Medium_District_12houses_HP_Boi_CHP_BWsmall_Tavg_ConstOpening.fmu'
             #fmu_filename = 'FMU/Final/HeatDem_Tavg_2Sto_ConstOpeningTest.fmu'
             fmu_filename = 'FMU/Final/District_HeatDem_2Sto.fmu' 
             #fmu_filename = 'FMU/Final/District_HeatDem_CombiSto.fmu' 
             #fmu_filename = 'FMU/Final/District_HeatDem_2Sto_Carnot.fmu' 
             #fmu_filename = 'FMU/Final/District_ROM_2Sto.fmu'
             constOpening = False
-        #fmu_filename = 'FMU/Small_District_6houses_Boi_DHWCalc.fmu'
 
         #start_time = 0 
         start_time = 3600 * par_rh["month_start"][par_rh["month"]]
-        stop_time = 3600*24 # 1h in Sekunden
-        #step_size = 3600  # Auflösung dyn. Sim; Communication Step size
-        step_size = 60  # Auflösung dyn. Sim; Communication Step size
+        step_size = 60  # Auflösung dyn. Sim; Communication Step size, pro Zeitschritt (1 Stunde) 60 Simulationen für je 1 Minute
 
         # read the model description
         model_description = read_model_description(fmu_filename)
@@ -116,13 +105,12 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         for variable in model_description.modelVariables:
             vr[variable.name] = variable.valueReference
 
-        # control variables
+        # Variable references für die Kontrollvariablen
         vr_traded_elec = []
         vr_T_set_mpc = []
         # state variables
         vr_T_tes_avg = []
         vr_soc_bat = []
-        vr_soc_tes = []
 
         # Variable references für die Auswertungen
         vr_grid_gen = []
@@ -157,9 +145,9 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
     
 
         rows = []  # list to record the results
-        rows6 = []  # list to record the results
-        rows8 = []  # list to record the results
-        rows11 = []  # list to record the results
+        rows6 = []  # list to record the results for house 6
+        rows8 = []  # list to record the results for house 8
+        rows11 = []  # list to record the results for house 11
         rows_all = []
         grid_gen = []
         grid_load = []
@@ -206,7 +194,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             vr_elec_dem.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) # defines value reference for variable name
             vr_solar_irrad.append(vr['House'+ str(house) + '.weaDat.weaBus.HGloHor']) # defines value reference for variable name
             if constOpening: # wenn Opening = const, ist mflow keine Variable mehr
-                vr_m_flow.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann
+                vr_m_flow.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann (Liste enthält Nullen)
             else:
                 vr_m_flow.append(vr['House'+ str(house) + '.hydraulic.transfer.rad[1].m_flow']) # defines value reference for variable name
             if nodes[house-1]["devs"]["eh"]["cap"] != 0: # only for systems with a heat pump (and therefore an EH) 
@@ -215,7 +203,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 vr_n_set_hp.append(vr['House'+ str(house) + '.hydraulic.control.priGenPIDCtrl.ySet']) # defines value reference for variable name
                 vr_hp_heat.append(vr['House'+ str(house) + '.outputs.hydraulic.gen.QHeaPum_flow.value']) # defines value reference for variable name
                 if fmu_filename == 'FMU/Final/District_HeatDem_2Sto_Carnot.fmu':
-                    vr_T_ret.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann
+                    vr_T_ret.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann (Liste enthält Nullen)
                 else:
                     vr_T_ret.append(vr['House'+ str(house) + '.hydraulic.generation.heatPump.senT_a1.T']) # defines value reference for variable name
             else: # vr still has to be filled for the heatpump houses, as otherwise there will be index problems 
@@ -239,21 +227,22 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 vr_T_tes_top_dhw.append(vr['House'+ str(house) + '.hydraulic.distribution.stoDHW.TTop']) # defines value reference for variable name
                 vr_T_tes_bot_dhw.append(vr['House'+ str(house) + '.hydraulic.distribution.stoDHW.TBottom']) # defines value reference for variable name
             else: 
-                vr_T_tes_avg_dhw.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann)
-                vr_T_tes_top_dhw.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann)
-                vr_T_tes_bot_dhw.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann)
+                vr_T_tes_avg_dhw.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann (Liste enthält Nullen)
+                vr_T_tes_top_dhw.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann (Liste enthält Nullen)
+                vr_T_tes_bot_dhw.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann (Liste enthält Nullen)
             if fmu_filename == 'FMU/Final/District_ROM_2Sto.fmu':
                 if nodes[house-1]["devs"]["boiler"]["cap"] != 0:
-                    vr_TZoneMea.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann
-                    vr_Q_tra_gain.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann
+                    vr_TZoneMea.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann (Liste enthält Nullen)
+                    vr_Q_tra_gain.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann (Liste enthält Nullen)
                 else:
                     vr_TZoneMea.append(vr['House'+ str(house) + '.building.buiMeaBus.TZoneMea[1]']) # defines value reference for variable name
                     vr_Q_tra_gain.append(vr['House'+ str(house) + '.outputs.building.QTraGain[1].value']) # defines value reference for variable name
             else:
                 vr_TZoneMea.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann
-                vr_Q_tra_gain.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann
-            # Supply and Demand for KPI calculation TODO aktuell noch sehr spezifisch auf einen bestommten Case. Allgemeienr formulieren wäre gut
-            if nodes[house-1]["devs"]["boiler"]["cap"] != 0: # man muss hier direkt die PV Öeistung nehmen, da diese danach direkt mit tra_vol verrechnet wird
+                vr_Q_tra_gain.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann (Liste enthält Nullen)
+            
+            # Simulation Supply and Demand for KPI calculation
+            if nodes[house-1]["devs"]["boiler"]["cap"] != 0: # man muss hier direkt die PV Leistung nehmen, da diese danach direkt mit tra_vol verrechnet wird
                 vr_bes_demand.append(vr['House'+ str(house) + '.electrical.internalElectricalPin[1].PElecLoa']) # defines value reference for variable name
                 vr_bes_supply.append(vr['House'+ str(house) + '.electrical.generation.sumOfPower.y']) # defines value reference for variable name
             if nodes[house-1]["devs"]["eh"]["cap"] != 0: # auch hier wird der internal electrical pin verwendet, da danach direkt mit tra_vol verrechnet wird. BAT wird dann ausgelassen
@@ -267,7 +256,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             elif nodes[house-1]["devs"]["boiler"]["cap"] != 0:
                 vr_fuel_power.append(vr['House'+ str(house) + '.hydraulic.generation.boi.fuelPower']) # defines value reference for variable name
             else:
-                vr_fuel_power.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann)
+                vr_fuel_power.append(vr['House'+ str(house) + '.userProfiles.tabElecDem.y[1]']) #irgendwas zufälliges, damit vr bleiben kann (Liste enthält Nullen)
 
         # extract the FMU
         unzipdir = extract(fmu_filename)
@@ -284,17 +273,14 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         fmu.exitInitializationMode()
 
         # START OPTIMIZATION (Start optimizations for the first time step of the block bids)
-        for n_opt in range(0, par_rh["n_opt"] - int(36/block_length)-1):
-        #for n_opt in range(0, 56):
-        #for n_opt in range(0, 28):
+        for n_opt in range(0, par_rh["n_opt"] - int(36/block_length)-1): # Simulation über ganzen Monat
+        #for n_opt in range(0, 56): # Simulation für eine Woche bei Blocklength = 3
+        #for n_opt in range(0, 28): # Simulation für eine Woche bei Blocklength = 6
             opti_res[n_opt] = {}
             init_val[0] = {}
             init_val[n_opt+1] = {}
             trade_res[n_opt] = {}
             tra_vol[n_opt] = {}
-
-            if n_opt == 14:
-                print("hi")
 
             if n_opt == 0:
                 for n in range(options["nb_bes"]):
@@ -363,7 +349,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     mat_neg.trade_with_grid(sorted_bids=mar_dict["sorted_bids"][n_opt], params=params, par_rh=par_rh,
                                             n_opt=n_opt, block_length=block_length, opti_res=opti_res[n_opt])
 
-                """
+
+                """Testgrafiken während der Simulation
                 length = 300
                 if scenario_name == "old/Small_District_BOI+HP":
                     no_house = 4
@@ -444,6 +431,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                     tra_vol[n_opt][block_step][house] = -1 * opti_res[n_opt][house][19][block_step]
                                 else:
                                     tra_vol[n_opt][block_step][house] = float(0)
+
                                 #set the control variable for the simulation
                                 fmu.setReal([vr_traded_elec[house]], [tra_vol[n_opt][block_step][house]]) 
                                 if nodes[house]["devs"]["eh"]["cap"] != 0 or nodes[house]["devs"]["chp"]["cap"] != 0: # only for systems with a heat pump (and therefore an EH) or chp unit
@@ -499,16 +487,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
 
                             time += step_size
 
-                            # Return test
-                            """
-                            no_house1 = 5
-                            input1, input2, input3, input4, input5, input6, input7 = fmu.getReal([vr_grid_gen[no_house], vr_grid_load[no_house], vr_Ttop_tes[no_house], vr_trade_check[no_house], vr_heat_dem[no_house], vr_hp_elec[no_house], vr_elec_dem[no_house]])
-                            input8 = fmu.getReal([vr_soc_bat[no_house1]])
-                            #input8 = fmu.getReal([vr_T_tes_avg[no_house1]])
-                            input9, input10, input11, input12, input13, input14, input15 = fmu.getReal([vr_T_set_hp[no_house], vr_n_set_hp[no_house], vr_m_flow[no_house], vr_T_ret[no_house], vr_Tbot_tes[no_house], vr_T_tes_avg[no_house], vr_traded_elec[no_house]])
-                            rows.append((n_opt, input1, input2, input3, input4, input5, input6, input7, input8, input9, input10, input11, input12, input13, input14, input15))
-                            """
-                    """
+
+                    """Testgrafiken während der Simulation
                     start = 0
                     if n_opt == length:
                         total_elec = []
@@ -682,9 +662,9 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         """
                      
 
-                    # create initial SoC values for next optimization step
-                    # in the case of Co-Simulation, the SOC is retrieved from the Modelica simulation
-                    # the standard method for the SOC initial_values is still used for a comparison of both values
+                    # create initial values for next optimization step
+                    # in the case of Co-Simulation, the  temperature of the TES and SOC of the BAT are retrieved from the Modelica simulation
+                    # the standard optimization computation for the SOC initial_values is still used for a comparison of both values
                     soc_diff_bat[n_opt] = {}
                     soc_diff_tes[n_opt] = {}
                     soc_bat_fmu[n_opt] = {}
@@ -701,10 +681,9 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         init_val[n_opt + 1]["building_" + str(n)]["soc"] = {}
                         init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = {}
 
-                        # Return SOCs
-                        # not every house owns BAT
+                        # Return BAT SOC
                         soc_bat_fmu[n_opt][n] = {}
-                        if nodes[n]["devs"]["bat"]["cap"] != 0:
+                        if nodes[n]["devs"]["bat"]["cap"] != 0: # not every house owns BAT
                             soc_bat_fmu[n_opt][n] = fmu.getReal([vr_soc_bat[n]])
                             if soc_bat_fmu[n_opt][n][0] > 0.95:
                                 soc_bat_fmu[n_opt][n][0] = 0.95
@@ -714,17 +693,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                             init_val[n_opt + 1]["building_" + str(n)]["soc"]["bat"] \
                                 = init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["bat"]
                             
-                        """ TODO: Dieser Teil bei einem temperaturgeregelten System nicht mehr nötig, T_tes als Zustandsgröße reicht
-                        #for boiler systems, dont use the Modelica SOC_TES
-                        #TODO nochmal klären!
-                        if nodes[n]["devs"]["boiler"]["cap"] != 0.0:
-                            init_val[n_opt + 1]["building_" + str(n)]["soc"]["tes"] \
-                            = init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["tes"]
-                        else:
-                            soc_tes_fmu[n_opt][n] = fmu.getReal([vr_soc_tes[n]])
-                            init_val[n_opt + 1]["building_" + str(n)]["soc"]["tes"] \
-                            = soc_tes_fmu[n_opt][n][0] * opti_res[n_opt][n][12]["tes"] #SOC from simulation is percentual, optimization needs kWh
-                        """
+                       
                         init_val[n_opt + 1]["building_" + str(n)]["soc"]["tes"] \
                             = init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["tes"]
                         init_val[n_opt + 1]["building_" + str(n)]["soc"]["ev"] = 0 # no EVs examined
@@ -733,24 +702,21 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                             if nodes[n]["devs"]["bat"]["cap"] != 0:
                                 soc_diff_bat[n_opt][n] \
                                     = abs(soc_bat_fmu[n_opt][n][0] - init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["bat"]/opti_res[n_opt][n][12]["bat"])
-                            #if nodes[n]["devs"]["boiler"]["cap"] == 0.0:
-                                #soc_diff_tes[n_opt][n] \
-                                    #= abs(soc_tes_fmu[n_opt][n][0] - init_val_opti[n_opt + 1]["building_" + str(n)]["soc"]["tes"]/opti_res[n_opt][n][12]["tes"])
-                        
+                            
                         # Return average TES temperature
                         t_tes_avg[n_opt][n] = fmu.getReal([vr_T_tes_avg[n]])
                         if t_tes_avg[n_opt][n][0] > 328.15:
                             t_tes_avg[n_opt][n][0] = 328.15
                         if nodes[n]["devs"]["eh"]["cap"] != 0 or nodes[n]["devs"]["chp"]["cap"] != 0:
-                            if block_length ==1 and n_opt < 3:
+                            if block_length ==1 and n_opt < 3: # ganz zu Beginn bei BL = 1 führen die Temperaturen aus der Simulation zu Errors in der Opti, da die Vorgaben nicht schnell genug umgesetzt werden können
                                 init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = init_val_opti[n_opt + 1]["building_" + str(n)]["t_tes"]
                             else:
                                 init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = t_tes_avg[n_opt][n][0]
-                        elif nodes[n]["devs"]["boiler"]["cap"] != 0:
+                        elif nodes[n]["devs"]["boiler"]["cap"] != 0: # Boiler-System wird für TEX-Flexibilität nicht berücksichtigt
                             init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = init_val_opti[n_opt + 1]["building_" + str(n)]["t_tes"]
                         #elif nodes[n]["devs"]["chp"]["cap"] != 0:
                         #    init_val[n_opt + 1]["building_" + str(n)]["t_tes"] = init_val_opti[n_opt + 1]["building_" + str(n)]["t_tes"]
-                    """
+                    """ Testgrafiken für die Simulation
                     if n_opt == length:
                         bat_opti = []
                         tes_opti = []
