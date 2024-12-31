@@ -330,7 +330,6 @@ def matching_during_negotiation(sorted_block_bids, matched_pairs):
 def negotiation_with_css():
 
     # while
-
     opti_res_css[n_opt] = opti_css.compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded,
                                            trading_price, block_length)
 

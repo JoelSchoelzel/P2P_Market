@@ -65,7 +65,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     # Bei erstem Durchlauf calcUserProfiles=True und saveUserProfiles=True setzen,
     # danach calcUserProfiles=False und saveUserProfiles=False
     districtData.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=False)#, designDevs=True)
-    # todo: added designCentralDevices & designDecentralDevices instead of designDevs=True in generateDistrictComplete
+    # todo done: added designCentralDevices & designDecentralDevices instead of designDevs=True in generateDistrictComplete
     districtData.designDecentralDevices(saveGenerationProfiles=False)
 
     # Set options for energy trading
@@ -120,7 +120,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
             opti_methods.rolling_horizon_opti(options=options, nodes=nodes, par_rh=par_rh,
                                               building_params=building_params,
                                               params=params, block_length=options["block_length"],
-                                              districtData=districtData)
+                                              districtData=districtData, devs_pre_opti=devs_pre_opti)
 
         scenario_folder = scenario_name.replace("_", " ")
         month_folder = ""
@@ -170,9 +170,8 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 
     # Run (rolling horizon) optimization for type weeks
     elif options["optimization"] == "P2P_typeWeeks":
-        opti_results, typeweeks_indices, mar_dict, trade_res = opti_methods.rolling_horizon_opti(options, nodes, par_rh,
-                                                                                                 building_params,
-                                                                                                 params)
+        opti_results, typeweeks_indices, mar_dict, trade_res = (
+            opti_methods.rolling_horizon_opti(options, nodes, par_rh, building_params, params, devs_pre_opti))
         # Compute plots
         # criteria_typeweeks, criteria_year = output.compute_out_P2P_typeWeeks(options, options_DG, par_rh,
         #                            opti_results, districtData.weights, params, building_params, trade_res, mar_dict)
@@ -189,7 +188,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     return mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options
 
 if __name__ == '__main__':
-    for scenario_name in ["AppliedEnergy"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
+    for scenario_name in ["example2"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
         first_run = True
         for month in [6]:  # , 7]:
             for block_length in [1]:  # 1, 3, 5]:
