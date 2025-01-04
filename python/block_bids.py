@@ -23,10 +23,9 @@ def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_le
         for t in par_rh["time_steps"][n_opt][0:block_length]:
             buying_quantity = opti_res[n][4]["p_imp"][t]  # p_imp
             selling_quantity = opti_res[n][8]["chp"][t] + opti_res[n][8]["pv"][t]  # chp_sell + pv_sell
-            # TODO: Need soc_state, min_sell_offer_price and max_buy_bid_price for q_learning bidding strategy
             soc_state = opti_res[n][3]["bat"][t]/opti_res[n][12]["bat"] if opti_res[n][12]["bat"] != 0 \
                 else opti_res[n][3]["tes"][t]/opti_res[n][12]["tes"] # soc
-            #Todo: Ray: q-learning needs min_sell_offer_price and max_buy_bid_price, (but maybe from previous timestep)
+            #Todo: Ray: q-learning needs min_sell_offer_price and max_buy_bid_price after negotiation rounds
             #min_sell_offer_price = min(mar_dict["sell_list"][n_opt][n][t-1][0] for n in range(len(opti_res)))  # min_sell_offer_price
             #max_buy_bid_price = max(mar_dict["buy_list"][n_opt][n][t-1][0] for n in range(len(opti_res)))  # max_buy_offer_price
             buying_capacity = max(devs_pre_opti[n]["hp35"]["cap"], devs_pre_opti[n]["hp55"]["cap"],
@@ -40,9 +39,17 @@ def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_le
                 block_bid["bes_" + str(n)][t] = mar_agent_bes[n].erev_roth_learning_bids(buying_quantity, selling_quantity)
             # TODO: add here q_learning bidding strategy -> Ray: q-learning needs min_sell_offer_price and max_buy_bid_price
             elif options["bid_strategy"] == "q_learning":
-                block_bid["bes_" + str(n)][t] = (mar_agent_bes[n].q_learning_bids(buying_quantity, buying_capacity,
-                                                                                  selling_quantity, selling_capacity,
-                                                                                  soc_state))
+                # Initialize Q-table
+                mar_agent_bes[n].initiate_q_table_q_learning() #q-tables are saved in mar_agent_bes[n].q_table
+
+                # Get state for q_learning
+                mar_agent_bes[n].get_state_q_learning(buying_quantity, buying_capacity, selling_quantity,
+                                                      selling_capacity, soc_state)
+
+                # Calculate the block bid with q_learning
+                block_bid["bes_" + str(n)][t] = mar_agent_bes[n].q_learning_bids(buying_quantity, selling_quantity)
+
+                # Q-table updates happen in 'opti_methods.py' after each negotiation rounds
 
         block_bid["bes_" + str(n)] = mar_agent_bes[n].one_price(block_bid["bes_" + str(n)], par_rh, n_opt, block_length)
 

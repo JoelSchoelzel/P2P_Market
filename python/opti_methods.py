@@ -140,6 +140,37 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                           matched_bids_info=mar_dict["matched_bids_info"][n_opt],
                                           sorted_bids=mar_dict["sorted_bids"][n_opt], block_length=block_length,
                                           opti_res=opti_res[n_opt])
+                # todo ray: update q-tables of BES agents here, see below
+                # update q-tables of BES agents after each negotiation round
+                if options["bid_strategy"] == "q_Learning":
+                    for n in range(options["nb_bes"]):
+                        for t in par_rh["time_steps"][n_opt][0:block_length]:
+                            if opti_res[n_opt][n][12]["bat"] != 0:
+                                current_soc = opti_res[n_opt][n][3]["bat"][t] / opti_res[n_opt][n][12]["bat"]
+                                eta_bat = nodes[n]["devs"]["bat"]["eta_bat"]
+                                pv_gen = nodes[n]["pv_power"][t]
+                                elec_demand = nodes[n]["elec"][t]
+                                if mar_dict["block_bids"][n_opt]["bes_" + str(n)][2] == "True": # when buying
+                                    buying_quantity = mar_dict["sorted_bids"][n_opt][0]["sell_blocks"][n]["quantity"] # todo: check if this is correct regarding buy/sell
+                                    new_soc = current_soc + eta_bat * (buying_quantity + pv_gen - elec_demand)
+                                    new_buy_quant = opti_res[n_opt][n][4]["p_imp"][t] - buying_quantity
+                                elif mar_dict["block_bids"][n_opt]["bes_" + str(n)][2] == "False": # when selling
+                                    selling_quantity = mar_dict["sorted_bids"][n_opt][0]["buy_blocks"][n]["quantity"] # todo: check if this is correct regarding buy/sell
+                                    new_soc = current_soc - eta_bat * (selling_quantity + pv_gen - elec_demand)
+                                    new_sell_quant = opti_res[n_opt][n][8]["chp"][t] + opti_res[n_opt][n][8]["pv"][t] - selling_quantity
+                            else:
+                                new_soc = opti_res[n_opt][n][3]["tes"][t] / opti_res[n_opt][n][12]["tes"] # todo Ray: how does 'tes_SOC' change after the round?
+
+                        # update q-table
+                        mar_agent_bes[n]["q_table"]["bes_" + str(n)] = (
+                            mar_agent_bes[n].
+                            update_q_table_q_learning(buying=mar_dict["block_bids"][n_opt]["bes_" + str(n)][2],
+                                                      action=mar_dict["block_bids"][n_opt]["bes_" + str(n)][0],
+                                                      new_buy_quant=new_buy_quant,
+                                                      new_sell_quant=new_sell_quant,
+                                                      new_soc=new_soc))
+
+                # ------------------- TRADE WITH CSS ------------------- #
                 # todo: Ray: Insert css opti here, use bids and offers from previous step as input for opti_css
                 # todo Ray: trade with css
                 #opti_res_css[n_opt] = opti_css.compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids,

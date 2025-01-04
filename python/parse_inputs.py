@@ -55,7 +55,7 @@ def read_economics():
     
     # Always EUR per kWh (meter per anno)
     # todo: check if prices are correct, EEG 2024
-    params["eco"]["sell_pv"]  = 0.0803  # €/kWh valid for pv systems with < 10 kWp 0.0803 https://www.bundesnetzagentur.de/DE/Fachthemen/ElektrizitaetundGas/ErneuerbareEnergien/EEG_Foerderung/start.html
+    params["eco"]["sell_pv"]  = 0.080  # €/kWh valid for pv systems with < 10 kWp 0.0803 https://www.bundesnetzagentur.de/DE/Fachthemen/ElektrizitaetundGas/ErneuerbareEnergien/EEG_Foerderung/start.html
     params["eco"]["sell_chp"] = 0.081 # €/kWh https://photovoltaik.org/kosten/einspeiseverguetung
     params["eco"]["co2_gas"]  = 0.411  # kg/kWh (Germany, 2019; https://de.statista.com/statistik/daten/studie/38897/umfrage/co2-emissionsfaktor-fuer-den-strommix-in-deutschland-seit-1990/)
     params["eco"]["co2_el"]   = 0.241  # kg/kWh (https://www.umweltbundesamt.de/publikationen/emissionsbilanz-erneuerbarer-energietraeger-2020)
