@@ -160,11 +160,13 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                 if mar_dict["block_bids"][n_opt]["bes_" + str(n)][2] == "True": # when buying
                                     buying_quantity = mar_dict["sorted_bids"][n_opt][0]["sell_blocks"][n]["quantity"] # todo: check if this is correct regarding buy/sell
                                     new_soc = current_soc + eta_bat * (buying_quantity + pv_gen - elec_demand)
-                                    new_buy_quant = opti_res[n_opt][n][4]["p_imp"][t] - buying_quantity
+                                    prev_buying_quantity = opti_res[n_opt][n][4]["p_imp"][t]
+                                    new_buy_quant = prev_buying_quantity - buying_quantity
                                 elif mar_dict["block_bids"][n_opt]["bes_" + str(n)][2] == "False": # when selling
                                     selling_quantity = mar_dict["sorted_bids"][n_opt][0]["buy_blocks"][n]["quantity"] # todo: check if this is correct regarding buy/sell
                                     new_soc = current_soc - eta_bat * (selling_quantity + pv_gen - elec_demand)
-                                    new_sell_quant = opti_res[n_opt][n][8]["chp"][t] + opti_res[n_opt][n][8]["pv"][t] - selling_quantity
+                                    prev_selling_quantity = opti_res[n_opt][n][8]["chp"][t] + opti_res[n_opt][n][8]["pv"][t]
+                                    new_sell_quant = prev_selling_quantity - selling_quantity
                             else:
                                 new_soc = opti_res[n_opt][n][3]["tes"][t] / opti_res[n_opt][n][12]["tes"] # todo Ray: how does 'tes_SOC' change after the round?
 

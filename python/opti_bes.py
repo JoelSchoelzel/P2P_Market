@@ -501,4 +501,4 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
             res_p_imp, res_p_ch, res_p_dch, res_p_use, res_p_sell,
             obj, res_c_dem, res_rev, res_soc_nom,
             objVal, runtime, soc_init_rh, res_gas_sum, res_p_grid_buy,
-            res_p_grid_sell, res_p_trade, res_prev_trade)
+            res_p_grid_sell, res_p_trade, res_prev_trade, ratedPower)

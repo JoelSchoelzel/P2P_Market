@@ -188,7 +188,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     return mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options
 
 if __name__ == '__main__':
-    for scenario_name in ["example2"]:  # Typquartier_1, "Quartier_2", "Quartier_3"]:
+    for scenario_name in ["AppliedEnergy"]:  # AppliedEnergy, Typquartier_1, "Quartier_2", "Quartier_3"]:
         first_run = True
         for month in [6]:  # , 7]:
             for block_length in [1]:  # 1, 3, 5]:

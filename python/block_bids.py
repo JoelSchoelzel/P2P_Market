@@ -28,9 +28,9 @@ def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_le
             #Todo: Ray: q-learning needs min_sell_offer_price and max_buy_bid_price after negotiation rounds
             #min_sell_offer_price = min(mar_dict["sell_list"][n_opt][n][t-1][0] for n in range(len(opti_res)))  # min_sell_offer_price
             #max_buy_bid_price = max(mar_dict["buy_list"][n_opt][n][t-1][0] for n in range(len(opti_res)))  # max_buy_offer_price
-            buying_capacity = max(devs_pre_opti[n]["hp35"]["cap"], devs_pre_opti[n]["hp55"]["cap"],
-                                  devs_pre_opti[n]["chp"]["cap"])
-            selling_capacity = devs_pre_opti[n]["pv"]["cap"]
+            buying_capacity = max(opti_res[n][21] * 0.25, devs_pre_opti[n]["hp35"]["cap"], devs_pre_opti[n]["hp55"]["cap"],
+                                  devs_pre_opti[n]["chp"]["cap"], devs_pre_opti[n]["eh"]["cap"])
+            selling_capacity = (devs_pre_opti[n]["pv"]["cap"] + devs_pre_opti[n]["chp"]["cap"]) * 0.4
             # compute bids with ZERO-INTELLIGENCE
             if options["bid_strategy"] == "zero":
                 block_bid["bes_" + str(n)][t] = mar_agent_bes[n].zero_bids(buying_quantity, selling_quantity)
@@ -39,8 +39,9 @@ def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_le
                 block_bid["bes_" + str(n)][t] = mar_agent_bes[n].erev_roth_learning_bids(buying_quantity, selling_quantity)
             # TODO: add here q_learning bidding strategy -> Ray: q-learning needs min_sell_offer_price and max_buy_bid_price
             elif options["bid_strategy"] == "q_learning":
-                # Initialize Q-table for n_opt = 0, or get Q-table from previous rounds
-                mar_agent_bes[n].get_q_table_q_learning(n_opt) #q-tables are saved in mar_agent_bes[n].q_table
+                # Initialize Q-table for n_opt == 0, or get Q-table from previous rounds
+                if n_opt == 0:
+                    mar_agent_bes[n].initialize_q_table_q_learning()
 
                 # Get state for q_learning
                 mar_agent_bes[n].get_state_q_learning(buying_quantity, buying_capacity, selling_quantity,

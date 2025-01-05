@@ -88,7 +88,7 @@ class mar_agent_bes(object):
             action = random.choice(self.q_actions_BES)
         else:
             state_index = tuple(self.q_state)
-            action = self.q_actions_BES[np.argmax(self.q_table["bes_" + str(self.bes_id)][state_index])]
+            action = self.q_actions_BES[np.argmax(self.q_table[state_index])]
             # here q-table is used for determining the final bidding price
 
         if buying_quantity > 0:
@@ -108,30 +108,23 @@ class mar_agent_bes(object):
         # Return the bid
         return [p, q, buying, self.bes_id]
 
-    def get_q_table_q_learning(self, n_opt):
+    def initialize_q_table_q_learning(self):
         # This function is used to initialize the Q-table for Q-learning
         # The Q-table is a 4D numpy array that stores q-values for each state-action pair of each BES
-        if n_opt == 0:
-            self.q_table = {}
+        self.q_table = {}
+        self.q_actions_BES = [round(x, 2) for x in np.arange(self.p_min, (self.p_max + self.step_size_price),
+                                                 self.step_size_price)]
+        state_space = [10, 10, 10]
+        self.q_state = ()
 
-        if not hasattr(self, 'q_actions_BES'):
-            self.q_actions_BES = [round(x, 2) for x in np.arange(self.p_min, (self.p_max + self.step_size_price),
-                                                     self.step_size_price)]
-
-        if "bes_" + str(self.bes_id) not in self.q_table:
-            self.q_table["bes_" + str(self.bes_id)] = {}
-            state_space = [10, 10, 10]
-
-            # Initialize Q-tables (4D) for storing q-values for each state-action pair of each BES
-            self.q_table["bes_" + str(self.bes_id)] = np.zeros(state_space + [len(self.q_actions_BES)])
+        # Initialize Q-tables (4D) for storing q-values for each state-action pair of each BES
+        self.q_table = np.zeros(state_space + [len(self.q_actions_BES)])
 
         return self.q_table
 
     def get_state_q_learning(self, buying_quantity, buying_capacity, selling_quantity, selling_capacity, soc_state):
         # This function is used to map input variables to a discrete state index
         # The state space consists of relative buying quantity, relative selling quantity, and SOC state
-        if not hasattr(self, 'q_state'):
-            self.q_state = ()
 
         if not hasattr(self, 'buying_capacity'):
             self.buying_capacity = buying_capacity
@@ -203,14 +196,14 @@ class mar_agent_bes(object):
         action_index = self.q_actions_BES.index(action)
 
         # Retrieve the current q-value from the Q-table
-        current_q = self.q_table["bes_" + str(self.bes_id)][state_index + (action_index,)]
+        current_q = self.q_table[state_index + (action_index,)]
 
         # Calculate the new q-value based on the Bellman equation
-        max_future_q = np.max(self.q_table["bes_" + str(self.bes_id)][next_state_index])
+        max_future_q = np.max(self.q_table[next_state_index])
         new_q = (1 - self.alpha) * current_q + self.alpha * (reward + self.gamma * max_future_q)
 
         # Update the Q-table with the new q-value
-        self.q_table["bes_" + str(self.bes_id)][state_index + (action_index,)] = new_q
+        self.q_table[state_index + (action_index,)] = new_q
 
         return self.q_table
 

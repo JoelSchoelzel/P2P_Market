@@ -385,7 +385,7 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         ###  maps devices from district generator to nodes
         devs[n]["tes"]["cap"] = districtData.district[n]['capacities']['TES']
 
-        if districtData.scenario.heater[n] == "PV":
+        if districtData.district[n]['capacities']["PV"]:
             devs[n]["pv"]["cap"] = districtData.district[n]['capacities']['PV']["P_ref"]
 
         if districtData.district[n]['capacities']['BAT']:
@@ -427,6 +427,7 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         nodes[n]["devs"]["boiler"] = devs[n]["boiler"]
         nodes[n]["devs"]["ev"] = devs[n]["ev"]
         nodes[n]["devs"]["bz"] = devs[n]["bz"]
+        nodes[n]["devs"]["pv"] = devs[n]["pv"]
 
 
     # Central supply system
