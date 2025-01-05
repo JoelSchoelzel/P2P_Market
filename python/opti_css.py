@@ -8,7 +8,9 @@ from __future__ import division
 import gurobipy as gp
 import datetime
 
-def compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded, trading_price, block_length):
+
+def compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded, trading_price, block_length,
+            opti_res, options):
     # todo: input anpassen für css! Infos zu den Gebäuden werden nicht mehr benötigt
     # params:  dict, economic parameters, such as costs of electricity or gas, and technical parameters for optimization
     # par_rh: dict, contains information about the prediction horizon (time-related parameters).
@@ -190,7 +192,7 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_t
     model.addConstr(sum(power_trade[t] for t in time_steps) <= sum(quantity_bid_seller.values()),
                     name="sum_p_sell")
     for t in time_steps:
-        model.addConstr(p_exp[t] <= max(opti_res[8]["chp"][t] for t in time_steps), f"MaxConstraint_{t}")
+        model.addConstr(p_exp[t] <= max(opti_res[n_opt][n][8]["chp"][t] for n in options["nb_bes"] for t in time_steps), f"MaxConstraint_{t}")
 
     # Set solver parameters (e.g., time limit, MIP gap)
     model.Params.TimeLimit = params["gp"]["time_limit"]
@@ -220,7 +222,6 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_t
         res_power[dev] = {t: power[dev][t].X for t in time_steps}
     for dev in storage:
         res_soc[dev] = {t: soc[dev][t].X for t in time_steps}
-
 
     res_p_ch = {}
     res_p_dch = {}

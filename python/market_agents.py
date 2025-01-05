@@ -108,10 +108,10 @@ class mar_agent_bes(object):
         # Return the bid
         return [p, q, buying, self.bes_id]
 
-    def initiate_q_table_q_learning(self):
+    def get_q_table_q_learning(self, n_opt):
         # This function is used to initialize the Q-table for Q-learning
         # The Q-table is a 4D numpy array that stores q-values for each state-action pair of each BES
-        if not hasattr(self, 'q_table'):
+        if n_opt == 0:
             self.q_table = {}
 
         if not hasattr(self, 'q_actions_BES'):
@@ -213,225 +213,6 @@ class mar_agent_bes(object):
         self.q_table["bes_" + str(self.bes_id)][state_index + (action_index,)] = new_q
 
         return self.q_table
-
-    def update_q_table_q_learning2(self):
-        price = {}
-        sorted_bids = mar_dict["sorted_bids"][n_opt]
-        for trading_round in range(len(sorted_bids)):
-            for bid in range(len(sorted_bids[trading_round]["buy"])):
-                building = sorted_bids[trading_round]["buy"][bid]["building"]
-                price[building] = sorted_bids[trading_round]["buy"][bid]["price"]
-            for bid in range(len(sorted_bids[trading_round]["sell"])):
-                building = sorted_bids[trading_round]["sell"][bid]["building"]
-                price[building] = sorted_bids[trading_round]["sell"][bid]["price"]
-        for n in range(len(price)):
-            price[n] = np.round(price[n], 2)
-
-        bid = mar_dict["bid"]
-        dem_total = trade_res["dem_total"]
-        sup_total = trade_res["sup_total"]
-
-        t = par_rh["time_steps"][n_opt][0]
-        # if no supply or demand at all (trading not possible), the propensities do not change
-        if dem_total[t] == 0 or sup_total[t] == 0:
-            mar_dict["propensities"][n_opt + 1] = mar_dict["propensities"][n_opt]
-
-        else:
-            for n in range(options["nb_bes"]):
-                mar_dict["propensities"][n_opt + 1]["bes_" + str(n) + "_buy"] = []
-                mar_dict["propensities"][n_opt + 1]["bes_" + str(n) + "_sell"] = []
-                # if the bid was empty, the propensities do not change
-                if bid[n_opt]["bes_" + str(n)][1] == 0:
-                    mar_dict["propensities"][n_opt + 1]["bes_" + str(n) + "_buy"] \
-                        = mar_dict["propensities"][n_opt]["bes_" + str(n) + "_buy"]
-                    mar_dict["propensities"][n_opt + 1]["bes_" + str(n) + "_sell"] \
-                        = mar_dict["propensities"][n_opt]["bes_" + str(n) + "_sell"]
-                # if buying, only update prop buy
-                elif bid[n_opt]["bes_" + str(n)][2] == "True":
-                    mar_dict["propensities"][n_opt + 1]["bes_" + str(n) + "_sell"] \
-                        = mar_dict["propensities"][n_opt]["bes_" + str(n) + "_sell"]
-                    for l in range(len(strategies)):
-                        if price[n] == strategies[l]:
-
-                            # r = bes[n]["tra_dem"][n_opt,t-par_rh["hour_start"][n_opt]] * (options["p_max"] - clearing_price[n_opt])
-                            r = trade_res["el_from_distr"][n] * (options["p_max"] - price[n])
-
-                            if ((1 - pars_li["rec"]) * mar_dict["propensities"][n_opt]["bes_" + str(n) + "_buy"][l]) + (
-                                    (1 - pars_li["exp"]) * r) >= 0:
-                                mar_dict["propensities"][n_opt + 1]["bes_" + str(n) + "_buy"].append(
-                                    ((1 - pars_li["rec"]) * mar_dict["propensities"][n_opt]["bes_" + str(n) + "_buy"][
-                                        l])
-                                    + ((1 - pars_li["exp"]) * r))
-                            else:
-                                mar_dict["propensities"][n_opt + 1]["bes_" + str(n) + "_buy"].append(0)
-
-                        else:
-                            mar_dict["propensities"][n_opt + 1]["bes_" + str(n) + "_buy"].append(
-                                (1 - pars_li["rec"]) * mar_dict["propensities"][n_opt]["bes_" + str(n) + "_buy"][l] + \
-                                mar_dict["propensities"][n_opt]["bes_" + str(n) + "_buy"][l] * (
-                                        pars_li["exp"] / (len(strategies) - 1)))
-                # if selling, only update prop sell
-                else:
-                    mar_dict["propensities"][n_opt + 1]["bes_" + str(n) + "_buy"] = mar_dict["propensities"][n_opt][
-                        "bes_" + str(n) + "_buy"]
-                    for l in range(len(strategies)):
-                        if price[n] == strategies[l]:
-
-                            # r = (bes[n]["tra_gen"][n_opt, t - par_rh["hour_start"][n_opt]]) * (clearing_price[n_opt] - options["p_min"])
-                            r = trade_res["el_to_distr"][n] * (price[n] - options["p_min"])
-
-                            if (1 - pars_li["rec"]) * mar_dict["propensities"][n_opt]["bes_" + str(n) + "_sell"][l] + (
-                                    1 - pars_li["exp"]) * r >= 0:
-                                mar_dict["propensities"][n_opt + 1]["bes_" + str(n) + "_sell"].append(
-                                    (1 - pars_li["rec"]) * mar_dict["propensities"][n_opt]["bes_" + str(n) + "_sell"][l] \
-                                    + (1 - pars_li["exp"]) * r)
-                            else:
-                                mar_dict["propensities"][n_opt + 1]["bes_" + str(n) + "_sell"].append(0)
-                        else:
-                            mar_dict["propensities"][n_opt + 1]["bes_" + str(n) + "_sell"].append(
-                                (1 - pars_li["rec"]) * mar_dict["propensities"][n_opt]["bes_" + str(n) + "_sell"][l] \
-                                + mar_dict["propensities"][n_opt]["bes_" + str(n) + "_sell"][l] \
-                                * (pars_li["exp"] / (len(strategies) - 1)))
-
-        return mar_dict["propensities"]
-
-    def q_learning_bids1(self, buying_quantity, buying_capacity, selling_quantity, selling_capacity, soc_state):
-
-        """
-           Q-learning algorithm for bid pricing in energy markets.
-
-           :param p_feed_in: Feed-in tariff price (per kWh).
-           :param p_rate: Utility service rate (per kWh).
-           :param p_reg: Price regulation for CES.
-           :param p_i_sell: List of seller prices.
-           :param p_j_buy: List of buyer prices.
-           :param e_t_SES: Current SES energy level.
-           :param E_SES: Total SES capacity.
-           :param gbuy: Coefficient for buy reward.
-           :param gsell: Coefficient for sell reward.
-           :param hbuy: Coefficient for buy penalty (SOC effect).
-           :param hsell: Coefficient for sell reward (SOC effect).
-           :param beta: Penalty for trying to sell without buyers.
-           :param alpha: Learning rate.
-           :param gamma: Discount factor.
-           :param epsilon: Exploration rate for epsilon-greedy policy.
-           :return: Selected action, updated Q-table, and generated bid.
-           """
-
-        # Initialize Q-tables for storing q-values for each state-action pair of each BES
-        q_table = {}
-        # State space consists of rel buying quantity, rel selling quantity, and SOC state
-        state_space = [10, 10, 10] # Tuple defining state space of 10 x 10 x 10 ((bq_t, sq_t, ct))
-        # Actions for BES, consist of price range
-        actions_BES = [round(x, 2) for x in np.arange(self.p_min, (self.p_max + self.step_size_price),
-                                                         self.step_size_price)]
-
-        # Initialize Q-tables (4D) for storing q-values for each state-action pair of each BES
-        q_table["bes_" + str(self.bes_id)] = np.zeros(state_space + [len(actions_BES)])
-
-        # Define the state space and actions for the BES
-        def get_state(buying_quantity, selling_quantity, soc_state):
-            """
-            Map input variables to a discrete state index.
-
-            :param ot: Seller's offer state (integer, 0-9).
-            :param bt: Buyer's bid state (integer, 0-9).
-            :param ct: CES SOC state (integer, 0-9).
-            :return: Tuple representing the state (ot, bt, ct).
-            """
-
-            def discretize(value):
-                for n in range(0, 9):  # Range is [1, 8] inclusive
-                    lower_bound = 0.11 * (n - 1)
-                    upper_bound = 0.11 * n
-
-                    # Check if value satisfies the condition for this n
-                    if value == 0:
-                        discr_value = 0
-                    elif lower_bound <= value < upper_bound:
-                        discr_value = n
-                    else:
-                        discr_value = 9
-                    return discr_value
-
-            # TODO: Ray: Calculate relative buying_quantity first, then discretize to get bq_t
-            bq_rel = buying_quantity/buying_capacity if buying_capacity != 0 else 0 # muss relativ sein, ggü HP ode CHP
-            bq_t = discretize(bq_rel)
-
-            # TODO: Ray: calculate relative selling_quantity first, then discretize to get sq_t
-            sq_rel = selling_quantity/selling_capacity if selling_capacity != 0 else 0 # muss relativ sein, ggü max PV Erzeugung
-            sq_t = discretize(sq_rel)
-
-            # calculate soc_t_SES first, then discretize to get ct
-            soc = soc_state
-            ct = discretize(soc)
-
-            return bq_t, sq_t, ct
-
-        state = get_state(buying_quantity, selling_quantity, soc_state)
-
-        # Epsilon-greedy action selection
-        # todo: ray explain function, was die Funktion macht warum das benötigt wird
-        def select_action(state):
-            if random.uniform(0, 1) < self.epsilon:
-                return random.choice(actions_BES)
-            else:
-                state_index = tuple(state)
-                return actions_BES[np.argmax(q_table["bes_" + str(self.bes_id)][state_index])]
-                # here q-table is used for determining the final bidding price
-
-        # select_action gives the action -> price
-        action = select_action(state)
-
-        if buying_quantity > 0:
-            p = action
-            q = buying_quantity
-            buying = str("True")
-        else:
-            p = action
-            q = selling_quantity
-            buying = str("False")
-        # Create an empty bid when no electricity needs to be bought or sold.
-        if buying_quantity == 0 and selling_quantity == 0:
-            p = self.p_min  # has to be p_min because of usage in block bid calculation and opti model
-            q = 0
-            buying = str("None")
-
-        # Calculate reward
-        def calculate_reward(buying, soc_t_BES, p_i_sell, p_j_buy):
-            if buying == "True":
-                return self.gbuy * (self.p_rate - self.p_reg - p_i_sell) - self.hbuy * soc_t_BES
-            elif buying == "False":
-                # todo: ray: need to check if there are buyers
-                #if state[1] == 0:  # No buyers
-                #    return -self.penalty
-                return self.gsell * (p_j_buy - p_i_sell) + self.hsell * soc_t_BES
-            else:
-                return 0
-
-        # todo: ray: this must be using min_sell_offer_price and max_buy_bid_price
-        reward = calculate_reward(buying, soc_state, self.p_min, self.p_max)
-
-        # Update Q-table
-        def update_q_table(state, action, reward, next_state):
-            state_index = tuple(state)
-            next_state_index = tuple(next_state)
-            action_index = actions_BES.index(action)
-
-            current_q = q_table["bes_" + str(self.bes_id)][state_index + (action_index,)]
-            max_future_q = np.max(q_table["bes_" + str(self.bes_id)][next_state_index])
-            new_q = (1 - self.alpha) * current_q + self.alpha * (reward + self.gamma * max_future_q)
-            q_table["bes_" + str(self.bes_id)][state_index + (action_index,)] = new_q
-
-        # TODO: Ray calculate next state
-        new_soc = soc_state
-        # Simulate next state and update Q-table
-        # todo: ray: next state should be updated after the trading round
-        next_state = get_state(buying_quantity, selling_quantity, new_soc)
-        update_q_table(state, action, reward, next_state)
-
-        # Return the bid
-        return [p, q, buying, self.bes_id]
 
     def initial_propensities_erev_roth(self):
         """
@@ -558,7 +339,6 @@ class mar_agent_bes(object):
                 weights["bes_" + str(self.bes_id) + "_sell"].append(0)
 
         return weights
-
 
     def one_price(self, bid, par_rh, n_opt, block_length):
 
