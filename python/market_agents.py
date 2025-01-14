@@ -156,33 +156,40 @@ class mar_agent_bes(object):
         self.q_state = (bq_t, sq_t, ct)
         return self.q_state
 
-    def calc_reward_q_learning(self, buying, soc_state):
+    def calc_reward_q_learning_v1(self, buying, p_match, q_match, q_dem):
         # This function is used to calculate the reward for Q-learning
         # The reward is based on the buying/selling action, SOC state, and prices
+        eco_coeff = 0.7
+        trade_coeff = 0.3
         if buying == "True":
-            return self.gbuy * (self.p_rate - self.p_reg - self.p_min) - self.hbuy * soc_state
+            reward = (eco_coeff * (self.p_rate - p_match) * q_match / (self.p_rate - self.p_min) * q_dem +
+                      trade_coeff * q_match / q_dem)
         elif buying == "False":
-            # todo: ray: need to check if there are buyers
-            # if state[1] == 0:  # No buyers
-            #    return -self.penalty
-            return self.gsell * (self.p_max - self.p_min) + self.hsell * soc_state
-        else:
-            return 0
-
-    def update_q_table_q_learning(self, buying, action, new_buy_quant, new_sell_quant, new_soc):
-        # This function is used to update the Q-table for Q-learning
-        # The Q-table is updated based on the current state, action, reward, and next state
-
-        # Calculate reward
-        if buying == "True":
-            reward = self.gbuy * (self.p_rate - self.p_reg - self.p_min) - self.hbuy * self.q_state[2]/10
-        elif buying == "False":
-            # todo: ray: need to check if there are buyers
-            # if state[1] == 0:  # No buyers
-            #    return -self.penalty
-            reward = self.gsell * (self.p_max - self.p_min) + self.hsell * self.q_state[2]/10
+            reward = (eco_coeff * (p_match - self.p_feed_in) * q_match / (self.p_max - self.p_feed_in) * q_dem +
+                      trade_coeff * q_match / q_dem)
         else:
             reward = 0
+        return reward
+
+    def calc_reward_q_learning_v2(self, buying, p_min_sell, p_max_buy, p_match, soc_state):
+        # This function is used to calculate the reward for Q-learning
+        # The reward is based on the buying/selling action, SOC state, and prices
+        g_buy = 5
+        g_sell = 2.5
+        h_buy = 2
+        h_sell = 2
+        if buying == "True":
+            reward = g_buy * (self.p_rate - p_min_sell) - h_buy * soc_state
+        elif buying == "False":
+            reward = g_sell * (p_max_buy - p_match) + h_sell * soc_state
+        else:
+            reward = 0
+        return reward
+
+    def update_q_table_q_learning(self, action, reward, new_buy_quant, new_sell_quant, new_soc):
+        # This function is used to update the Q-table for Q-learning
+        # The Q-table is updated based on the current state, action, reward, and next state
+        # Reward calculated beforehand, and given as input
 
         # Get the index of the current state
         state_index = tuple(self.q_state)
@@ -368,6 +375,7 @@ class mar_agent_css(object):
         self.bat_eta = 0.97 # 0.97 --> 3% losses during charging
         self.bat_soc_ch_max = 0.5 # 0.5 = 50% of capacity as charging power in kW
         self.bat_soc_dch_max = 0.5 # 0.5 = 50% of capacity as charging power in kW
+        self.k_loss = 0.005 # 0.005 = 0.5% losses during charging
 
         self.pv_power, self.wind_power = self.generation()
 

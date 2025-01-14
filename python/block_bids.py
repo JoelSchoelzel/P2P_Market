@@ -4,7 +4,7 @@ import random
 from python import characteristics
 
 
-def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_length, mar_dict, devs_pre_opti):
+def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_length, mar_dict, devs_pre_opti, nodes):
     """
     Compute block bids with length of control horizon for all buildings.
     The bids are created by each building's mar_agent.
@@ -28,9 +28,14 @@ def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_le
             #Todo: Ray: q-learning needs min_sell_offer_price and max_buy_bid_price after negotiation rounds
             #min_sell_offer_price = min(mar_dict["sell_list"][n_opt][n][t-1][0] for n in range(len(opti_res)))  # min_sell_offer_price
             #max_buy_bid_price = max(mar_dict["buy_list"][n_opt][n][t-1][0] for n in range(len(opti_res)))  # max_buy_offer_price
-            buying_capacity = max(opti_res[n][21] * 0.25, devs_pre_opti[n]["hp35"]["cap"], devs_pre_opti[n]["hp55"]["cap"],
-                                  devs_pre_opti[n]["chp"]["cap"], devs_pre_opti[n]["eh"]["cap"])
-            selling_capacity = (devs_pre_opti[n]["pv"]["cap"] + devs_pre_opti[n]["chp"]["cap"]) * 0.4
+            buying_capacity = (nodes[n]["elec"].max() +
+                               max(devs_pre_opti[n]["hp55"]["cap"]/nodes[n]["devs"]["COP_sh55"].min(),
+                                   devs_pre_opti[n]["hp35"]["cap"]/nodes[n]["devs"]["COP_sh35"].min()))
+            #max(opti_res[n][21] * 0.25, devs_pre_opti[n]["hp35"]["cap"], devs_pre_opti[n]["hp55"]["cap"],
+                              #    devs_pre_opti[n]["chp"]["cap"], devs_pre_opti[n]["eh"]["cap"])
+            selling_capacity = (nodes[n]["pv_power"].max() +
+                                nodes[n]["devs"]["chp"]["cap"]*nodes[n]["devs"]["chp"]["eta_el"] / nodes[n]["devs"]["chp"]["eta_th"])
+            #(devs_pre_opti[n]["pv"]["cap"] + devs_pre_opti[n]["chp"]["cap"]) * 0.4
             # compute bids with ZERO-INTELLIGENCE
             if options["bid_strategy"] == "zero":
                 block_bid["bes_" + str(n)][t] = mar_agent_bes[n].zero_bids(buying_quantity, selling_quantity)

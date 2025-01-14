@@ -9,16 +9,15 @@ import gurobipy as gp
 import datetime
 
 
-def compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded, trading_price, block_length,
+def compute(mar_agent_css, params, par_rh, init_val, n_opt, block_length,
             opti_res, options):
-    # todo: input anpassen für css! Infos zu den Gebäuden werden nicht mehr benötigt
     # params:  dict, economic parameters, such as costs of electricity or gas, and technical parameters for optimization
     # par_rh: dict, contains information about the prediction horizon (time-related parameters).
     # init_val: dict, contains the initial values for the storage devices, such as the initial SOC
     # n_opt: int, number of the optimization horizon
 
     # Define subsets
-    storage = ("s_bat") # Shared battery storage
+    storage = ["s_bat"] # Shared battery storage
     renewables = ("s_pv", "s_wind")    # Solar park, wind turbine.
     devices = ("s_bat", "s_pv", "s_wind" )
 
@@ -26,19 +25,15 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_t
     dt = par_rh["duration"][n_opt]
     # Create list of time steps per optimization horizon (dt --> hourly resolution)
     time_steps = par_rh["time_steps"][n_opt][0:block_length]
-    # last time step for soc_end
-    first_time_step = time_steps[0]
-    last_time_step = time_steps[-1]
-    time_steps_block_bid = [time_steps[0], time_steps[1], time_steps[2], time_steps[3]]
 
     model = gp.Model("Operation computation")
 
     # Initialization: only if initial values have been generated in previous prediction horizon
     soc_init_rh = {}
-    if bool(init_val) == True:  #If init_val exists, the initial state of charge (SOC) for the battery (bat) is used in the model.
+    if bool(init_val[n_opt]["css"]):  #If init_val exists, the initial state of charge (SOC) for the battery (bat) is used in the model.
         # initial SOCs
         for dev in storage:
-            soc_init_rh[dev] = init_val["soc"][dev]
+            soc_init_rh[dev] = init_val[n_opt]["css"]["soc"][dev]
 
     if par_rh["month"] == 0:
         par_rh["month"] = par_rh["month"] + 1
@@ -46,7 +41,7 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_t
     # Define variables
     # Revenues
     revenue = {}
-    for rev in ["fix_tarif", "trading"]:
+    for rev in ["grid", "trading"]:
         revenue[rev] = {}
         for t in time_steps:
             revenue[rev][t] = model.addVar(vtype="C", name="revenue_" + rev + "_" + str(t))
@@ -91,13 +86,13 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_t
         power_trade[t] = model.addVar(vtype="C", name="Power_trade_" + str(t))
         prev_trade[t] = model.addVar(vtype="C", name="Previous_power_trade_" + str(t))
 
-    # Import bid power quantity and bid price of matched trading partners
+    # Todo: make sure its needed here: Import bid power quantity and bid price of matched trading partners
     quantity_bid_seller = {}
     quantity_bid_buyer = {}
-    # quantity and price of the buyer and seller is only set for block length
-    for t in time_steps:
-        quantity_bid_buyer[t] = matched_bids[0][t][1]
-        quantity_bid_seller[t] = matched_bids[1][t][1]
+    # Todo: quantity and price of the buyer and seller is only set for block length
+    #for t in time_steps:
+    #    quantity_bid_buyer[t] = matched_bids[0][t][1]
+    #    quantity_bid_seller[t] = matched_bids[1][t][1]
 
     # Activation decision variables
     # binary variable for each css block to avoid simultaneous feed-in and purchase of electric energy
@@ -112,16 +107,18 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_t
 
     # todo: Aufladen und Entladen der Batterie
     # Objective function
-    model.setObjective( - revenue["grid"] - revenue["trading"], gp.GRB.MINIMIZE)
+    # todo: Edited revenue as t dependent
+    for t in time_steps:
+        model.setObjective(- revenue["grid"][t] - revenue["trading"][t], gp.GRB.MINIMIZE)
 
     # Define constraints
     # Economic constraints
     # Revenues for selling electricity to the grid
-    model.addConstr(revenue["fix_tarif"] == sum(p_grid_sell[t] * params["eco"]["sell_pv"] for t in time_steps),
-                        name="Feed_in_rev_" + dev)
-    # Revenues of trading within community
-    model.addConstr(revenue["trading"] == sum(power_trade[t] * trading_price[t] for t in time_steps),
-                        name="Power_trade_revenue")
+        model.addConstr(revenue["grid"][t] == sum(p_grid_sell[t] * params["eco"]["sell_pv"] for t in time_steps),
+                            name="Feed_in_rev_" + dev)
+    # Todo: How to calc revenues of trading within community?
+    #    model.addConstr(revenue["trading"][t] == sum(power_trade[t] * trading_price[t] for t in time_steps),
+    #                        name="Power_trade_revenue")
 
 
     # Devices operation
@@ -157,21 +154,21 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_t
 
         # Charging and discharging power limits based on battery capacity and usage (y is a binary variable controlling operation modes)
         # Maximal charging
-        model.addConstr(p_ch["s_bat"][t] <= y["s_bat"][t] * mar_agent_css.bat_cap * mar_agent_css.bat_ch_max,
+        model.addConstr(p_ch["s_bat"][t] <= y["s_bat"][t] * mar_agent_css.bat_capacity * mar_agent_css.bat_soc_ch_max,
                         name="max_ch_s_bat_" + str(t))
         # Maximal discharging
-        model.addConstr(p_dch["s_bat"][t] <= (1 - y["s_bat"][t]) * mar_agent_css.bat_cap * mar_agent_css.bat_dch_max,
+        model.addConstr(p_dch["s_bat"][t] <= (1 - y["s_bat"][t]) * mar_agent_css.bat_capacity * mar_agent_css.bat_soc_dch_max,
                         name="max_dch_s_bat_" + str(t))
 
         # Battery SOC constraints: Minimal and maximal soc
-        model.addConstr(soc["s_bat"][t] <= mar_agent_css.bat_soc_max * mar_agent_css.bat_cap,
+        model.addConstr(soc["s_bat"][t] <= mar_agent_css.bat_soc_max * mar_agent_css.bat_capacity,
                         name="max_soc_s_bat_" + str(t))
-        model.addConstr(soc["s_bat"][t] >= mar_agent_css.bat_soc_min * mar_agent_css.bat_cap,
+        model.addConstr(soc["s_bat"][t] >= mar_agent_css.bat_soc_min * mar_agent_css.bat_capacity,
                         name="max_soc_s_bat_" + str(t))
 
         #SoC degradation over time
         model.addConstr(soc[dev][t] == (1 - k_loss) * soc_prev +
-                        dt[t] * (mar_agent_css.eta_bat * p_ch[dev][t] - 1 / mar_agent_css.eta_bat * p_dch[dev][t]),
+                        dt[t] * (mar_agent_css.bat_eta * p_ch[dev][t] - 1 / mar_agent_css.bat_eta * p_dch[dev][t]),
                         name="Storage_balance_" + dev + "_" + str(t))
 
     # Electricity balance for the central supply system
@@ -186,13 +183,15 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_t
         model.addConstr(power_trade[t] == 0)
         model.addConstr(prev_trade[t] == 0)
         # else:
+        # Todo: How to implement previous trading
         model.addConstr(prev_trade[t] == prev_traded["css"][t], name="Previous_traded_electricity_css_" + str(t))
 
-    # The sum of power_trade cannot be greater than total trading quantity of the block bid
-    model.addConstr(sum(power_trade[t] for t in time_steps) <= sum(quantity_bid_seller.values()),
-                    name="sum_p_sell")
+    # Todo: The sum of power_trade cannot be greater than total trading quantity of the block bid,
+    #  make sure loop is correct, maybe opti_res[n_opt][n][8]["chp"][t]?
+    #model.addConstr(sum(power_trade[t] for t in time_steps) <= sum(quantity_bid_seller.values()),
+    #                name="sum_p_sell")
     for t in time_steps:
-        model.addConstr(p_exp[t] <= max(opti_res[n_opt][n][8]["chp"][t] for n in options["nb_bes"] for t in time_steps), f"MaxConstraint_{t}")
+        model.addConstr(p_exp[t] <= max(opti_res[n_opt][n][8]["chp"][t] for n in range(options["nb_bes"]) for t in time_steps), f"MaxConstraint_{t}")
 
     # Set solver parameters (e.g., time limit, MIP gap)
     model.Params.TimeLimit = params["gp"]["time_limit"]
@@ -202,6 +201,7 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_t
     # Execute the optimization model
     model.optimize()
 
+    # Todo: correct the model, when infeasible or unbounded, can't computeIIS()
     # Write errorfile if optimization problem is infeasible or unbounded
     if model.status == gp.GRB.Status.INFEASIBLE or model.status == gp.GRB.Status.INF_OR_UNBD:
         model.computeIIS()

@@ -16,6 +16,7 @@ import python.market as market # MA Lena
 import python.calc_results as calc_results
 import python.opti_css as sharing_opti
 
+
 def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_length, districtData, devs_pre_opti):
     # Run rolling horizon
     init_val = {}  # not needed for first optimization, thus empty dictionary
@@ -45,7 +46,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             "sorted_bids": {},
             # todo: put "matched_bids_info" and "matched_bids_info_nego" in one --> start here with r=0 and in negotiation with r=1
             "matched_bids_info": {},
-            #"matched_bids_info_nego": {},
+            # "matched_bids_info_nego": {},
             "negotiation_results": {},
             "transactions_with_grid": {},
         }
@@ -84,8 +85,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         #                                                                         par_rh, n_opt)
                     else: pass
                 # todo Ray: add sharing operation here, adjust init_val for sharing operation?
-                # opti_css[n_opt] = sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids,
-                #                                     prev_traded, trading_price, block_length, opti_res, options)
+                #init_val[n_opt]["css"] = {}
+                #opti_css[n_opt] = sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, block_length, opti_res, options)
             else:
                 for n in range(options["nb_bes"]):
                     print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(n) + ".")
@@ -105,8 +106,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                             init_val[n_opt + 1] = 0
                     else: pass
                 # todo Ray: add sharing operation here, adjust init_val for sharing operation?
-                # opti_css[n_opt] = sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids,
-                #                                     prev_traded, trading_price, block_length, opti_res, options)
+                #init_val[n_opt]["css"] = {}
+                #opti_css[n_opt] = sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, block_length, opti_res, options)
             #opti_res_check[n_opt] = copy.deepcopy(opti_res[n_opt])
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) +
                   "% of optimizations processed.")
@@ -122,7 +123,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 mar_dict["block_bids"][n_opt] = \
                     block_bids.compute_block_bids(opti_res=opti_res[n_opt], par_rh=par_rh,
                                                   mar_agent_bes=mar_agent_bes, n_opt=n_opt, options=options,
-                                                  block_length=block_length, mar_dict=mar_dict, devs_pre_opti=devs_pre_opti)
+                                                  block_length=block_length, mar_dict=mar_dict,
+                                                  devs_pre_opti=devs_pre_opti, nodes=nodes)
 
                 # ------------------- SEPARATE BLOCK BIDS INTO BUY AND SELL LISTS ------------------- #
                 mar_dict["sell_list"][n_opt], mar_dict["buy_list"][n_opt] = \
@@ -147,36 +149,6 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                           matched_bids_info=mar_dict["matched_bids_info"][n_opt],
                                           sorted_bids=mar_dict["sorted_bids"][n_opt], block_length=block_length,
                                           opti_res=opti_res[n_opt])
-                # todo ray: update q-tables of BES agents here, see below
-                # update q-tables of BES agents after each negotiation round
-                if options["bid_strategy"] == "q_Learning":
-                    for n in range(options["nb_bes"]):
-                        for t in par_rh["time_steps"][n_opt][0:block_length]:
-                            if opti_res[n_opt][n][12]["bat"] != 0:
-                                current_soc = opti_res[n_opt][n][3]["bat"][t] / opti_res[n_opt][n][12]["bat"]
-                                eta_bat = nodes[n]["devs"]["bat"]["eta_bat"]
-                                pv_gen = nodes[n]["pv_power"][t]
-                                elec_demand = nodes[n]["elec"][t]
-                                if mar_dict["block_bids"][n_opt]["bes_" + str(n)][2] == "True": # when buying
-                                    buying_quantity = mar_dict["sorted_bids"][n_opt][0]["sell_blocks"][n]["quantity"] # todo: check if this is correct regarding buy/sell
-                                    new_soc = current_soc + eta_bat * (buying_quantity + pv_gen - elec_demand)
-                                    prev_buying_quantity = opti_res[n_opt][n][4]["p_imp"][t]
-                                    new_buy_quant = prev_buying_quantity - buying_quantity
-                                elif mar_dict["block_bids"][n_opt]["bes_" + str(n)][2] == "False": # when selling
-                                    selling_quantity = mar_dict["sorted_bids"][n_opt][0]["buy_blocks"][n]["quantity"] # todo: check if this is correct regarding buy/sell
-                                    new_soc = current_soc - eta_bat * (selling_quantity + pv_gen - elec_demand)
-                                    prev_selling_quantity = opti_res[n_opt][n][8]["chp"][t] + opti_res[n_opt][n][8]["pv"][t]
-                                    new_sell_quant = prev_selling_quantity - selling_quantity
-                            else:
-                                new_soc = opti_res[n_opt][n][3]["tes"][t] / opti_res[n_opt][n][12]["tes"] # todo Ray: how does 'tes_SOC' change after the round?
-
-                        # update q-table
-                        mar_agent_bes[n]["q_table"]["bes_" + str(n)] = (
-                            mar_agent_bes[n].
-                            update_q_table_q_learning(buying=mar_dict["block_bids"][n_opt]["bes_" + str(n)][2],
-                                                      action=mar_dict["block_bids"][n_opt]["bes_" + str(n)][0],
-                                                      new_buy_quant=new_buy_quant, new_sell_quant=new_sell_quant,
-                                                      new_soc=new_soc))
 
                 # ------------------- TRADE WITH CSS ------------------- #
                 # todo: Ray: Insert css opti here, use bids and offers from previous step as input for opti_css
@@ -188,6 +160,68 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 mar_dict["transactions_with_grid"][n_opt] = \
                     market.trade_with_grid(params=params, par_rh=par_rh, n_opt=n_opt,
                                             block_length=block_length, opti_res=opti_res[n_opt])
+
+                # todo ray: update q-tables of BES agents here, see below
+                # update q-tables of BES agents after each negotiation round
+                if options["bid_strategy"] == "q_learning":
+                    for n in range(options["nb_bes"]):
+                        for t in par_rh["time_steps"][n_opt][0:block_length]:
+                            buying = mar_dict["block_bids"][n_opt]["bes_" + str(n)][t][2]
+                            pv_gen = nodes[n]["pv_power"][t]
+                            elec_demand = nodes[n]["elec"][t]
+                            if buying == "True":  # when buying
+                                match_buying_quantity = mar_dict["sorted_bids"][n_opt][0]["sell_blocks"][n][
+                                    "quantity"]  # todo: check if this is correct regarding buy/sell
+                                prev_buying_quantity = opti_res[n_opt][n][4]["p_imp"][t]
+                                new_buy_quant = prev_buying_quantity - match_buying_quantity
+                                new_sell_quant = 0
+                                if opti_res[n_opt][n][12]["bat"] == 0:  # if battery doesn't exist
+                                    current_soc = opti_res[n_opt][n][3]["tes"][t] / opti_res[n_opt][n][12]["tes"]
+                                    new_soc = current_soc
+                                else:  # if battery exist
+                                    current_soc = opti_res[n_opt][n][3]["bat"][t] / opti_res[n_opt][n][12]["bat"]
+                                    eta_bat = nodes[n]["devs"]["bat"]["eta_bat"]
+                                    new_soc = current_soc + eta_bat * (match_buying_quantity + pv_gen - elec_demand)
+                            elif buying == "False":  # when selling
+                                selling_quantity = mar_dict["sorted_bids"][n_opt][0]["buy_blocks"][n][
+                                    "quantity"]  # todo: check if this is correct regarding buy/sell
+                                prev_selling_quantity = opti_res[n_opt][n][8]["chp"][t] + opti_res[n_opt][n][8]["pv"][t]
+                                new_buy_quant = 0
+                                new_sell_quant = prev_selling_quantity - selling_quantity
+                                if opti_res[n_opt][n][12]["bat"] == 0:  # if battery doesn't exist
+                                    current_soc = opti_res[n_opt][n][3]["tes"][t] / opti_res[n_opt][n][12]["tes"]
+                                    new_soc = current_soc
+                                else:  # if battery exist
+                                    current_soc = opti_res[n_opt][n][3]["bat"][t] / opti_res[n_opt][n][12]["bat"]
+                                    eta_bat = nodes[n]["devs"]["bat"]["eta_bat"]
+                                    new_soc = current_soc - eta_bat * (selling_quantity + pv_gen - elec_demand)
+                            if mar_dict["negotiation_results"][n_opt][0] is not None:
+                                p_match = mar_dict["negotiation_results"][n_opt][0][0]["trading_price"]
+                            else: p_match = 0
+                            if mar_dict["negotiation_results"][n_opt][0][0]["trading_quantity"] is not None:
+                                q_match = mar_dict["negotiation_results"][n_opt][0][0]["trading_quantity"]
+                            else: q_match = 0
+                            q_dem = mar_dict["block_bids"][n_opt]["bes_" + str(n)][t][1]
+                            p_min_sell = min(mar_dict["buy_list"][n_opt][n]["mean_price"] for n in range(options["nb_bes"]))
+                            p_max_buy = max(mar_dict["sell_list"][n_opt][n]["mean_price"] for n in range(options["nb_bes"]))
+                            soc_state = opti_res[n][3]["bat"][t] / opti_res[n][12]["bat"] if opti_res[n][12]["bat"] != 0 \
+                                else opti_res[n][3]["tes"][t] / opti_res[n][12]["tes"]
+
+                            # calculate reward
+                            reward1 = mar_agent_bes[n].calc_reward_q_learning_v1(buying, p_match, q_match, q_dem)
+                            reward2 = mar_agent_bes[n].calc_reward_q_learning_v2(buying, p_min_sell, p_max_buy, p_match,
+                                                                                 soc_state)
+
+                            reward1 += reward1
+                            reward2 += reward2
+
+                        # update q-table
+                        mar_agent_bes[n]["q_table"] = (
+                            mar_agent_bes[n].
+                            update_q_table_q_learning(action=mar_dict["block_bids"][n_opt]["bes_" + str(n)][0],
+                                                      reward=reward1,
+                                                      new_buy_quant=new_buy_quant, new_sell_quant=new_sell_quant,
+                                                      new_soc=new_soc))
 
                 # create initial SoC values for next optimization step
                 init_val[n_opt + 1] \
@@ -227,15 +261,14 @@ def init_val_decentral_operation(opti_bes, par_rh, n_opt):
 
 
 # todo: Ray: implement function for sharing operation with central supply system
-def sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded, trading_price,
+def sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt,
                       block_length, opti_res, options):
     """
     This function computes a deterministic solution.
     Internally, the results of the subproblem are stored.
     """
 
-    opti_css = sharing_opti.compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded,
-                                    trading_price, block_length, opti_res, options)
+    opti_css = sharing_opti.compute(mar_agent_css, params, par_rh, init_val, n_opt, block_length, opti_res, options)
 
     return opti_css
 
