@@ -70,7 +70,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
 
     # Set options for energy trading
     options = {"optimization": "P2P",  # P2P
-               "bid_strategy": "zero",  # "zero", "erev_roth_learning" or "q_learning"
+               "bid_strategy": "q_learning",  # "zero", "erev_roth_learning" or "q_learning"
                "crit_prio": crit_prio,  # "flex_energy",
                # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
                "block_length": block_length,  # length of block bid in hours

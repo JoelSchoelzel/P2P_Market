@@ -170,8 +170,11 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                             pv_gen = nodes[n]["pv_power"][t]
                             elec_demand = nodes[n]["elec"][t]
                             if buying == "True":  # when buying
-                                match_buying_quantity = mar_dict["sorted_bids"][n_opt][0]["sell_blocks"][n][
-                                    "quantity"]  # todo: check if this is correct regarding buy/sell
+                                for i in range(0, 2): # look for the matched bid and find the matched buying quantity
+                                    if [0] in mar_dict["matched_bids_info"][n_opt][0] and mar_dict["matched_bids_info"][n_opt][0][0][i]["bes_id"] == n:
+                                        match_buying_quantity = min(mar_dict["matched_bids_info"][n_opt][0][0][i]["quantity"] for i in range(0, 2)) # todo: check if this is correct
+                                    else:
+                                        match_buying_quantity = 0
                                 prev_buying_quantity = opti_res[n_opt][n][4]["p_imp"][t]
                                 new_buy_quant = prev_buying_quantity - match_buying_quantity
                                 new_sell_quant = 0
@@ -182,44 +185,54 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                     current_soc = opti_res[n_opt][n][3]["bat"][t] / opti_res[n_opt][n][12]["bat"]
                                     eta_bat = nodes[n]["devs"]["bat"]["eta_bat"]
                                     new_soc = current_soc + eta_bat * (match_buying_quantity + pv_gen - elec_demand)
+
                             elif buying == "False":  # when selling
-                                selling_quantity = mar_dict["sorted_bids"][n_opt][0]["buy_blocks"][n][
-                                    "quantity"]  # todo: check if this is correct regarding buy/sell
+                                for i in range(0, 2): # look for the matched bid and find the matched buying quantity
+                                    if ([0] in mar_dict["matched_bids_info"][n_opt][0] and
+                                            mar_dict["matched_bids_info"][n_opt][0][0][i]["bes_id"] == n):
+                                        match_selling_quantity = (
+                                            min(mar_dict["matched_bids_info"][n_opt][0][0][i]["quantity"] for i in range(0, 2))) # todo: check if this is correct
+                                    else:
+                                        match_selling_quantity = 0
                                 prev_selling_quantity = opti_res[n_opt][n][8]["chp"][t] + opti_res[n_opt][n][8]["pv"][t]
                                 new_buy_quant = 0
-                                new_sell_quant = prev_selling_quantity - selling_quantity
+                                new_sell_quant = prev_selling_quantity - match_selling_quantity
                                 if opti_res[n_opt][n][12]["bat"] == 0:  # if battery doesn't exist
                                     current_soc = opti_res[n_opt][n][3]["tes"][t] / opti_res[n_opt][n][12]["tes"]
                                     new_soc = current_soc
                                 else:  # if battery exist
                                     current_soc = opti_res[n_opt][n][3]["bat"][t] / opti_res[n_opt][n][12]["bat"]
                                     eta_bat = nodes[n]["devs"]["bat"]["eta_bat"]
-                                    new_soc = current_soc - eta_bat * (selling_quantity + pv_gen - elec_demand)
-                            if mar_dict["negotiation_results"][n_opt][0] is not None:
-                                p_match = mar_dict["negotiation_results"][n_opt][0][0]["trading_price"]
-                            else: p_match = 0
-                            if mar_dict["negotiation_results"][n_opt][0][0]["trading_quantity"] is not None:
+                                    new_soc = current_soc - eta_bat * (match_selling_quantity + pv_gen - elec_demand)
+                            if any(result == [0] for result in mar_dict["negotiation_results"][n_opt][0]): # if any negotiation results exist
+                                p_match = mar_dict["negotiation_results"][n_opt][0][0]["trading_price"] # todo: need correct trading price from negotiation results
                                 q_match = mar_dict["negotiation_results"][n_opt][0][0]["trading_quantity"]
-                            else: q_match = 0
+                            else:
+                                p_match = 0
+                                q_match = 0
                             q_dem = mar_dict["block_bids"][n_opt]["bes_" + str(n)][t][1]
-                            p_min_sell = min(mar_dict["buy_list"][n_opt][n]["mean_price"] for n in range(options["nb_bes"]))
-                            p_max_buy = max(mar_dict["sell_list"][n_opt][n]["mean_price"] for n in range(options["nb_bes"]))
-                            soc_state = opti_res[n][3]["bat"][t] / opti_res[n][12]["bat"] if opti_res[n][12]["bat"] != 0 \
-                                else opti_res[n][3]["tes"][t] / opti_res[n][12]["tes"]
+                            if any(result == [n] for result in mar_dict["buy_list"][n_opt]):
+                                p_min_sell = min(mar_dict["buy_list"][n_opt][n]["mean_price"] for n in range(options["nb_bes"]))
+                            else: p_min_sell = options["p_min"]
+                            if any(result == [n] for result in mar_dict["sell_list"][n_opt]):
+                                p_max_buy = max(mar_dict["sell_list"][n_opt][n]["mean_price"] for n in range(options["nb_bes"]))
+                            else: p_max_buy = options["p_max"]
+                            soc_state = opti_res[n_opt][n][3]["bat"][t] / opti_res[n_opt][n][12]["bat"] if opti_res[n_opt][n][12]["bat"] != 0 \
+                                else opti_res[n_opt][n][3]["tes"][t] / opti_res[n_opt][n][12]["tes"]
 
                             # calculate reward
                             reward1 = mar_agent_bes[n].calc_reward_q_learning_v1(buying, p_match, q_match, q_dem)
                             reward2 = mar_agent_bes[n].calc_reward_q_learning_v2(buying, p_min_sell, p_max_buy, p_match,
                                                                                  soc_state)
 
-                            reward1 += reward1
+                            reward1 += reward1 # sum up rewards for t in n_opt
                             reward2 += reward2
 
                         # update q-table
                         mar_agent_bes[n]["q_table"] = (
                             mar_agent_bes[n].
-                            update_q_table_q_learning(action=mar_dict["block_bids"][n_opt]["bes_" + str(n)][0],
-                                                      reward=reward1,
+                            update_q_table_q_learning(action=mar_dict["block_bids"][n_opt]["bes_" + str(n)][t][0],
+                                                      reward=reward2,
                                                       new_buy_quant=new_buy_quant, new_sell_quant=new_sell_quant,
                                                       new_soc=new_soc))
 

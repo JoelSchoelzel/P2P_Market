@@ -26,6 +26,9 @@ class mar_agent_bes(object):
         self.gbuy, self.gsell, self.hbuy, self.hsell, self.penalty = 5, 2.5, 2, 2, 0 # coefficients for rewards and penalties
         self.alpha, self.gamma, self.epsilon = 0.1, 0.1, 0.1 # learning rate, discount factor, exploration rate
 
+    def __setitem__(self, key, value):
+        self.__dict__["q_table"] = self.q_table
+
 
 
     def zero_bids(self, buying_quantity, selling_quantity):
@@ -200,6 +203,7 @@ class mar_agent_bes(object):
         next_state_index = tuple(next_state)
 
         # Get the index of the action in the actions list
+        action = round(action, 2)
         action_index = self.q_actions_BES.index(action)
 
         # Retrieve the current q-value from the Q-table
