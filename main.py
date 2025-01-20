@@ -74,9 +74,10 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
                "crit_prio": crit_prio,  # "flex_energy",
                # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
                "block_length": block_length,  # length of block bid in hours
-               "max_trading_rounds": 15, # Number of trading rounds for multi round trading
+               "max_trading_rounds": 1, # Number of trading rounds for multi round trading
                 "negotiation": True,  # True: negotiation, False: auction
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
+               "central_supply_system": True, # True: central supply system, False: without central supply system
                # path to the project
                "path_file": os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                # path to where the result should be stored

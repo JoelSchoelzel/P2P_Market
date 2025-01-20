@@ -9,8 +9,8 @@ import gurobipy as gp
 import datetime
 
 
-def compute(mar_agent_css, params, par_rh, init_val, n_opt, block_length,
-            opti_res, options):
+def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_traded, trading_price,  block_length,
+            opti_res, options, res_soc_prev):
     # params:  dict, economic parameters, such as costs of electricity or gas, and technical parameters for optimization
     # par_rh: dict, contains information about the prediction horizon (time-related parameters).
     # init_val: dict, contains the initial values for the storage devices, such as the initial SOC
@@ -19,7 +19,7 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, block_length,
     # Define subsets
     storage = ["s_bat"] # Shared battery storage
     renewables = ("s_pv", "s_wind")    # Solar park, wind turbine.
-    devices = ("s_bat", "s_pv", "s_wind" )
+    devices = ("s_bat", "s_pv", "s_wind")
 
     # Extract parameters
     dt = par_rh["duration"][n_opt]
@@ -41,10 +41,11 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, block_length,
     # Define variables
     # Revenues
     revenue = {}
+    c_imp = {} # Costs of electricity import
     for rev in ["grid", "trading"]:
         revenue[rev] = {}
-        for t in time_steps:
-            revenue[rev][t] = model.addVar(vtype="C", name="revenue_" + rev + "_" + str(t))
+        revenue[rev] = model.addVar(vtype="C", name="revenue_" + rev)
+        c_imp[rev] = model.addVar(vtype="C", name="cost_import_" + rev)
 
     # SOC, charging, discharging, power
     soc = {}
@@ -78,21 +79,30 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, block_length,
     p_exp = {} # Total electricity exported
     p_grid_sell = {} # Electricity sold to the grid
     # Dicts for the variables of traded power and trading price
-    power_trade = {} # Power traded
-    prev_trade = {} # Previous power traded
+    power_trade_sell = {} # Power traded
+    prev_trade_sell = {} # Previous power traded
     for t in time_steps:
         p_exp[t] = model.addVar(vtype="C", name="total_power_exported" + str(t))
         p_grid_sell[t] = model.addVar(vtype="C", name="p_grid_sell" + str(t))
-        power_trade[t] = model.addVar(vtype="C", name="Power_trade_" + str(t))
-        prev_trade[t] = model.addVar(vtype="C", name="Previous_power_trade_" + str(t))
+        power_trade_sell[t] = model.addVar(vtype="C", name="power_trade_sell_" + str(t))
+        prev_trade_sell[t] = model.addVar(vtype="C", name="Previous_power_trade_sell_" + str(t))
+        
+    # Electricity import
+    p_imp = {}
+    p_grid_buy = {}
+    power_trade_buy = {}
+    for t in time_steps:
+        p_imp[t] = model.addVar(vtype="C", name="total_power_imported_" + str(t))
+        p_grid_buy[t] = model.addVar(vtype="C", name="p_grid_buy_" + str(t))
+        power_trade_buy[t] = model.addVar(vtype="C", name="power_trade_buy_" + str(t))
 
     # Todo: make sure its needed here: Import bid power quantity and bid price of matched trading partners
     quantity_bid_seller = {}
     quantity_bid_buyer = {}
     # Todo: quantity and price of the buyer and seller is only set for block length
-    #for t in time_steps:
-    #    quantity_bid_buyer[t] = matched_bids[0][t][1]
-    #    quantity_bid_seller[t] = matched_bids[1][t][1]
+    for t in time_steps:
+        quantity_bid_buyer[t] = matched_bids[1][t][1]
+        quantity_bid_seller[t] = matched_bids[0][t][1]
 
     # Activation decision variables
     # binary variable for each css block to avoid simultaneous feed-in and purchase of electric energy
@@ -102,24 +112,36 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, block_length,
         for t in time_steps:
             y[dev][t] = model.addVar(vtype="B", lb=0.0, ub=1.0, name="y_" + dev + "_" + str(t))
 
+
+    # Todo: added export coefficients
+    exp_co = {}
+    for dev in renewables:
+        exp_co[dev] = {}
+        for t in time_steps:
+            exp_co[dev][t] = model.addVar(vtype="C", lb=0.0, ub=1.0, name="exp_co_" + dev + "_" + str(t))
+
     # Update model
     model.update()
 
     # todo: Aufladen und Entladen der Batterie
     # Objective function
     # todo: Edited revenue as t dependent
-    for t in time_steps:
-        model.setObjective(- revenue["grid"][t] - revenue["trading"][t], gp.GRB.MINIMIZE)
+    model.setObjective(c_imp["grid"] + c_imp["trading"] - revenue["grid"] - revenue["trading"], gp.GRB.MINIMIZE)
 
     # Define constraints
     # Economic constraints
     # Revenues for selling electricity to the grid
-        model.addConstr(revenue["grid"][t] == sum(p_grid_sell[t] * params["eco"]["sell_pv"] for t in time_steps),
+    model.addConstr(revenue["grid"] == sum(p_grid_sell[t] * params["eco"]["sell_pv"] for t in time_steps),
                             name="Feed_in_rev_" + dev)
     # Todo: How to calc revenues of trading within community?
-    #    model.addConstr(revenue["trading"][t] == sum(power_trade[t] * trading_price[t] for t in time_steps),
-    #                        name="Power_trade_revenue")
+    model.addConstr(revenue["trading"] == sum(power_trade_sell[t] * trading_price[t] for t in time_steps),
+                            name="power_trade_sell_revenue")
 
+    # Cost of electricity import
+    model.addConstr(c_imp["grid"] == sum(p_imp[t] * params["eco"]["pr", "el"] for t in time_steps),
+                        name="Cost_imported_electricity_grid")
+    model.addConstr(c_imp["trading"] == sum(power_trade_buy[t] * trading_price[t] for t in time_steps),
+                        name="Cost_imported_electricity_trade")
 
     # Devices operation
     for t in time_steps:
@@ -132,66 +154,79 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, block_length,
         model.addConstr(power[dev][t] == mar_agent_css.wind_power[t],
                         name="Wind_electrical_" + dev + "_" + str(t))
 
-    # Storage devices flexibility
-    """
-    for dev in storage:
-        model.addConstr(soc[dev][t] == soc_init[dev] + sum(p_ch[dev][t] * dt - p_dch[dev][t] * dt), 
-                        name="SOC_equation_" + dev + "_" + str(t))
-        model.addConstr(soc[dev][t] <= soc_nom[dev], name="SOC_max_" + dev + "_" + str(t))
-        model.addConstr(soc[dev][t] >= 0, name="SOC_min_" + dev + "_" + str(t))
-    """
-
     dev = "s_bat"
     k_loss = mar_agent_css.k_loss  # Battery degradation loss factor
     for t in time_steps:
         # Initial SOC is the SOC at the beginning of the first time step, thus it equals the SOC at the end of the previous time step
         if t == par_rh["hour_start"][n_opt] and t > par_rh["month_start"][par_rh["month"]]:
-            soc_prev = soc_init_rh[dev]  # Start of optimization window (hour)
+            soc_prev = soc_init_rh[dev][t-1]  # Start of optimization window (hour)
         elif t == par_rh["month_start"][par_rh["month"]]:
             soc_prev = soc_init[dev]  # Start of month
         else:
-            soc_prev = soc[dev][t - 1]  # Previous SOC
+            # soc_prev = soc[dev][t - 1]  # Previous SOC
+            soc_prev = res_soc_prev
 
-        # Charging and discharging power limits based on battery capacity and usage (y is a binary variable controlling operation modes)
+        # Charging and discharging power limits based on battery capacity and usage
+        # (y is a binary variable controlling operation modes)
         # Maximal charging
         model.addConstr(p_ch["s_bat"][t] <= y["s_bat"][t] * mar_agent_css.bat_capacity * mar_agent_css.bat_soc_ch_max,
-                        name="max_ch_s_bat_" + str(t))
+                        name="max_ch_s_bat_" + str(t)) # maximum charging power 150 kW
         # Maximal discharging
         model.addConstr(p_dch["s_bat"][t] <= (1 - y["s_bat"][t]) * mar_agent_css.bat_capacity * mar_agent_css.bat_soc_dch_max,
                         name="max_dch_s_bat_" + str(t))
+        # Prevent negative charging and discharging
+        model.addConstr(p_ch["s_bat"][t] >= 0, name="min_ch_s_bat_" + str(t))
+        model.addConstr(p_dch["s_bat"][t] >= 0, name="min_dch_s_bat_" + str(t))
 
         # Battery SOC constraints: Minimal and maximal soc
         model.addConstr(soc["s_bat"][t] <= mar_agent_css.bat_soc_max * mar_agent_css.bat_capacity,
                         name="max_soc_s_bat_" + str(t))
         model.addConstr(soc["s_bat"][t] >= mar_agent_css.bat_soc_min * mar_agent_css.bat_capacity,
-                        name="max_soc_s_bat_" + str(t))
+                        name="min_soc_s_bat_" + str(t))
 
         #SoC degradation over time
+        #model.addConstr(soc[dev][t] == (1 - k_loss) * soc_prev +
+        #                (mar_agent_css.bat_eta * p_ch[dev][t] - 1 / mar_agent_css.bat_eta * p_dch[dev][t]) * dt[t],
+        #                name="Storage_balance_" + dev + "_" + str(t))
+        # todo: Corrected the SoC balance equation
         model.addConstr(soc[dev][t] == (1 - k_loss) * soc_prev +
-                        dt[t] * (mar_agent_css.bat_eta * p_ch[dev][t] - 1 / mar_agent_css.bat_eta * p_dch[dev][t]),
+                        mar_agent_css.bat_eta * (p_ch[dev][t] - p_dch[dev][t]) * dt[t],
                         name="Storage_balance_" + dev + "_" + str(t))
 
     # Electricity balance for the central supply system
+    #for t in time_steps:
+    #    model.addConstr(p_exp[t] + p_ch["s_bat"][t] == p_dch["s_bat"][t] + power["s_wind"][t] + power["s_pv"][t],
+    #                    name="Electricity_balance_" + str(t))
+        
+    # Todo: added Power balance for charging and discharging
     for t in time_steps:
-        model.addConstr(p_exp[t] + p_ch["s_bat"][t] == p_dch["s_bat"][t] + power["s_wind"][t] + power["s_pv"][t],
-                        name="Electricity_balance_" + str(t))
+        model.addConstr(p_exp[t] == p_dch["s_bat"][t] + exp_co["s_pv"][t] * power["s_pv"][t]
+                        + exp_co["s_wind"][t] * power["s_wind"][t], name="Charging_power_balance_" + str(t))
+        model.addConstr(p_ch["s_bat"][t] == p_imp[t] + (1 - exp_co["s_pv"][t]) * power["s_pv"][t] +
+                       (1 - exp_co["s_wind"][t]) * power["s_wind"][t], name="Discharging_power_balance_" + str(t))
             
     # Power trading constraints: split exported power into trading power, previous traded power and power to the grid
     for t in time_steps:
-        model.addConstr(p_exp[t] == p_grid_sell[t] + power_trade[t] + prev_trade[t])
+        model.addConstr(p_exp[t] == p_grid_sell[t] + power_trade_sell[t] + prev_trade_sell[t])
         # if first trading:
-        model.addConstr(power_trade[t] == 0)
-        model.addConstr(prev_trade[t] == 0)
+        model.addConstr(power_trade_sell[t] == 0)
+        model.addConstr(prev_trade_sell[t] == 0)
         # else:
         # Todo: How to implement previous trading
-        model.addConstr(prev_trade[t] == prev_traded["css"][t], name="Previous_traded_electricity_css_" + str(t))
+        #model.addConstr(prev_trade_sell[t] == prev_traded["css"][t], name="Previous_traded_electricity_css_" + str(t))
 
-    # Todo: The sum of power_trade cannot be greater than total trading quantity of the block bid,
-    #  make sure loop is correct, maybe opti_res[n_opt][n][8]["chp"][t]?
-    #model.addConstr(sum(power_trade[t] for t in time_steps) <= sum(quantity_bid_seller.values()),
-    #                name="sum_p_sell")
     for t in time_steps:
-        model.addConstr(p_exp[t] <= max(opti_res[n_opt][n][8]["chp"][t] for n in range(options["nb_bes"]) for t in time_steps), f"MaxConstraint_{t}")
+        model.addConstr(p_imp[t] == p_grid_buy[t] + power_trade_buy[t])
+        # if first trading:
+        model.addConstr(power_trade_buy[t] == 0)
+        # else:
+
+    # Todo: The sum of power_trade_sell cannot be greater than total trading quantity of the block bid,
+    #  make sure loop is correct, maybe opti_res[n_opt][n][8]["chp"][t]?
+    #model.addConstr(sum(power_trade_sell[t] for t in time_steps) <= sum(quantity_bid_seller.values()),
+    #                name="sum_p_sell")
+    #for t in time_steps:
+    #    model.addConstr(p_exp[t] <= max(opti_res[n_opt][n][8]["chp"][t] for n in range(options["nb_bes"]) for t in time_steps), f"MaxConstraint_{t}")
 
     # Set solver parameters (e.g., time limit, MIP gap)
     model.Params.TimeLimit = params["gp"]["time_limit"]
@@ -206,7 +241,8 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, block_length,
     if model.status == gp.GRB.Status.INFEASIBLE or model.status == gp.GRB.Status.INF_OR_UNBD:
         model.computeIIS()
         f = open('errorfile_css.txt', 'w')
-        f.write(str(datetime.datetime.now()) + '\nThe following constraint(s) cannot be satisfied:\n')
+        f.write(str(datetime.datetime.now()) + f"Optimization stopped with status {model.status}"
+                + '\nThe following constraint(s) cannot be satisfied:\n')
         for c in model.getConstrs():
             if c.IISConstr:
                 f.write('%s' % c.constrName)
@@ -218,10 +254,13 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, block_length,
     res_power = {}
     res_soc = {}
 
+    #if model.status == gp.GRB.Status.OPTIMAL:
     for dev in renewables:
         res_power[dev] = {t: power[dev][t].X for t in time_steps}
     for dev in storage:
         res_soc[dev] = {t: soc[dev][t].X for t in time_steps}
+    #else:
+    #    print("Model is not feasible or optimal. Cannot retrieve results.")
 
     res_p_ch = {}
     res_p_dch = {}
@@ -235,8 +274,12 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, block_length,
     res_p_exp[dev] = {t: p_exp[t].X for t in time_steps}
 
     res_p_grid_sell = {(t): p_grid_sell[t].X for t in time_steps}
-    res_p_trade = {(t): power_trade[t].X for t in time_steps}
-    res_prev_trade = {(t): prev_trade[t].X for t in time_steps}
+    res_p_trade_sell = {(t): power_trade_sell[t].X for t in time_steps}
+    res_prev_trade_sell = {(t): prev_trade_sell[t].X for t in time_steps}
+
+    res_p_imp = {(t): p_imp[t].X for t in time_steps}
+    res_p_grid_buy = {(t): p_grid_buy[t].X for t in time_steps}
+    res_p_trade_buy = {(t): power_trade_buy[t].X for t in time_steps}
 
     obj = model.objVal
     print("Obj: " + str(model.objVal))
@@ -251,4 +294,5 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt, block_length,
             "obj": obj, "res_rev": res_rev, "objVal": objVal,
             "runtime": runtime, "soc_init_rh": soc_init_rh,
             "res_p_grid_sell": res_p_grid_sell,
-            "res_p_trade": res_p_trade, "res_prev_trade": res_prev_trade}
+            "res_p_trade_sell": res_p_trade_sell, "res_prev_trade_sell": res_prev_trade_sell,
+            "res_p_grid_buy": res_p_grid_buy, "res_p_trade_buy": res_p_trade_buy}

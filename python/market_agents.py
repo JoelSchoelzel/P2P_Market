@@ -23,13 +23,10 @@ class mar_agent_bes(object):
         self.p_feed_in = 0.05 # feed-in tariff price (per kWh)
         self.p_rate = 0.30 # utility service rate (per kWh)
         self.p_reg = 0.001 # price regulation for CES
-        self.gbuy, self.gsell, self.hbuy, self.hsell, self.penalty = 5, 2.5, 2, 2, 0 # coefficients for rewards and penalties
         self.alpha, self.gamma, self.epsilon = 0.1, 0.1, 0.1 # learning rate, discount factor, exploration rate
 
     def __setitem__(self, key, value):
         self.__dict__["q_table"] = self.q_table
-
-
 
     def zero_bids(self, buying_quantity, selling_quantity):
         """Compute the bid when electricity for the heat pump needs to be bought."""
@@ -367,6 +364,7 @@ class mar_agent_css(object):
     def __init__(self, options, districtData):
         self.p_min = options["p_min"] + 0.001
         self.p_max = options["p_max"] - 0.001
+        self.step_size_price = 0.01  # step size for bidding (zero, learning)
         self.filePath = districtData.filePath
         self.time = districtData.time
         self.site = districtData.site
@@ -401,7 +399,27 @@ class mar_agent_css(object):
 
         return potentialPV, potentialWIND
 
-    def q_learning_bids(self, buying_quantity, selling_quantity, p_feed_in, p_rate, p_reg,
+    def zero_bids_css(self, buying_quantity, selling_quantity):
+        """Compute the bid when electricity for the heat pump needs to be bought."""
+
+        # create random price between p_min and p_max
+        p = np.random.randint(self.p_min * 1000, self.p_max * 1000) / 1000
+        if buying_quantity > 0:
+            q = buying_quantity
+            buying = str("True")
+        else:
+            q = selling_quantity
+            buying = str("False")
+
+        # Create an empty bid when no electricity needs to be bought or sold.
+        if buying_quantity == 0 and selling_quantity == 0:
+            p = self.p_min  # has to be p_min because of usage in block bid calculation and opti model
+            q = 0
+            buying = str("None")
+
+        return [p, q, buying]
+
+    def q_learning_bids00(self, buying_quantity, selling_quantity, p_feed_in, p_rate, p_reg,
                         p_i_sell, p_j_buy, e_t_SES, E_SES,
                         min_offer_price, max_bid_price,
                         gbuy, gsell, hbuy, hsell, beta,
@@ -543,3 +561,77 @@ class mar_agent_css(object):
         update_q_table(state, action, reward, next_state)
 
         return action, q_table_ces, generate_bid(action)
+
+    def q_learning_bids(self, buying_quantity, selling_quantity):
+        # This function is used to calculate the bidding price for the BES using Q-learning
+        # Based on current state and q-table, the agent selects an action (price) to bid, (buying or selling)
+        # The agent then generates a bid based on the selected action
+        self.epsilon = 0.1
+        if random.uniform(0, 1) < self.epsilon:
+            action = random.choice(self.q_actions_CSS)
+        else:
+            state_index = tuple(self.q_state)
+            action = self.q_actions_CSS[np.argmax(self.q_table[state_index])]
+            # here q-table is used for determining the final bidding price
+
+        if buying_quantity > 0:
+            p = action
+            q = buying_quantity
+            buying = str("True")
+        else:
+            p = action
+            q = selling_quantity
+            buying = str("False")
+        # Create an empty bid when no electricity needs to be bought or sold.
+        if buying_quantity == 0 and selling_quantity == 0:
+            p = self.p_min  # has to be p_min because of usage in block bid calculation and opti model
+            q = 0
+            buying = str("None")
+
+        # Return the bid
+        return [p, q, buying]
+
+    def initialize_q_table_q_learning(self):
+        # This function is used to initialize the Q-table for Q-learning
+        # The Q-table is a 4D numpy array that stores q-values for each state-action pair of each BES
+        self.q_table = {}
+        self.q_actions_CSS = [round(x, 2) for x in np.arange(self.p_min, (self.p_max + self.step_size_price),
+                                                 self.step_size_price)]
+        state_space = [10, 10, 10]
+        self.q_state = ()
+
+        # Initialize Q-tables (4D) for storing q-values for each state-action pair of each BES
+        self.q_table = np.zeros(state_space + [len(self.q_actions_CSS)])
+
+        return self.q_table
+
+    def get_state_q_learning(self, buying_quantity, selling_quantity, soc_state):
+        # This function is used to map input variables to a discrete state index
+        # The state space consists of relative buying quantity, relative selling quantity, and SOC state
+
+        buying_capacity = self.bat_soc_ch_max * self.bat_capacity
+        selling_capacity = self.pv_power.max() + self.wind_power.max() + self.bat_soc_dch_max * self.bat_capacity
+
+        def discretize(value):
+            if value == 0:
+                return 0  # Special case for zero
+            for n in range(1, 10):  # Range is [1, 9]
+                lower_bound = 0.11 * (n - 1)
+                upper_bound = 0.11 * n
+                if lower_bound <= value < upper_bound:
+                    return n
+            return 9  # If value is outside the range, map it to the highest discrete value (9)
+
+        # Calculate relative buying and selling quantities, and SOC
+        bq_rel = buying_quantity / buying_capacity  # Relative to buying capacity
+        sq_rel = selling_quantity / selling_capacity  # Relative to selling capacity
+        soc = soc_state  # Current state of charge
+
+        # Discretize values to get state
+        bq_t = discretize(bq_rel)
+        sq_t = discretize(sq_rel)
+        ct = discretize(soc)
+
+        # Combine into a state tuple
+        self.q_state = (bq_t, sq_t, ct)
+        return self.q_state

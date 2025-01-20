@@ -42,7 +42,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # Initialize variables for the negotiation phase
     # todo: determine the number of trading rounds r
-    r = 1  # trading rounds
+    r = 0  # trading rounds
     max_rounds = options["max_trading_rounds"]  # maximum number of trading rounds
     num_bes = len(opti_res)
 

@@ -22,7 +22,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
     init_val = {}  # not needed for first optimization, thus empty dictionary
     opti_res = {}  # to store the results of the first bes optimization of each optimization step
     opti_res_check = {}
-    opti_css = {}
+    opti_res_css = {}
 
     if options["optimization"] == "P2P":
 
@@ -66,7 +66,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             trade_res[n_opt] = {}
             mar_dict["sorted_bids"][n_opt] = {}
             mar_dict["matched_bids_info"][n_opt] = {}
-            opti_css[n_opt] = {}
+            opti_res_css[n_opt] = {}
 
             if n_opt == 0:
                 for n in range(options["nb_bes"]):
@@ -81,12 +81,11 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     if options["negotiation"] == "False":
                         init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
                                                                                                  par_rh, n_opt)
-                        #init_val[n_opt + 1]["building_" + str(n)] = init_val_sharing_operation(opti_res[n_opt][n],
-                        #                                                                         par_rh, n_opt)
+                        init_val[n_opt + 1]["css"] = init_val_sharing_operation(opti_res[n_opt], par_rh, n_opt)
                     else: pass
                 # todo Ray: add sharing operation here, adjust init_val for sharing operation?
-                #init_val[n_opt]["css"] = {}
-                #opti_css[n_opt] = sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, block_length, opti_res, options)
+                init_val[n_opt]["css"] = {}
+                #opti_res_css[n_opt] = sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded, trading_price, block_length, opti_res, options)
             else:
                 for n in range(options["nb_bes"]):
                     print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(n) + ".")
@@ -100,14 +99,12 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         if n_opt < par_rh["n_opt"] - 1:
                             init_val[n_opt + 1]["building_" + str(n)] = init_val_decentral_operation(opti_res[n_opt][n],
                                                                                                  par_rh, n_opt)
-                            #init_val[n_opt + 1]["building_" + str(n)] = init_val_sharing_operation(opti_res[n_opt][n],
-                            #                                                                         par_rh, n_opt)
+                            init_val[n_opt + 1]["css"] = init_val_sharing_operation(opti_res[n_opt], par_rh, n_opt)
                         else:
                             init_val[n_opt + 1] = 0
                     else: pass
                 # todo Ray: add sharing operation here, adjust init_val for sharing operation?
-                #init_val[n_opt]["css"] = {}
-                #opti_css[n_opt] = sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, block_length, opti_res, options)
+                #opti_res_css[n_opt] = sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded, trading_price, block_length, opti_res, options)
             #opti_res_check[n_opt] = copy.deepcopy(opti_res[n_opt])
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) +
                   "% of optimizations processed.")
@@ -153,10 +150,46 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 # ------------------- TRADE WITH CSS ------------------- #
                 # todo: Ray: Insert css opti here, use bids and offers from previous step as input for opti_css
                 # todo Ray: trade with css
-                #opti_res_css[n_opt] = opti_css.compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids,
-                #                                       prev_traded, trading_price, block_length)
+                if options["central_supply_system"]:
+                    # gather information about matched bids and previous trading round
+                    if [0] in mar_dict["matched_bids_info"][n_opt][0]:
+                        matched_bids = mar_dict["matched_bids_info"][n_opt][0][0]
+                    else:
+                        matched_bids = 0
+                        for t in par_rh["time_steps"][n_opt][0:block_length]:
+                            matched_bids = {0: {t: {1: [0]}}, 1: {t: {1: [0]}}}
+                    if any(result == [0] for result in mar_dict["matched_bids_info"][n_opt][0]):
+                        prev_traded = mar_dict["negotiation_results"][n_opt][0][0]["trading_quantity"]
+                        trading_price = mar_dict["negotiation_results"][n_opt][0][0]["trading_price"] # todo: need correct trading price from negotiation results
+                    else:
+                        for t in par_rh["time_steps"][n_opt][0:block_length]:
+                            prev_traded = {t: 0}
+                            trading_price = {t: options["p_min"]}
 
-                # trade the remaining power with the grid
+                    if n_opt == 0:
+                        res_soc_prev = mar_agent_css.bat_capacity * 0.1
+                    else:
+                        res_soc_prev = opti_res_css[n_opt - 1]["res_soc"]["s_bat"][t-1]
+
+                    opti_res_css[n_opt] = (
+                        sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded,
+                                          trading_price, block_length, opti_res, options, res_soc_prev))
+
+                    # create dict to store initial values of CSS
+                    init_val[n_opt]["css"] = {"soc": {"s_bat": {}}}
+                    init_val[n_opt]["css"]["soc"]["s_bat"] = opti_res_css[n_opt]["res_soc"]["s_bat"]
+
+                    # todo: create block bids for CSS and trade with prosumers
+                    mar_dict["block_bids"][n_opt] = (
+                        block_bids.compute_block_bids_css(par_rh, n_opt, options, block_length, opti_res_css,
+                                                          mar_dict["block_bids"][n_opt], mar_agent_css))
+
+                    # todo: negotiation between prosumers and CSS
+                    mar_dict["negotiation_results_with_css"] = {n_opt: {}}
+                    # mar_dict["negotiation_results_with_css"][n_opt] = (
+                    #     market.negotiation_with_css())
+
+                # ------------------- TRADE WITH GRID ------------------- #
                 mar_dict["transactions_with_grid"][n_opt] = \
                     market.trade_with_grid(params=params, par_rh=par_rh, n_opt=n_opt,
                                             block_length=block_length, opti_res=opti_res[n_opt])
@@ -240,7 +273,12 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 init_val[n_opt + 1] \
                     = opti_bes_nego.initial_values_block(nb_buildings=options["nb_bes"], opti_res=opti_res[n_opt],
                                                          block_bid_time_steps=par_rh["time_steps"][n_opt][0:block_length],
-                                                         length_block_bid=block_length)
+                                                         length_block_bid=block_length, opti_res_css=opti_res_css,
+                                                         n_opt=n_opt)
+                if options["central_supply_system"]:
+                    # create dict to store initial values of CSS
+                    init_val[n_opt + 1]["css"] = {"soc": {"s_bat": {}}}
+                    init_val[n_opt + 1]["css"]["soc"]["s_bat"] = opti_res_css[n_opt]["res_soc"]["s_bat"]
 
         # ------------------ CALCULATE RESULTS ------------------
         results = calc_results.calc_results_p2p(par_rh=par_rh, block_length=block_length,
@@ -275,13 +313,14 @@ def init_val_decentral_operation(opti_bes, par_rh, n_opt):
 
 # todo: Ray: implement function for sharing operation with central supply system
 def sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt,
-                      block_length, opti_res, options):
+                      matched_bids, prev_traded, trading_price, block_length, opti_res, options, res_soc_prev):
     """
     This function computes a deterministic solution.
     Internally, the results of the subproblem are stored.
     """
 
-    opti_css = sharing_opti.compute(mar_agent_css, params, par_rh, init_val, n_opt, block_length, opti_res, options)
+    opti_css = sharing_opti.compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded,
+                                    trading_price, block_length, opti_res, options, res_soc_prev)
 
     return opti_css
 

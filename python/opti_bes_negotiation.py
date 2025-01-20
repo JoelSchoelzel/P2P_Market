@@ -645,7 +645,7 @@ def replace_opti_res(opti_res, opti_res_block_bid, par_rh, n_opt):
 
     return opti_res
 
-def initial_values_block(nb_buildings, opti_res, block_bid_time_steps, length_block_bid):
+def initial_values_block(nb_buildings, opti_res, block_bid_time_steps, length_block_bid, opti_res_css, n_opt):
     """
     Computes the SoC values for each BES at the last time step of the block bid
     for the current optimization step.
@@ -667,6 +667,11 @@ def initial_values_block(nb_buildings, opti_res, block_bid_time_steps, length_bl
         # fill this dict with initial SoC values of first optimisation
         for dev in ["tes", "bat", "ev"]:
             init_val_block["building_" + str(n)]["soc"][dev] = opti_res[n][3][dev][last_time_step]
+
+    # create dict to store initial values of CSS
+    #init_val_block["css"] = {"soc": {"s_bat": {}}}
+    #init_val_block["css"]["soc"]["s_bat"] = opti_res_css[n_opt]["res_soc"]["s_bat"]
+
 
     ### ----------------------- Reduction of saved data ----------------------- ###
 
