@@ -1,0 +1,15 @@
+2025-01-28 11:00:02.974762
+The following constraint(s) cannot be satisfied:
+Max_heat_operation_chp
+heat_operation_chp_3631
+Power_equation_hp55_3631
+Solar_electrical_pv_3631
+Storage_balance_bat_3631
+Electricity_balance_3631
+power=sell+use_chp_3631
+power=sell+use_pv_3631
+soc_bb=soc_ph
+sold=grid+trade+prev_3631
+min_Power_trade_seller_2
+binary_import_3631
+binary_export_3631

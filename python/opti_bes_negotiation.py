@@ -344,9 +344,14 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
                         name="max_soc_bat_" + str(t))
 
         # SOC coupled over all times steps (Energy amount balance, kWh)
+        #model.addConstr(soc[dev][t] == (1 - k_loss) * soc_prev +
+        #                dt[t] * (node["devs"][dev]["eta_bat"] * p_ch[dev][t] - 1 / node["devs"][dev]["eta_bat"] *
+        #                      p_dch[dev][t]),
+        #                name="Storage_balance_" + dev + "_" + str(t))
+        # todo: corrected battery balance equation
         model.addConstr(soc[dev][t] == (1 - k_loss) * soc_prev +
-                        dt[t] * (node["devs"][dev]["eta_bat"] * p_ch[dev][t] - 1 / node["devs"][dev]["eta_bat"] *
-                              p_dch[dev][t]),
+                        dt[t] * (node["devs"][dev]["eta_bat"] * p_ch[dev][t] - node["devs"][dev]["eta_bat"] *
+                                 p_dch[dev][t]),
                         name="Storage_balance_" + dev + "_" + str(t))
 
     """
@@ -596,7 +601,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         "objVal": objVal,
         "runtime": runtime,
         "soc_init_rh": soc_init_rh,
-        "res_gas_sum": res_gas_sum,
+        #"res_gas_sum": res_gas_sum,
         "res_power_trade": res_power_trade,
         "res_price_trade": res_price_trade,
         "res_p_grid_buy": res_p_grid_buy,

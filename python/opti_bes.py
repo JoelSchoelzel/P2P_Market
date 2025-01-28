@@ -322,9 +322,13 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
                         name="max_soc_bat_" + str(t))
 
         # SOC coupled over all times steps (Energy amount balance, kWh)
-        model.addConstr(soc[dev][t] == (1 - k_loss) * soc_prev +
-                        dt[t] * (node["devs"][dev]["eta_bat"] * p_ch[dev][t] - 1 / node["devs"][dev]["eta_bat"] *
-                              p_dch[dev][t]),
+        #model.addConstr(soc[dev][t] == (1 - k_loss) * soc_prev +
+        #                dt[t] * (node["devs"][dev]["eta_bat"] * p_ch[dev][t] - 1 / node["devs"][dev]["eta_bat"] *
+        #                      p_dch[dev][t]),
+        #                name="Storage_balance_" + dev + "_" + str(t))
+        # Todo: corrected storage balance
+        model.addConstr(soc["bat"][t] == (1 - k_loss) * soc_prev +
+                        dt[t] * node["devs"][dev]["eta_bat"] * (p_ch[dev][t] - p_dch[dev][t]),
                         name="Storage_balance_" + dev + "_" + str(t))
 
         # soc at the end is the same like at the beginning

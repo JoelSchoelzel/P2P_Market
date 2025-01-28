@@ -113,12 +113,12 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
             y[dev][t] = model.addVar(vtype="B", lb=0.0, ub=1.0, name="y_" + dev + "_" + str(t))
 
 
-    # Todo: added export coefficients
-    exp_co = {}
-    for dev in renewables:
-        exp_co[dev] = {}
-        for t in time_steps:
-            exp_co[dev][t] = model.addVar(vtype="C", lb=0.0, ub=1.0, name="exp_co_" + dev + "_" + str(t))
+    # export coefficients
+    #exp_co = {}
+    #for dev in renewables:
+    #    exp_co[dev] = {}
+    #    for t in time_steps:
+    #        exp_co[dev][t] = model.addVar(vtype="C", lb=0.0, ub=1.0, name="exp_co_" + dev + "_" + str(t))
 
     # Update model
     model.update()
@@ -194,20 +194,21 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
                         name="Storage_balance_" + dev + "_" + str(t))
 
     # Electricity balance for the central supply system
-    #for t in time_steps:
-    #    model.addConstr(p_exp[t] + p_ch["s_bat"][t] == p_dch["s_bat"][t] + power["s_wind"][t] + power["s_pv"][t],
-    #                    name="Electricity_balance_" + str(t))
-        
-    # Todo: added Power balance for charging and discharging
     for t in time_steps:
-        model.addConstr(p_exp[t] == p_dch["s_bat"][t] + exp_co["s_pv"][t] * power["s_pv"][t]
-                        + exp_co["s_wind"][t] * power["s_wind"][t], name="Charging_power_balance_" + str(t))
-        model.addConstr(p_ch["s_bat"][t] == p_imp[t] + (1 - exp_co["s_pv"][t]) * power["s_pv"][t] +
-                       (1 - exp_co["s_wind"][t]) * power["s_wind"][t], name="Discharging_power_balance_" + str(t))
+        model.addConstr(p_exp[t] + p_ch["s_bat"][t] == p_imp[t] + p_dch["s_bat"][t] + power["s_wind"][t] + power["s_pv"][t],
+                        name="Electricity_balance_" + str(t))
+        
+    # Power balance for charging and discharging
+    #for t in time_steps:
+    #    model.addConstr(p_exp[t] == p_dch["s_bat"][t] + exp_co["s_pv"][t] * power["s_pv"][t]
+    #                    + exp_co["s_wind"][t] * power["s_wind"][t], name="Charging_power_balance_" + str(t))
+    #    model.addConstr(p_ch["s_bat"][t] == p_imp[t] + (1 - exp_co["s_pv"][t]) * power["s_pv"][t] +
+    #                   (1 - exp_co["s_wind"][t]) * power["s_wind"][t], name="Discharging_power_balance_" + str(t))
             
     # Power trading constraints: split exported power into trading power, previous traded power and power to the grid
     for t in time_steps:
-        model.addConstr(p_exp[t] == p_grid_sell[t] + power_trade_sell[t] + prev_trade_sell[t])
+        model.addConstr(p_exp[t] == p_grid_sell[t] + power_trade_sell[t] + prev_trade_sell[t],
+                        name="Power_export_split_" + str(t))
         # if first trading:
         model.addConstr(power_trade_sell[t] == 0)
         model.addConstr(prev_trade_sell[t] == 0)
@@ -216,7 +217,7 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
         #model.addConstr(prev_trade_sell[t] == prev_traded["css"][t], name="Previous_traded_electricity_css_" + str(t))
 
     for t in time_steps:
-        model.addConstr(p_imp[t] == p_grid_buy[t] + power_trade_buy[t])
+        model.addConstr(p_imp[t] == p_grid_buy[t] + power_trade_buy[t], name="Power_import_split_" + str(t))
         # if first trading:
         model.addConstr(power_trade_buy[t] == 0)
         # else:

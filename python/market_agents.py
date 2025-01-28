@@ -20,13 +20,15 @@ class mar_agent_bes(object):
 
         self.initial_propensity = 0.01 # initial propensities for learning intelligence agent
 
-        self.p_feed_in = 0.05 # feed-in tariff price (per kWh)
-        self.p_rate = 0.30 # utility service rate (per kWh)
+        #self.p_feed_in = 0.0803 # feed-in tariff price (per kWh)
+        #self.p_rate = 0.30 # utility service rate (per kWh)
         self.p_reg = 0.001 # price regulation for CES
-        self.alpha, self.gamma, self.epsilon = 0.1, 0.1, 0.1 # learning rate, discount factor, exploration rate
 
     def __setitem__(self, key, value):
         self.__dict__["q_table"] = self.q_table
+
+    def __getitem__(self, key):
+        return getattr(self, key)
 
     def zero_bids(self, buying_quantity, selling_quantity):
         """Compute the bid when electricity for the heat pump needs to be bought."""
@@ -80,17 +82,21 @@ class mar_agent_bes(object):
     # TODO: code for calculating the bidding price with q learning for BES
     # Todo: Ray done need to include capacity of WP or BHWK and max PV generation for relative calculation of buying and selling quantity
 
-    def q_learning_bids(self, buying_quantity, selling_quantity):
+    def q_learning_bids(self, buying_quantity, selling_quantity, n_opt):
         # This function is used to calculate the bidding price for the BES using Q-learning
         # Based on current state and q-table, the agent selects an action (price) to bid, (buying or selling)
         # The agent then generates a bid based on the selected action
-        if random.uniform(0, 1) < self.epsilon:
+        self.decay_rate = 0.99 # decay rate for epsilon
+        self.epsilon = max(0.1, self.epsilon_init * (self.decay_rate ** n_opt)) # decay epsilon over time until 0.1
+        if n_opt == 0:
+            action = random.choice(self.q_actions_BES)
+        elif random.uniform(0, 1) < self.epsilon:
             action = random.choice(self.q_actions_BES)
         else:
             state_index = tuple(self.q_state)
             action = self.q_actions_BES[np.argmax(self.q_table[state_index])]
-            # here q-table is used for determining the final bidding price
 
+            # here q-table is used for determining the final bidding price
         if buying_quantity > 0:
             p = action
             q = buying_quantity
@@ -101,7 +107,7 @@ class mar_agent_bes(object):
             buying = str("False")
         # Create an empty bid when no electricity needs to be bought or sold.
         if buying_quantity == 0 and selling_quantity == 0:
-            p = self.p_min  # has to be p_min because of usage in block bid calculation and opti model
+            p = action  # usage in block bid calculation and opti model
             q = 0
             buying = str("None")
 
@@ -110,10 +116,10 @@ class mar_agent_bes(object):
 
     def initialize_q_table_q_learning(self):
         # This function is used to initialize the Q-table for Q-learning
+        self.alpha, self.gamma, self.epsilon_init = 0.1, 0.4, 0.8  # learning rate, discount factor, exploration rate
         # The Q-table is a 4D numpy array that stores q-values for each state-action pair of each BES
         self.q_table = {}
-        self.q_actions_BES = [round(x, 2) for x in np.arange(self.p_min, (self.p_max + self.step_size_price),
-                                                 self.step_size_price)]
+        self.q_actions_BES = [round(x, 2) for x in np.arange(self.p_min + 0.01, self.p_max, self.step_size_price)]
         state_space = [10, 10, 10]
         self.q_state = ()
 
@@ -162,10 +168,10 @@ class mar_agent_bes(object):
         eco_coeff = 0.7
         trade_coeff = 0.3
         if buying == "True":
-            reward = (eco_coeff * (self.p_rate - p_match) * q_match / (self.p_rate - self.p_min) * q_dem +
+            reward = (eco_coeff * (self.p_max - p_match) / ((self.p_max - self.p_min)) +
                       trade_coeff * q_match / q_dem)
         elif buying == "False":
-            reward = (eco_coeff * (p_match - self.p_feed_in) * q_match / (self.p_max - self.p_feed_in) * q_dem +
+            reward = (eco_coeff * (p_match - self.p_min) / ((self.p_max - self.p_min)) +
                       trade_coeff * q_match / q_dem)
         else:
             reward = 0
@@ -179,9 +185,25 @@ class mar_agent_bes(object):
         h_buy = 2
         h_sell = 2
         if buying == "True":
-            reward = g_buy * (self.p_rate - p_min_sell) - h_buy * soc_state
+            reward = g_buy * (self.p_max - p_min_sell) - h_buy * soc_state
         elif buying == "False":
             reward = g_sell * (p_max_buy - p_match) + h_sell * soc_state
+        else:
+            reward = 0
+        return reward
+
+    def calc_reward_q_learning_v3(self, buying, p_match, q_match, q_dem, soc_state):
+        # This function is used to calculate the reward for Q-learning
+        # The reward is based on the buying/selling action, SOC state, and prices
+        eco_coeff = 0.3
+        trade_coeff = 0.6
+        soc_coeff = 0.1
+        if buying == "True":
+            reward = (eco_coeff * (self.p_max - p_match) / (self.p_max - self.p_min) +
+                      trade_coeff * q_match / q_dem - soc_coeff * soc_state)
+        elif buying == "False":
+            reward = (eco_coeff * (p_match - self.p_min) / (self.p_max - self.p_min) +
+                      trade_coeff * q_match / q_dem + soc_coeff * soc_state)
         else:
             reward = 0
         return reward
@@ -365,6 +387,9 @@ class mar_agent_css(object):
         self.p_min = options["p_min"] + 0.001
         self.p_max = options["p_max"] - 0.001
         self.step_size_price = 0.01  # step size for bidding (zero, learning)
+        self.p_feed_in = 0.05  # feed-in tariff price (per kWh)
+        self.p_rate = 0.30  # utility service rate (per kWh)
+
         self.filePath = districtData.filePath
         self.time = districtData.time
         self.site = districtData.site
@@ -562,7 +587,7 @@ class mar_agent_css(object):
 
         return action, q_table_ces, generate_bid(action)
 
-    def q_learning_bids(self, buying_quantity, selling_quantity):
+    def q_learning_bids(self, buying_quantity, selling_quantity, n_opt):
         # This function is used to calculate the bidding price for the BES using Q-learning
         # Based on current state and q-table, the agent selects an action (price) to bid, (buying or selling)
         # The agent then generates a bid based on the selected action
@@ -573,6 +598,11 @@ class mar_agent_css(object):
             state_index = tuple(self.q_state)
             action = self.q_actions_CSS[np.argmax(self.q_table[state_index])]
             # here q-table is used for determining the final bidding price
+
+        if action == self.p_min - 0.01:
+            action = self.p_min
+        elif action == self.p_max + 0.01:
+            action = self.p_max
 
         if buying_quantity > 0:
             p = action
@@ -593,6 +623,7 @@ class mar_agent_css(object):
 
     def initialize_q_table_q_learning(self):
         # This function is used to initialize the Q-table for Q-learning
+        self.alpha, self.gamma, self.epsilon = 0.1, 0.1, 0.1  # learning rate, discount factor, exploration rate
         # The Q-table is a 4D numpy array that stores q-values for each state-action pair of each BES
         self.q_table = {}
         self.q_actions_CSS = [round(x, 2) for x in np.arange(self.p_min, (self.p_max + self.step_size_price),
@@ -635,3 +666,62 @@ class mar_agent_css(object):
         # Combine into a state tuple
         self.q_state = (bq_t, sq_t, ct)
         return self.q_state
+
+    def calc_reward_q_learning_v1(self, buying, p_match, q_match, q_dem):
+        # This function is used to calculate the reward for Q-learning
+        # The reward is based on the buying/selling action, SOC state, and prices
+        eco_coeff = 0.7
+        trade_coeff = 0.3
+        if buying == "True":
+            reward = (eco_coeff * (self.p_rate - p_match) * q_match / (self.p_rate - self.p_min) * q_dem +
+                      trade_coeff * q_match / q_dem)
+        elif buying == "False":
+            reward = (eco_coeff * (p_match - self.p_feed_in) * q_match / (self.p_max - self.p_feed_in) * q_dem +
+                      trade_coeff * q_match / q_dem)
+        else:
+            reward = 0
+        return reward
+
+    def calc_reward_q_learning_v2(self, buying, p_min_sell, p_max_buy, p_match, soc_state):
+        # This function is used to calculate the reward for Q-learning
+        # The reward is based on the buying/selling action, SOC state, and prices
+        g_buy = 5
+        g_sell = 2.5
+        h_buy = 2
+        h_sell = 2
+        if buying == "True":
+            reward = g_buy * (self.p_rate - p_min_sell) - h_buy * soc_state
+        elif buying == "False":
+            reward = g_sell * (p_max_buy - p_match) + h_sell * soc_state
+        else:
+            reward = 0
+        return reward
+
+    def update_q_table_q_learning(self, action, reward, new_buy_quant, new_sell_quant, new_soc):
+        # This function is used to update the Q-table for Q-learning
+        # The Q-table is updated based on the current state, action, reward, and next state
+        # Reward calculated beforehand, and given as input
+
+        # Get the index of the current state
+        state_index = tuple(self.q_state)
+
+        # Calculate the next state and get its index
+        next_state = self.get_state_q_learning(new_buy_quant, new_sell_quant, new_soc)
+        next_state_index = tuple(next_state)
+
+        # Get the index of the action in the actions list
+        action = round(action, 2)
+        action_index = self.q_actions_CSS.index(action)
+
+        # Retrieve the current q-value from the Q-table
+        current_q = self.q_table[state_index + (action_index,)]
+
+        # Calculate the new q-value based on the Bellman equation
+        max_future_q = np.max(self.q_table[next_state_index])
+        new_q = (1 - self.alpha) * current_q + self.alpha * (reward + self.gamma * max_future_q)
+
+        # Update the Q-table with the new q-value
+        self.q_table[state_index + (action_index,)] = new_q
+
+        return self.q_table
+

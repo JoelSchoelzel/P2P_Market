@@ -80,40 +80,40 @@ def calc_results_p2p(par_rh, block_length, nego_results, opti_res,opti_res_check
                 # valid_time_steps = {k: v for k, v in nego_results[opt][round_nb][match]["quantity"].items() if isinstance(k, int)}
                 for t in range(par_rh["hour_start"][opt], par_rh["hour_start"][opt] + block_length):
                     try:
-                        if isinstance(nego_results[opt][round_nb][match]["quantity"][t], float):  # valid_time_steps
-                            traded_power[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]] += \
-                                nego_results[opt][round_nb][match]["quantity"][t]/1000  # kWh
-                            traded_power[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]] +=  \
-                                nego_results[opt][round_nb][match]["quantity"][t] / 1000  # kWh
-                            additional_revenue[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]] += \
+                        if isinstance(nego_results[opt][round_nb][match]["trading_quantity"][t], float):  # valid_time_steps
+                            traded_power[nego_results[opt][round_nb][match]["buyer_id"], t - par_rh["hour_start"][0]] += \
+                                nego_results[opt][round_nb][match]["trading_quantity"][t]/1000  # kWh
+                            traded_power[nego_results[opt][round_nb][match]["seller_id"], t - par_rh["hour_start"][0]] +=  \
+                                nego_results[opt][round_nb][match]["trading_quantity"][t] / 1000  # kWh
+                            additional_revenue[nego_results[opt][round_nb][match]["seller_id"], t - par_rh["hour_start"][0]] += \
                                 nego_results[opt][round_nb][match]["additional_revenue"][t]  # €/kWh
-                            saved_costs[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]] += \
+                            saved_costs[nego_results[opt][round_nb][match]["buyer_id"], t - par_rh["hour_start"][0]] += \
                                 nego_results[opt][round_nb][match]["saved_costs"][t]  # €/kWh
-                            trading_revenue[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]] += \
+                            trading_revenue[nego_results[opt][round_nb][match]["seller_id"], t - par_rh["hour_start"][0]] += \
                                 nego_results[opt][round_nb][match]["trading_revenue"][t]  # €/kWh
-                            trading_costs[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]] += \
+                            trading_costs[nego_results[opt][round_nb][match]["buyer_id"], t - par_rh["hour_start"][0]] += \
                                 nego_results[opt][round_nb][match]["trading_cost"][t]  # €/kWh
-                            gain[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]] = \
-                                saved_costs[nego_results[opt][round_nb][match]["buyer"], t- par_rh["hour_start"][0]]
-                            gain[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]] = \
-                                additional_revenue[nego_results[opt][round_nb][match]["seller"], t- par_rh["hour_start"][0]]
+                            gain[nego_results[opt][round_nb][match]["buyer_id"], t - par_rh["hour_start"][0]] = \
+                                saved_costs[nego_results[opt][round_nb][match]["buyer_id"], t - par_rh["hour_start"][0]]
+                            gain[nego_results[opt][round_nb][match]["seller_id"], t - par_rh["hour_start"][0]] = \
+                                additional_revenue[nego_results[opt][round_nb][match]["seller_id"], t - par_rh["hour_start"][0]]
                     except KeyError:
                         counter =+ 1
     print("counter_"+str(counter))
 
     traded_power_per_building = np.zeros(len(opti_res[0]))
-    trading_costs_per_building  = np.zeros(len(opti_res[0]))
+    trading_costs_per_building = np.zeros(len(opti_res[0]))
     saved_costs_per_building = np.zeros(len(opti_res[0]))
-    trading_revenue_per_building  = np.zeros(len(opti_res[0]))
+    trading_revenue_per_building = np.zeros(len(opti_res[0]))
     additional_revenue_per_building = np.zeros(len(opti_res[0]))
     gain_per_building = np.zeros(len(opti_res[0]))
     for n in range(len(opti_res[0])):
-        traded_power_per_building[n] = np.sum(traded_power[n,:])
-        trading_costs_per_building[n] = np.sum(trading_costs[n,:])
-        saved_costs_per_building[n] = np.sum(saved_costs[n,:])
-        trading_revenue_per_building[n] = np.sum(trading_revenue[n,:])
-        additional_revenue_per_building[n] = np.sum(additional_revenue[n,:])
-        gain_per_building[n] = np.sum(gain[n,:])
+        traded_power_per_building[n] = np.sum(traded_power[n, :])
+        trading_costs_per_building[n] = np.sum(trading_costs[n, :])
+        saved_costs_per_building[n] = np.sum(saved_costs[n, :])
+        trading_revenue_per_building[n] = np.sum(trading_revenue[n, :])
+        additional_revenue_per_building[n] = np.sum(additional_revenue[n, :])
+        gain_per_building[n] = np.sum(gain[n, :])
 
     traded_power_total = np.sum(traded_power_per_building)
     additional_revenue_total = np.sum(additional_revenue_per_building)
@@ -462,7 +462,7 @@ def plots():
     y_labels = ["1", "10"]  # Beispielwerte für y-Achse
     # Erstellen der Heatmap
     plt.figure(figsize=(8, 6))
-    sns.heatmap(peak_feedin_heat_map, annot=True, fmt=".2f", cmap=cmap, cbar=True, linewidths=.5)
+    sns.heatmap(                        peak_feedin_heat_map, annot=True, fmt=".2f", cmap=cmap, cbar=True, linewidths=.5)
     # Achsenbeschriftungen
     plt.xlabel("Length of block bids", fontsize=xlabel_fontsize)
     plt.ylabel("Max. negotiation rounds", fontsize=ylabel_fontsize)
@@ -489,7 +489,7 @@ def plots():
     y_labels = ["1", "10"]  # Beispielwerte für y-Achse
     # Erstellen der Heatmap
     plt.figure(figsize=(8, 6))
-    sns.heatmap(peak_purchase_heat_map, annot=True, fmt=".2f", cmap=cmap, cbar=True, linewidths=.5)
+    sns.heatmap(                 peak_purchase_heat_map, annot=True, fmt=".2f", cmap=cmap, cbar=True, linewidths=.5)
     # Achsenbeschriftungen
     plt.xlabel("Length of block bids", fontsize=xlabel_fontsize)
     plt.ylabel("Max. negotiation rounds", fontsize=ylabel_fontsize)
@@ -516,7 +516,7 @@ def plots():
     y_labels = ["1", "10"]  # Beispielwerte für y-Achse
     # Erstellen der Heatmap
     plt.figure(figsize=(8, 6))
-    sns.heatmap(energy_losses_heat_map, annot=True, fmt=".2f", cmap=cmap, cbar=True, linewidths=.5)
+    sns.heatmap(                  energy_losses_heat_map, annot=True, fmt=".2f", cmap=cmap, cbar=True, linewidths=.5)
     # Achsenbeschriftungen
     plt.xlabel("Matching creLength of block bids", fontsize=xlabel_fontsize)
     plt.ylabel("Max. negotiation rounds", fontsize=ylabel_fontsize)
@@ -589,7 +589,7 @@ def plots():
     import pickle
     import matplotlib.pyplot as plt
     import numpy as np
-    import tikzplotlib
+    import                    tikzplotlib
 
     gain_per_group_over_time = np.zeros((9, 8760))
     gain_per_building = np.zeros(45)

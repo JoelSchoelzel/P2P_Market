@@ -24,13 +24,14 @@ def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_le
             buying_quantity = opti_res[n][4]["p_imp"][t]  # p_imp
             selling_quantity = opti_res[n][8]["chp"][t] + opti_res[n][8]["pv"][t]  # chp_sell + pv_sell
             soc_state = opti_res[n][3]["bat"][t]/opti_res[n][12]["bat"] if opti_res[n][12]["bat"] != 0 \
-                else opti_res[n][3]["tes"][t]/opti_res[n][12]["tes"] # soc
+                else opti_res[n][3]["tes"][t]/opti_res[n][12]["tes"] # soc of bat or tes
             #Todo: Ray: q-learning needs min_sell_offer_price and max_buy_bid_price after negotiation rounds
             buying_capacity = (nodes[n]["elec"].max() +
                                max(devs_pre_opti[n]["hp55"]["cap"]/nodes[n]["devs"]["COP_sh55"].min(),
                                    devs_pre_opti[n]["hp35"]["cap"]/nodes[n]["devs"]["COP_sh35"].min()))
             selling_capacity = (nodes[n]["pv_power"].max() +
-                                nodes[n]["devs"]["chp"]["cap"]*nodes[n]["devs"]["chp"]["eta_el"] / nodes[n]["devs"]["chp"]["eta_th"])
+                                nodes[n]["devs"]["chp"]["cap"] * nodes[n]["devs"]["chp"]["eta_el"]
+                                / nodes[n]["devs"]["chp"]["eta_th"])
 
             # compute bids with ZERO-INTELLIGENCE
             if options["bid_strategy"] == "zero":
@@ -49,7 +50,7 @@ def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_le
                                                       selling_capacity, soc_state)
 
                 # Calculate the block bid with q_learning
-                block_bid["bes_" + str(n)][t] = mar_agent_bes[n].q_learning_bids(buying_quantity, selling_quantity)
+                block_bid["bes_" + str(n)][t] = mar_agent_bes[n].q_learning_bids(buying_quantity, selling_quantity, n_opt)
                 # Q-table updates happen in 'opti_methods.py' after each negotiation rounds
 
         block_bid["bes_" + str(n)] = mar_agent_bes[n].one_price(block_bid["bes_" + str(n)], par_rh, n_opt, block_length)
@@ -79,7 +80,7 @@ def compute_block_bids_css(par_rh, n_opt, options, block_length, opti_res_css, b
             mar_agent_css.get_state_q_learning(buying_quantity_css, selling_quantity_css, soc_state)
 
             # Calculate the block bid with q_learning
-            block_bid["css"][t] = mar_agent_css.q_learning_bids(buying_quantity_css, selling_quantity_css)
+            block_bid["css"][t] = mar_agent_css.q_learning_bids(buying_quantity_css, selling_quantity_css, n_opt)
             # Q-table updates happen in 'opti_methods.py' after each negotiation rounds
 
     return block_bid
@@ -273,7 +274,7 @@ def seperate_block_bids(block_bid, characs):
 
     return buy_list, sell_list
 
-def sort_block_bids(options, buy_list, sell_list, sorted_bids, r):
+def sort_block_bids(options, buy_list, sell_list, sorted_bids, r, par_rh, n_opt, block_length):
     """
     All block bids are sorted by the criteria specified in options["crit_prio"].
     Returns:
@@ -302,6 +303,14 @@ def sort_block_bids(options, buy_list, sell_list, sorted_bids, r):
         sorted_sell_list = sorted(sell_list, key=lambda x: x[options["crit_prio"]], reverse=True)  # delayed
         # least flexible buyer is the one, that can not buy less than given buy quantity (soc of tes is low -> energy_delayed low)
         sorted_buy_list = sorted(buy_list, key=lambda x: x[options["crit_prio"]])
+
+    # sort buy_list and sell_list by trading quantity and mean price if quantity_x_price has been specified as criteria in options
+    elif options["crit_prio"] == "quantity_x_price":
+        for t in par_rh["time_steps"][n_opt][0:block_length]:
+            sorted_buy_list = sorted(buy_list, key=lambda x: x["quantity"]*x[t][0], reverse=True)
+            sorted_sell_list = sorted(sell_list, key=lambda x: x["quantity"]*x[t][0], reverse=True)
+        #sorted_buy_list = sorted(buy_list, key=lambda x: x["quantity"]*x["mean_price"], reverse=True)
+        #sorted_sell_list = sorted(sell_list, key=lambda x: x["quantity"]*x["total_price"], reverse=True)
 
     elif options["crit_prio"] == "random":
         sorted_buy_list = buy_list

@@ -77,7 +77,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
                "max_trading_rounds": 1, # Number of trading rounds for multi round trading
                 "negotiation": True,  # True: negotiation, False: auction
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
-               "central_supply_system": True, # True: central supply system, False: without central supply system
+               "central_supply_system": False, # True: central supply system, False: without central supply system
                # path to the project
                "path_file": os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                # path to where the result should be stored
@@ -189,12 +189,12 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     return mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options
 
 if __name__ == '__main__':
-    for scenario_name in ["example2"]:  # AppliedEnergy, Typquartier_1, "Quartier_2", "Quartier_3"]:
+    for scenario_name in ["AppliedEnergy"]:  # AppliedEnergy, Typquartier_1, "Quartier_2", "Quartier_3"]:
         first_run = True
-        for month in [6]:  # , 7]:
+        for month in [7]:  # , 7]:
             for block_length in [1]:  # 1, 3, 5]:
                 for enhanced_horizon in [False]:  # , True]:
-                    for crit_prio in ["quantity"]:  # "flex_energy", "quantity", "random", "flex_quantity"
+                    for crit_prio in ["quantity"]:  # "flex_energy", "quantity", "random", "flex_quantity", "quantity_x_price"
                         (mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh,
                          districtData, options) = \
                             run_optimization(scenario_name, calcUserProfiles=first_run, crit_prio=crit_prio,

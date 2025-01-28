@@ -41,7 +41,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
     block_bid_time_steps = par_rh["time_steps"][n_opt][0:block_length]
 
     # Initialize variables for the negotiation phase
-    # todo: determine the number of trading rounds r
     r = 0  # trading rounds
     max_rounds = options["max_trading_rounds"]  # maximum number of trading rounds
     num_bes = len(opti_res)
@@ -50,7 +49,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
     neg_res = {r: {}}
     prev_trade = {}
     for n in range(num_bes):
-        prev_trade[n]  = {}
+        prev_trade[n] = {}
         prev_trade[n]["sell"] = {}
         prev_trade[n]["buy"] = {}
         for t in par_rh["time_steps"][n_opt][0:block_length]:
@@ -93,6 +92,7 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
             # price adjustment for negotiation
             trading_price = calculate_trading_price(par_rh, n_opt, block_length, matched_bids_info, r, match)
+            neg_res[r][match]["trading_price"] = trading_price
 
             #### run the optimization model for buyer and seller ###
             #try:
@@ -157,7 +157,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
 
         # --------------------- SORT BUYERS AND SELLERS FOR NEXT TRADING ROUND ---------------------
         sorted_bids = block_bids.sort_block_bids(options=options, buy_list=buy_list_next_round,
-                                                 sell_list=sell_list_next_round, sorted_bids=sorted_bids, r=r)
+                                                 sell_list=sell_list_next_round, sorted_bids=sorted_bids, r=r,
+                                                 par_rh=par_rh, n_opt=n_opt, block_length=block_length)
 
         # match all buyers and sellers for the next trading round
         matched_bids_info[r + 1] = matching_during_negotiation(sorted_bids[r + 1], matched_pairs)
@@ -174,12 +175,15 @@ def calculate_trading_price(par_rh, n_opt, block_length, matched_bids, r, match)
     bid_quantity_seller = {}
     bid_quantity_buyer = {}
     ratio = {}
+    # if buyer has more flex energy
     if matched_bids[r][match][0]["flex_energy"] >= matched_bids[r][match][1]["flex_energy"]:
         for t in par_rh["time_steps"][n_opt][0:block_length]:
             bid_quantity_seller[t] = matched_bids[r][match][1][t][1]
         for t in par_rh["time_steps"][n_opt][0:block_length]:
             try:
                 ratio[t] = bid_quantity_seller[t] / max(bid_quantity_seller.values())
+                # todo: check if this is correct, ratio compared to flex energy of seller?
+                #ratio[t] = max(0, min(1, bid_quantity_seller[t] / matched_bids[r][match][1]["flex_energy"]))
             except ZeroDivisionError:
                 ratio[t] = 0
         trading_price = {}
@@ -189,12 +193,15 @@ def calculate_trading_price(par_rh, n_opt, block_length, matched_bids, r, match)
                                                        matched_bids[r][match][0][t][0])
                                                    - min(matched_bids[r][match][1][t][0],
                                                          matched_bids[r][match][0][t][0]))
+    # else if seller has more flex energy
     elif matched_bids[r][match][1]["flex_energy"] > matched_bids[r][match][0]["flex_energy"]:
         for t in par_rh["time_steps"][n_opt][0:block_length]:
             bid_quantity_buyer[t] = matched_bids[r][match][0][t][1]
         for t in par_rh["time_steps"][n_opt][0:block_length]:
             try:
                 ratio[t] = bid_quantity_buyer[t] / max(bid_quantity_buyer.values())
+                #ratio[t] = max(0, min(1, bid_quantity_buyer[t] / matched_bids[r][match][0]["flex_energy"]))
+                # todo: or should be bid_quantity_seller?
             except ZeroDivisionError:
                 ratio[t] = 0
         trading_price = {}
@@ -212,7 +219,6 @@ def save_negotiation_results(neg_res, opti_bes_res_buyer, opti_bes_res_seller, t
     # ---------- RESULTS OF NEGOTIATION FOR THIS MATCH AND THIS ROUND ---------- #
     for t in block_bid_time_steps:
 
-        # todo: hier nach noch eine opti?
         neg_res["trading_quantity"][t] = min(opti_bes_res_buyer["res_power_trade"][t],
                                              opti_bes_res_seller["res_power_trade"][t])
 
