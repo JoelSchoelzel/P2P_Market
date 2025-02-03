@@ -2,6 +2,7 @@ import numpy as np
 import copy
 import random
 from python import characteristics
+from python.market_agents import mar_agent_css
 
 
 def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_length, mar_dict, devs_pre_opti, nodes):
@@ -61,6 +62,7 @@ def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_le
 def compute_block_bids_css(par_rh, n_opt, options, block_length, opti_res_css, block_bid, mar_agent_css):
     # compute bids for central supply system
     block_bid["css"] = {}
+    #block_bid["bes_" + str(options["nb_bes"])] = {}
     for t in par_rh["time_steps"][n_opt][0:block_length]:
         buying_quantity_css = opti_res_css[n_opt]["res_p_grid_buy"][t] + opti_res_css[n_opt]["res_p_trade_buy"][t]
         selling_quantity_css = (opti_res_css[n_opt]["res_p_grid_sell"][t] + opti_res_css[n_opt]["res_p_trade_sell"][t]
@@ -68,9 +70,11 @@ def compute_block_bids_css(par_rh, n_opt, options, block_length, opti_res_css, b
         soc_state = opti_res_css[n_opt]["res_soc"]["s_bat"][t] / mar_agent_css.bat_capacity
 
         block_bid["css"][t] = {}
+        #block_bid["bes_" + str(options["nb_bes"])][t] = {}
         # compute bids with ZERO-INTELLIGENCE
         if options["bid_strategy"] == "zero":
             block_bid["css"][t] = mar_agent_css.zero_bids_css(buying_quantity_css, selling_quantity_css)
+            #block_bid["bes_" + str(options["nb_bes"])][t] = mar_agent_css.zero_bids_css(buying_quantity_css, selling_quantity_css)
         if options["bid_strategy"] == "q_learning":
             # Initialize Q-table for n_opt == 0, or get Q-table from previous rounds
             if n_opt == 0:
@@ -81,6 +85,7 @@ def compute_block_bids_css(par_rh, n_opt, options, block_length, opti_res_css, b
 
             # Calculate the block bid with q_learning
             block_bid["css"][t] = mar_agent_css.q_learning_bids(buying_quantity_css, selling_quantity_css, n_opt)
+            #block_bid["bes_" + str(options["nb_bes"])][t] = mar_agent_css.q_learning_bids(buying_quantity_css, selling_quantity_css, n_opt)
             # Q-table updates happen in 'opti_methods.py' after each negotiation rounds
 
     return block_bid
@@ -88,7 +93,8 @@ def compute_block_bids_css(par_rh, n_opt, options, block_length, opti_res_css, b
 
 def compute_block_bids_during_negotiation(matched_bids, r, match, remaining_demand, block_bid_time_steps, nodes,
                                           block_length, buyer_id, opti_bes_res_buyer, opti_res, buy_list_next_round,
-                                          remaining_supply, seller_id, opti_bes_res_seller, sell_list_next_round):
+                                          remaining_supply, seller_id, opti_bes_res_seller, sell_list_next_round, options,
+                                          opti_res_css: dict = None, mar_agent_css: object = None):
     new_sum_energy = 0
 
     # add bids only if there is untraded demand
@@ -113,9 +119,13 @@ def compute_block_bids_during_negotiation(matched_bids, r, match, remaining_dema
         block_bid["sum_energy"] = new_sum_energy
         block_bid["total_price"] = matched_bids[r][match][0][t][0]
         block_bid["ignored_demand"] = matched_bids[r][match][0]["ignored_demand"]
-        flex_energy = characteristics.calc_characs_single(nodes=nodes, block_length=block_length,
-                                                          bes_id=buyer_id, soc_state=opti_bes_res_buyer["res_soc"],
-                                                          opti_res=opti_res[buyer_id], buyer=True)
+        if buyer_id == options["nb_bes"]: # if central supply system is in block_bid
+            flex_energy = characteristics.calc_characs_single_css(block_length, soc_state=opti_bes_res_buyer["res_soc"],
+                                                                  opti_res_css=opti_res_css, mar_agent_css=mar_agent_css)
+        else:
+            flex_energy = characteristics.calc_characs_single(nodes=nodes, block_length=block_length,
+                                                              bes_id=buyer_id, soc_state=opti_bes_res_buyer["res_soc"],
+                                                              opti_res=opti_res[buyer_id], buyer=True)
 
         block_bid["flex_energy"] = flex_energy
         ### add block bid with remaining demand to next round
@@ -132,8 +142,7 @@ def compute_block_bids_during_negotiation(matched_bids, r, match, remaining_dema
         for t in block_bid_time_steps:
             # Subtract the traded power from the original supply to get the new remaining supply
             block_bid[t] = [matched_bids[r][match][1][t][0],  # price
-                            max(0, remaining_supply[t]),
-                            # remaining demand
+                            max(0, remaining_supply[t]), # remaining supply
                             'False',  # False --> selling
                             matched_bids[r][match][1][t][3]  # bes_id
                             ]
@@ -146,9 +155,13 @@ def compute_block_bids_during_negotiation(matched_bids, r, match, remaining_dema
         block_bid["sum_energy"] = new_sum_energy
         block_bid["total_price"] = matched_bids[r][match][1][t][0]
         block_bid["ignored_demand"] = matched_bids[r][match][1]["ignored_demand"]
-        flex_energy = characteristics.calc_characs_single(nodes=nodes, block_length=block_length,
-                                                          bes_id=seller_id, soc_state=opti_bes_res_seller["res_soc"],
-                                                          opti_res=opti_res[seller_id], buyer=False)
+        if seller_id == options["nb_bes"]: # if central supply system is in block_bid
+            flex_energy = characteristics.calc_characs_single_css(block_length, soc_state=opti_bes_res_seller["res_soc"],
+                                                                  opti_res_css=opti_res_css, mar_agent_css=mar_agent_css)
+        else:
+            flex_energy = characteristics.calc_characs_single(nodes=nodes, block_length=block_length,
+                                                            bes_id=seller_id, soc_state=opti_bes_res_seller["res_soc"],
+                                                            opti_res=opti_res[seller_id], buyer=False)
 
         block_bid["flex_energy"] = flex_energy
         ### add block bid with remaining supply to next round
@@ -187,6 +200,10 @@ def seperate_block_bids(block_bid, characs):
     buy_list = []  # list for all buying bids
     sell_list = []  # list for all selling bids
     for n in range(len(block_bid)):  # iterate through buildings
+        # check for css
+        if "css" in block_bid:
+            if n == len(block_bid) - 1:
+                break
         # Add str whether buying or not to bool_list
         bool_list = []
         for t in block_bid["bes_" + str(n)]:
@@ -268,6 +285,86 @@ def seperate_block_bids(block_bid, characs):
                                                       characs[bes_id]["energy_bid_avg_forced_heat"]
                                                       + characs[bes_id]["energy_bid_avg_delayed_bat"]),
                                    "ignored_demand": bid_info["ignored_demand"]}
+            buy_list[i].update(buy_block_bid_info)
+            if buy_block_bid_info["quantity"] == 0:
+                del buy_list[i]
+
+    if "css" in block_bid:  # if central supply system is in block_bid
+        # Add str whether buying or not to bool_list
+        bool_list = []
+        # iterate through time steps
+        for t in block_bid["css"]:
+            if isinstance(block_bid["css"][t], list):
+                bool_list.append(block_bid["css"][t][2])
+        # Check if str is True or None and not False
+        # and append block bid to buy_list
+        # if ("True" in bool_list or "None" in bool_list) and "False" not in bool_list:
+        if ("True" in bool_list) and "False" not in bool_list:
+            buy_list.append(block_bid["css"])
+            i = len(buy_list) - 1
+            # append block_bid_info to buy_list
+            bes_id, mean_price, sum_energy, mean_quantity \
+                = mean_all(block_bid=block_bid["css"])
+            # add flexible energy forced & delayed to buy_list (only first timestep, since it is calculated for 36h)
+            buy_block_bid_info = {"css_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
+                                    "quantity": mean_quantity,
+                                    "flex_energy": min(characs["css"]["energy_bid_avg_forced_bat"],
+                                                       characs["css"]["energy_bid_avg_delayed_bat"]),
+                                    "ignored_demand": False}
+            buy_list[i].update(buy_block_bid_info)
+            if buy_block_bid_info["quantity"] == 0:
+                del buy_list[i]
+
+        # Check if at least one value is False & append block bid to sell_list
+        elif "False" in bool_list:
+            # Make a deepcopy to avoid modifying the original sublist in block_bid
+            sublist_copy = copy.deepcopy(block_bid["css"])
+            sell_list.append(sublist_copy)
+            i = len(sell_list) - 1
+            ignored_demand = {}
+            # Set quantity and price to 0 at time steps where the string is True (seller wants to buy)
+            # sell list only contains the quantities & prices to be sold
+            for t in sublist_copy:
+                if isinstance(sublist_copy[t], list) and sublist_copy[t][2] == "True":
+                    sell_list[i][t][0] = 0.09  # set price to 0
+                    sell_list[i][t][1] = 0  # set quantity to 0
+                    sell_list[i][t][2] = str("False")  # set str to False
+                # ignored demand at each time step t is difference between quantity in sellers block bid and in
+                # sell list and will be traded with grid at end of negotiation rounds
+                ignored_demand[t] = block_bid["css"][t][1] - sell_list[i][t][1]
+            if sum(ignored_demand.values()) > 0:
+                bid_info = {"ignored_demand": True}
+            else:
+                bid_info = {"ignored_demand": False}
+
+            # append block_bid_info to sell_list
+            bes_id, mean_price, sum_energy, mean_quantity = mean_all(block_bid=sell_list[i])
+            # add flexible energy forced & delayed to sell_list (only first timestep, since it is calculated for 36h)
+            sell_block_bid_info = {"css_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
+                                    "quantity": mean_quantity,
+                                    "flex_energy": min(characs["css"]["energy_bid_avg_forced_bat"],
+                                                      characs["css"]["energy_bid_avg_delayed_bat"]),
+                                   "ignored_demand": bid_info["ignored_demand"]}
+            sell_list[i].update(sell_block_bid_info)
+            if sell_block_bid_info["quantity"] == 0:
+                del sell_list[i]
+
+            sublist_copy = copy.deepcopy(block_bid["css"])
+            buy_list.append(sublist_copy)
+            i = len(buy_list) - 1
+            # Set quantity and price to 0 at time steps where the string is False (seller wants to sell)
+            # buy list only contains the quantities & prices to be bought
+            for t in sublist_copy:
+                buy_list[i][t][2] = str("True")  # set str to True
+                buy_list[i][t][1] = ignored_demand[t]
+
+            # append block_bid_info to buy_list
+            bes_id, mean_price, sum_energy, mean_quantity = mean_all(block_bid=buy_list[i])
+            buy_block_bid_info = {"css_id": bes_id, "mean_price": mean_price, "sum_energy": sum_energy,
+                                    "quantity": mean_quantity,
+                                    "flex_energy": min(characs["css"]["energy_bid_avg_forced_bat"],
+                                                     characs["css"]["energy_bid_avg_delayed_bat"]),
+                                  "ignored_demand": bid_info["ignored_demand"]}
             buy_list[i].update(buy_block_bid_info)
             if buy_block_bid_info["quantity"] == 0:
                 del buy_list[i]

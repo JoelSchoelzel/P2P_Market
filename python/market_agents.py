@@ -208,6 +208,20 @@ class mar_agent_bes(object):
             reward = 0
         return reward
 
+    def calc_reward_q_learning_v4(self, buying, p_match, q_match, q_dem, soc_state):
+        # This function is used to calculate the reward for Q-learning
+        # The reward is based on the buying/selling action, SOC state, and prices
+        eco_coeff = 0.3
+        trade_coeff = 0.6
+        soc_coeff = 0.1
+        if buying == "True":
+            reward = (eco_coeff * (self.p_max - p_match) * q_match / ((self.p_max - self.p_min) * q_dem) + trade_coeff * q_match / q_dem - soc_coeff * soc_state)
+        elif buying == "False":
+            reward = (eco_coeff * (p_match - self.p_min) * q_match / ((self.p_max - self.p_min) * q_dem) + trade_coeff * q_match / q_dem + soc_coeff * soc_state)
+        else:
+            reward = 0
+        return reward
+
     def update_q_table_q_learning(self, action, reward, new_buy_quant, new_sell_quant, new_soc):
         # This function is used to update the Q-table for Q-learning
         # The Q-table is updated based on the current state, action, reward, and next state
@@ -384,6 +398,7 @@ class mar_agent_bes(object):
 class mar_agent_css(object):
     """Market agent for the central supply system (CSS) that creates the bids."""
     def __init__(self, options, districtData):
+        self.css_id = options["nb_bes"]
         self.p_min = options["p_min"] + 0.001
         self.p_max = options["p_max"] - 0.001
         self.step_size_price = 0.01  # step size for bidding (zero, learning)
@@ -442,7 +457,7 @@ class mar_agent_css(object):
             q = 0
             buying = str("None")
 
-        return [p, q, buying]
+        return [p, q, buying, self.css_id]
 
     def q_learning_bids00(self, buying_quantity, selling_quantity, p_feed_in, p_rate, p_reg,
                         p_i_sell, p_j_buy, e_t_SES, E_SES,
@@ -591,18 +606,28 @@ class mar_agent_css(object):
         # This function is used to calculate the bidding price for the BES using Q-learning
         # Based on current state and q-table, the agent selects an action (price) to bid, (buying or selling)
         # The agent then generates a bid based on the selected action
-        self.epsilon = 0.1
-        if random.uniform(0, 1) < self.epsilon:
+        #self.epsilon = 0.1
+        #if random.uniform(0, 1) < self.epsilon:
+        #    action = random.choice(self.q_actions_CSS)
+        #else:
+        #    state_index = tuple(self.q_state)
+        #    action = self.q_actions_CSS[np.argmax(self.q_table[state_index])]
+            # here q-table is used for determining the final bidding price
+
+        #if action == self.p_min - 0.01:
+        #    action = self.p_min
+        #elif action == self.p_max + 0.01:
+        #    action = self.p_max
+
+        self.decay_rate = 0.99  # decay rate for epsilon
+        self.epsilon = max(0.1, self.epsilon_init * (self.decay_rate ** n_opt))  # decay epsilon over time until 0.1
+        if n_opt == 0:
+            action = random.choice(self.q_actions_CSS)
+        elif random.uniform(0, 1) < self.epsilon:
             action = random.choice(self.q_actions_CSS)
         else:
             state_index = tuple(self.q_state)
             action = self.q_actions_CSS[np.argmax(self.q_table[state_index])]
-            # here q-table is used for determining the final bidding price
-
-        if action == self.p_min - 0.01:
-            action = self.p_min
-        elif action == self.p_max + 0.01:
-            action = self.p_max
 
         if buying_quantity > 0:
             p = action
@@ -619,15 +644,16 @@ class mar_agent_css(object):
             buying = str("None")
 
         # Return the bid
-        return [p, q, buying]
+        return [p, q, buying, self.css_id]
 
     def initialize_q_table_q_learning(self):
         # This function is used to initialize the Q-table for Q-learning
-        self.alpha, self.gamma, self.epsilon = 0.1, 0.1, 0.1  # learning rate, discount factor, exploration rate
+        self.alpha, self.gamma, self.epsilon_init = 0.1, 0.4, 0.8  # learning rate, discount factor, exploration rate
         # The Q-table is a 4D numpy array that stores q-values for each state-action pair of each BES
         self.q_table = {}
-        self.q_actions_CSS = [round(x, 2) for x in np.arange(self.p_min, (self.p_max + self.step_size_price),
-                                                 self.step_size_price)]
+        self.q_actions_CSS = [round(x, 2) for x in np.arange(self.p_min + 0.01, self.p_max, self.step_size_price)]
+            #[round(x, 2) for x in np.arange(self.p_min, (self.p_max + self.step_size_price),
+            #                                     self.step_size_price)]
         state_space = [10, 10, 10]
         self.q_state = ()
 

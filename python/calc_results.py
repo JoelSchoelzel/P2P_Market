@@ -4,12 +4,16 @@ import pandas as pd
 import pickle
 
 
-def calc_results_p2p(par_rh, block_length, nego_results, opti_res,opti_res_check, grid_transaction, params):
+def calc_results_p2p(par_rh, block_length, nego_results, opti_res,opti_res_check, grid_transaction, params, options,
+                     opti_res_css: dict = None):
 
     last_n_opt = par_rh["n_opt"]
     time_steps = []
     for i in range(par_rh["hour_start"][0], par_rh["hour_start"][last_n_opt-1] + block_length):
         time_steps.append(i)
+    nb_agents = len(opti_res[0])
+    if options["central_supply_system"]:
+        nb_agents = len(opti_res[0]) + 1
 
     # --------------------- DGOC --------------------- #
 
@@ -21,6 +25,11 @@ def calc_results_p2p(par_rh, block_length, nego_results, opti_res,opti_res_check
                 total_p_purchase[t - par_rh["hour_start"][0]] += opti_res[n_opt][n][4]["p_imp"]["p_imp"][t] / 1000 # kW
                 total_feed_in[t - par_rh["hour_start"][0]] += (opti_res[n_opt][n][8]["chp"][t] \
                                                               + opti_res[n_opt][n][8]["pv"][t]) / 1000 # kW
+        if options["central_supply_system"]:
+            for t in range(par_rh["hour_start"][n_opt], par_rh["hour_start"][n_opt] + block_length):
+                total_p_purchase[t - par_rh["hour_start"][0]] += opti_res_css[n_opt]["res_p_imp"][t] / 1000 # kW
+                total_feed_in[t - par_rh["hour_start"][0]] += (opti_res_css[n_opt]["res_p_sell"]["s_pv"][t] +
+                                                               opti_res_css[n_opt]["res_p_sell"]["s_wind"][t]) / 1000 # kW
 
     denominator_dgoc = []
     numerator_dgoc = []
@@ -44,12 +53,17 @@ def calc_results_p2p(par_rh, block_length, nego_results, opti_res,opti_res_check
     for n_opt in range(par_rh["n_opt"] - int(36/block_length)-1 ):
         for n in range(len(opti_res[0])):
             for t in range(par_rh["hour_start"][n_opt], par_rh["hour_start"][n_opt] + block_length):
-                bat_losses.append(0.03 * (opti_res[n_opt][n][3]["bat"][t]
-                                          + opti_res[n_opt][n][5]["bat"][t]
-                                          + opti_res[n_opt][n][6]["bat"][t]))
+                bat_losses.append(0.03 * (opti_res[n_opt][n][3]["bat"][t] # res_soc
+                                          + opti_res[n_opt][n][5]["bat"][t] # res_p_ch
+                                          + opti_res[n_opt][n][6]["bat"][t])) # res_p_dch
                 tes_losses.append(0.03 * opti_res[n_opt][n][3]["tes"][t])
-    bat_losses = sum(bat_losses) /1000 # kWh
-    tes_losses = sum(tes_losses) /1000 # kWh
+        if options["central_supply_system"]:
+            for t in range(par_rh["hour_start"][n_opt], par_rh["hour_start"][n_opt] + block_length):
+                bat_losses.append(0.03 * (opti_res_css[n_opt]["res_soc"]["s_bat"][t]
+                                          + opti_res_css[n_opt]["res_p_ch"]["s_bat"][t]
+                                          + opti_res_css[n_opt]["res_p_dch"]["s_bat"][t]))
+    bat_losses = sum(bat_losses) / 1000 # kWh
+    tes_losses = sum(tes_losses) / 1000 # kWh
 
     # --------------------- energy exchange with higher grid --------------------- #
 
@@ -65,13 +79,12 @@ def calc_results_p2p(par_rh, block_length, nego_results, opti_res,opti_res_check
 
 
     # --------------------- trade price, revenue, costs, gain  ---------------------
-
-    traded_power = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
-    additional_revenue = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
-    saved_costs = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
-    trading_revenue = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
-    trading_costs = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
-    gain = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
+    traded_power = np.zeros((nb_agents, par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
+    additional_revenue = np.zeros((nb_agents, par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
+    saved_costs = np.zeros((nb_agents, par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
+    trading_revenue = np.zeros((nb_agents, par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
+    trading_costs = np.zeros((nb_agents, par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
+    gain = np.zeros((nb_agents, par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
     counter = 0
 
     for opt in range(par_rh["n_opt"] - int(36/block_length)-1):
@@ -101,13 +114,13 @@ def calc_results_p2p(par_rh, block_length, nego_results, opti_res,opti_res_check
                         counter =+ 1
     print("counter_"+str(counter))
 
-    traded_power_per_building = np.zeros(len(opti_res[0]))
-    trading_costs_per_building = np.zeros(len(opti_res[0]))
-    saved_costs_per_building = np.zeros(len(opti_res[0]))
-    trading_revenue_per_building = np.zeros(len(opti_res[0]))
-    additional_revenue_per_building = np.zeros(len(opti_res[0]))
-    gain_per_building = np.zeros(len(opti_res[0]))
-    for n in range(len(opti_res[0])):
+    traded_power_per_building = np.zeros(nb_agents)
+    trading_costs_per_building = np.zeros(nb_agents)
+    saved_costs_per_building = np.zeros(nb_agents)
+    trading_revenue_per_building = np.zeros(nb_agents)
+    additional_revenue_per_building = np.zeros(nb_agents)
+    gain_per_building = np.zeros(nb_agents)
+    for n in range(nb_agents):
         traded_power_per_building[n] = np.sum(traded_power[n, :])
         trading_costs_per_building[n] = np.sum(trading_costs[n, :])
         saved_costs_per_building[n] = np.sum(saved_costs[n, :])
@@ -131,7 +144,7 @@ def calc_results_p2p(par_rh, block_length, nego_results, opti_res,opti_res_check
 
     # --------------------- absolute_energy_cost  --------------------- #
 
-    total_cost = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
+    total_cost = np.zeros((nb_agents, par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
 
     total_cost = total_cost + trading_costs - trading_revenue
     for n_opt in range(par_rh["n_opt"] - int(36/block_length)-1 ):
@@ -140,27 +153,37 @@ def calc_results_p2p(par_rh, block_length, nego_results, opti_res,opti_res_check
                 total_cost[n,t - par_rh["hour_start"][0]] += grid_transaction[n_opt]["costs_power_from_grid"][n][t] \
                                                            - grid_transaction[n_opt]["revenue_power_to_grid"][n][t] \
                                                            + opti_res[n_opt][n][16][t]/1000 * params["eco"]["gas"]
-    total_cost_per_buildung = np.zeros(len(opti_res[0]))
-    for n in range(len(opti_res[0])):
+        if options["central_supply_system"]:
+            for t in range(par_rh["hour_start"][n_opt], par_rh["hour_start"][n_opt] + block_length):
+                total_cost[nb_agents - 1, t - par_rh["hour_start"][0]] += grid_transaction[n_opt]["costs_power_from_grid"][nb_agents - 1][t] \
+                                                                    - grid_transaction[n_opt]["revenue_power_to_grid"][nb_agents - 1][t]
+
+    total_cost_per_buildung = np.zeros(nb_agents)
+    for n in range(nb_agents):
         total_cost_per_buildung[n] = np.sum(total_cost[n,:])
 
-    total_cost_without_LEM = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
+    total_cost_without_LEM = np.zeros((nb_agents, par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
     for n_opt in range(par_rh["n_opt"] - int(36/block_length)-1 ):
         for n in range(len(opti_res[0])):
             for t in range(par_rh["hour_start"][n_opt], par_rh["hour_start"][n_opt] + block_length):
                 total_cost_without_LEM[n,t - par_rh["hour_start"][0]] += opti_res[n_opt][n][16][t]/1000 * params["eco"]["gas"] \
                                                                          + opti_res[n_opt][n][4]["p_imp"]["p_imp"][t] / 1000* params["eco"]["pr", "el"] \
                                                                          - (opti_res[n_opt][n][8]["chp"][t] + opti_res[n_opt][n][8]["pv"][t]) / 1000*params["eco"]["sell_pv"] # kW
-    total_cost_without_LEM_per_buildung = np.zeros(len(opti_res[0]))
-    for n in range(len(opti_res[0])):
+        if options["central_supply_system"]:
+            for t in range(par_rh["hour_start"][n_opt], par_rh["hour_start"][n_opt] + block_length):
+                total_cost_without_LEM[nb_agents - 1, t - par_rh["hour_start"][0]] += opti_res_css[n_opt]["res_p_imp"][t] / 1000 * params["eco"]["pr", "el"] \
+                                                                                     - (opti_res_css[n_opt]["res_p_sell"]["s_pv"][t] + opti_res_css[n_opt]["res_p_sell"]["s_wind"][t]) / 1000 * params["eco"]["sell_pv"]
+
+    total_cost_without_LEM_per_buildung = np.zeros(nb_agents)
+    for n in range(nb_agents):
         total_cost_without_LEM_per_buildung[n] = np.sum(total_cost_without_LEM[n,:])
 
     # ----------- traded supply and demand quantities   ---------------------
 
-    denominator_total_demand = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
-    denominator_total_supply = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
-    nominator_total_demand = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
-    nominator_total_supply = np.zeros((len(opti_res[0]), par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
+    denominator_total_demand = np.zeros((nb_agents, par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
+    denominator_total_supply = np.zeros((nb_agents, par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
+    nominator_total_demand = np.zeros((nb_agents, par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
+    nominator_total_supply = np.zeros((nb_agents, par_rh["time_steps"][par_rh["n_opt"] - 1][-1] - par_rh["hour_start"][0]))
 
     for n_opt in range(par_rh["n_opt"] - int(36/block_length)-1):
         for n in range(len(opti_res[0])):
@@ -172,10 +195,19 @@ def calc_results_p2p(par_rh, block_length, nego_results, opti_res,opti_res_check
                     nominator_total_demand[n, t - par_rh["hour_start"][0]] = traded_power[n, t - par_rh["hour_start"][0]]
                 if denominator_total_supply[n, t - par_rh["hour_start"][0]] > 0:
                     nominator_total_supply[n, t - par_rh["hour_start"][0]] = traded_power[n, t - par_rh["hour_start"][0]]
+        if options["central_supply_system"]:
+            for t in range(par_rh["hour_start"][n_opt], par_rh["hour_start"][n_opt] + block_length):
+                denominator_total_demand[nb_agents - 1, t - par_rh["hour_start"][0]] += opti_res_css[n_opt]["res_p_imp"][t] / 1000
+                denominator_total_supply[nb_agents - 1, t - par_rh["hour_start"][0]] += opti_res_css[n_opt]["res_p_sell"]["s_pv"][t] / 1000 \
+                                                                                          + opti_res_css[n_opt]["res_p_sell"]["s_wind"][t] / 1000
+                if denominator_total_demand[nb_agents - 1, t - par_rh["hour_start"][0]] > 0:
+                    nominator_total_demand[nb_agents - 1, t - par_rh["hour_start"][0]] = traded_power[nb_agents - 1, t - par_rh["hour_start"][0]]
+                if denominator_total_supply[nb_agents - 1, t - par_rh["hour_start"][0]] > 0:
+                    nominator_total_supply[nb_agents - 1, t - par_rh["hour_start"][0]] = traded_power[nb_agents - 1, t - par_rh["hour_start"][0]]
 
     mSCF_bd = {}
     mDCF_bd = {}
-    for n in range(len(opti_res[0])):
+    for n in range(nb_agents):
         if sum(denominator_total_supply[n,:]) != 0:
             mSCF_bd[n] = sum(nominator_total_supply[n,:]) / sum(denominator_total_supply[n,:])
         if sum(denominator_total_demand[n, :]) != 0:

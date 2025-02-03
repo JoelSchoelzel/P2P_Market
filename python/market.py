@@ -1,9 +1,13 @@
 from python import opti_bes_negotiation
 from python import opti_css
 from python import block_bids
+from python import opti_css_negotiation
 
 import copy
 import numpy as np
+
+from python.market_agents import mar_agent_css
+
 
 def matching(sorted_bids):
     """Match the sorted block bids of the buyers to the ones of the sellers.
@@ -25,7 +29,7 @@ def matching(sorted_bids):
     return matched_bids_info
 
 def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_info, sorted_bids, block_length,
-                opti_res):
+                opti_res, opti_res_css: dict = None, mar_agent_css: object = None):
     """Run the optimization problem for the negotiation phase (taking into account
     bid quantities and prices of matched peer).
 
@@ -55,6 +59,13 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
         for t in par_rh["time_steps"][n_opt][0:block_length]:
             prev_trade[n]["sell"][t] = 0
             prev_trade[n]["buy"][t] = 0
+    if options["central_supply_system"]:
+        prev_trade["css"] = {}
+        prev_trade["css"]["sell"] = {}
+        prev_trade["css"]["buy"] = {}
+        for t in par_rh["time_steps"][n_opt][0:block_length]:
+            prev_trade["css"]["sell"][t] = 0
+            prev_trade["css"]["buy"][t] = 0
     matched_pairs = []
 
     # --------------------- START NEGOTIATION ---------------------
@@ -73,8 +84,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
         for match in range(len(matched_bids_info[r])):
 
             neg_res[r][match] = {
-                    "buyer_id": matched_bids_info[r][match][0]["bes_id"],
-                    "seller_id": matched_bids_info[r][match][1]["bes_id"],
+                    "buyer_id": matched_bids_info[r][match][0][t][3],
+                    "seller_id": matched_bids_info[r][match][1][t][3],
                     "trading_price": {},
                     "trading_quantity": {},
                     "trading_cost": {},
@@ -87,8 +98,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                     # "opti_bes_res_seller": opti_bes_res_seller,
                 }
 
-            buyer_id = matched_bids_info[r][match][0]["bes_id"]
-            seller_id = matched_bids_info[r][match][1]["bes_id"]
+            buyer_id = matched_bids_info[r][match][0][t][3]
+            seller_id = matched_bids_info[r][match][1][t][3]
 
             # price adjustment for negotiation
             trading_price = calculate_trading_price(par_rh, n_opt, block_length, matched_bids_info, r, match)
@@ -97,7 +108,8 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
             #### run the optimization model for buyer and seller ###
             #try:
             opti_bes_res_buyer = {}
-            opti_bes_res_buyer \
+            if buyer_id < options["nb_bes"]:
+                opti_bes_res_buyer \
                         = opti_bes_negotiation.compute_opti(node=nodes[buyer_id], params=params,
                                                             par_rh=par_rh,
                                                             init_val=init_val["building_" + str(buyer_id)],
@@ -108,7 +120,22 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                                                             block_length=block_length, opti_res = opti_res[buyer_id],
                                                             opti_bes_res_buyer = opti_bes_res_buyer)
 
-            opti_bes_res_seller \
+            elif buyer_id == options["nb_bes"]: # if buyer is the central supply system
+                opti_bes_res_buyer \
+                        = opti_css_negotiation.compute_opti(params=params,
+                                                            par_rh=par_rh,
+                                                            init_val=init_val["css"],
+                                                            n_opt=n_opt, options=options,
+                                                            matched_bids_info=matched_bids_info[r][match],
+                                                            prev_traded=prev_trade["css"], r=r,
+                                                            is_buying=True, trading_price=trading_price,
+                                                            block_length=block_length,
+                                                            opti_bes_res_buyer = opti_bes_res_buyer,
+                                                            opti_res_css=opti_res_css,
+                                                            mar_agent_css=mar_agent_css)
+
+            if seller_id < options["nb_bes"]:
+                opti_bes_res_seller \
                         = opti_bes_negotiation.compute_opti(node=nodes[seller_id], params=params, par_rh=par_rh,
                                                             init_val=init_val["building_" + str(seller_id)],
                                                             n_opt=n_opt, options=options,
@@ -117,27 +144,64 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                                                             is_buying=False, trading_price=trading_price,
                                                             block_length=block_length, opti_res = opti_res[seller_id],
                                                             opti_bes_res_buyer = opti_bes_res_buyer)
+            elif seller_id == options["nb_bes"]: # if seller is the central supply system
+                opti_bes_res_seller \
+                        = opti_css_negotiation.compute_opti(params=params, par_rh=par_rh,
+                                                            init_val=init_val["css"],
+                                                            n_opt=n_opt, options=options,
+                                                            matched_bids_info=matched_bids_info[r][match],
+                                                            prev_traded=prev_trade["css"], r=r,
+                                                            is_buying=False, trading_price=trading_price,
+                                                            block_length=block_length,
+                                                            opti_bes_res_buyer = opti_bes_res_buyer,
+                                                            opti_res_css=opti_res_css,
+                                                            mar_agent_css=mar_agent_css)
 
             # replacing the initial opti results with opti regarding trading
-            opti_res[buyer_id] = opti_bes_negotiation.replace_opti_res(opti_res[buyer_id], opti_bes_res_buyer,
-                                                                           par_rh, n_opt)
-            opti_res[seller_id] = opti_bes_negotiation.replace_opti_res(opti_res[seller_id], opti_bes_res_seller,
-                                                                            par_rh, n_opt)
+            #opti_res[buyer_id] = opti_bes_negotiation.replace_opti_res(opti_res[buyer_id], opti_bes_res_buyer,
+            #                                                               par_rh, n_opt)
+            #opti_res[seller_id] = opti_bes_negotiation.replace_opti_res(opti_res[seller_id], opti_bes_res_seller,
+            #                                                                par_rh, n_opt)
+
+
+            # replacing the initial opti results with opti regarding trading
+            if buyer_id < options["nb_bes"]:
+                opti_res[buyer_id] = opti_bes_negotiation.replace_opti_res(opti_res[buyer_id], opti_bes_res_buyer,
+                                                                                par_rh, n_opt)
+            elif buyer_id == options["nb_bes"]: # if buyer is the central supply system
+                opti_res_css = opti_css_negotiation.replace_opti_res_css(opti_res_css, opti_bes_res_buyer,
+                                                                                par_rh, n_opt)
+            if seller_id < options["nb_bes"]:
+                opti_res[seller_id] = opti_bes_negotiation.replace_opti_res(opti_res[seller_id], opti_bes_res_seller,
+                                                                                par_rh, n_opt)
+            elif seller_id == options["nb_bes"]: # if seller is the central supply system
+                opti_res_css = opti_css_negotiation.replace_opti_res_css(opti_res_css, opti_bes_res_seller,
+                                                                                par_rh, n_opt)
+
+            # store the matched pairs
             matched_pairs.append([buyer_id, seller_id])
 
             # store the results of the negotiation for this match and this round
             neg_res[r][match], prev_trade = save_negotiation_results(neg_res[r][match], opti_bes_res_buyer,
                                                                      opti_bes_res_seller, trading_price, prev_trade,
-                                                                     buyer_id, seller_id, block_bid_time_steps, params)
+                                                                     buyer_id, seller_id, block_bid_time_steps, params,
+                                                                     options)
             #except:
             #    print(1111111111)
             #    pass
 
             # ---------- BIDS FOR NEXT ROUND ---------- #
-            buy_list_next_round , sell_list_next_round = \
-                    block_bids.compute_block_bids_during_negotiation(matched_bids_info, r, match, neg_res[r][match]["remaining_demand"],
-                                          block_bid_time_steps, nodes, block_length, buyer_id, opti_bes_res_buyer, opti_res, buy_list_next_round,
-                                          neg_res[r][match]["remaining_supply"], seller_id, opti_bes_res_seller, sell_list_next_round)
+            if buyer_id < options["nb_bes"] and seller_id < options["nb_bes"]: # if buyer and seller are not the central supply system
+                buy_list_next_round , sell_list_next_round = \
+                        block_bids.compute_block_bids_during_negotiation(matched_bids_info, r, match, neg_res[r][match]["remaining_demand"],
+                                            block_bid_time_steps, nodes, block_length, buyer_id, opti_bes_res_buyer, opti_res, buy_list_next_round,
+                                            neg_res[r][match]["remaining_supply"], seller_id, opti_bes_res_seller, sell_list_next_round, options)
+            elif buyer_id == options["nb_bes"] or seller_id == options["nb_bes"]: # if buyer or seller is the central supply system
+                buy_list_next_round , sell_list_next_round = \
+                        block_bids.compute_block_bids_during_negotiation(matched_bids_info, r, match, neg_res[r][match]["remaining_demand"],
+                                            block_bid_time_steps, nodes, block_length, buyer_id, opti_bes_res_buyer, opti_res, buy_list_next_round,
+                                            neg_res[r][match]["remaining_supply"], seller_id, opti_bes_res_seller, sell_list_next_round, options,
+                                                                         opti_res_css, mar_agent_css)
 
 
         # Add all buyers/sellers that weren't matched (but were in sorted bids list) to the new sorted_bids_nego lists
@@ -188,11 +252,17 @@ def calculate_trading_price(par_rh, n_opt, block_length, matched_bids, r, match)
                 ratio[t] = 0
         trading_price = {}
         for t in par_rh["time_steps"][n_opt][0:block_length]:
-            trading_price[t] = min(matched_bids[r][match][1][t][0], matched_bids[r][match][0][t][0]) \
-                               + (1 - ratio[t]) * (max(matched_bids[r][match][1][t][0],
-                                                       matched_bids[r][match][0][t][0])
-                                                   - min(matched_bids[r][match][1][t][0],
-                                                         matched_bids[r][match][0][t][0]))
+            #if matched_bids[r][match][0][t][0] < matched_bids[r][match][1][t][0]: # if buyer bid is lower than seller offer
+                #trading_price[t] = min(matched_bids[r][match][1][t][0], matched_bids[r][match][0][t][0]) \
+                #                + (1 - ratio[t]) * (max(matched_bids[r][match][1][t][0],
+                #                                        matched_bids[r][match][0][t][0])
+                #                                    - min(matched_bids[r][match][1][t][0],
+                #                                          matched_bids[r][match][0][t][0]))
+            trading_price[t] = 1/3*(matched_bids[r][match][1][t][0] + matched_bids[r][match][0][t][0]) \
+                           + (1 - ratio[t]) * (max(matched_bids[r][match][1][t][0],
+                                                   matched_bids[r][match][0][t][0])
+                                               - min(matched_bids[r][match][1][t][0],
+                                                     matched_bids[r][match][0][t][0]))
     # else if seller has more flex energy
     elif matched_bids[r][match][1]["flex_energy"] > matched_bids[r][match][0]["flex_energy"]:
         for t in par_rh["time_steps"][n_opt][0:block_length]:
@@ -206,7 +276,12 @@ def calculate_trading_price(par_rh, n_opt, block_length, matched_bids, r, match)
                 ratio[t] = 0
         trading_price = {}
         for t in par_rh["time_steps"][n_opt][0:block_length]:
-            trading_price[t] = max(matched_bids[r][match][1][t][0], matched_bids[r][match][0][t][0]) \
+            #trading_price[t] = max(matched_bids[r][match][1][t][0], matched_bids[r][match][0][t][0]) \
+            #                   + (1 - ratio[t]) * (min(matched_bids[r][match][1][t][0],
+            #                                           matched_bids[r][match][0][t][0])
+            #                                       - max(matched_bids[r][match][1][t][0],
+            #                                             matched_bids[r][match][0][t][0]))
+            trading_price[t] = 2/3 * (matched_bids[r][match][1][t][0] + matched_bids[r][match][0][t][0]) \
                                + (1 - ratio[t]) * (min(matched_bids[r][match][1][t][0],
                                                        matched_bids[r][match][0][t][0])
                                                    - max(matched_bids[r][match][1][t][0],
@@ -215,7 +290,7 @@ def calculate_trading_price(par_rh, n_opt, block_length, matched_bids, r, match)
     return trading_price
 
 def save_negotiation_results(neg_res, opti_bes_res_buyer, opti_bes_res_seller, trading_price, prev_trade,
-                             buyer_id, seller_id, block_bid_time_steps, params):
+                             buyer_id, seller_id, block_bid_time_steps, params, options):
     # ---------- RESULTS OF NEGOTIATION FOR THIS MATCH AND THIS ROUND ---------- #
     for t in block_bid_time_steps:
 
@@ -240,8 +315,16 @@ def save_negotiation_results(neg_res, opti_bes_res_buyer, opti_bes_res_seller, t
 
 
         # store the traded quantity of each trader for the opti of next trading round r
-        prev_trade[buyer_id]["buy"][t] += neg_res["trading_quantity"][t]  # buyer
-        prev_trade[seller_id]["sell"][t] += neg_res["trading_quantity"][t]  # seller
+        if buyer_id < options["nb_bes"]:
+            prev_trade[buyer_id]["buy"][t] += neg_res["trading_quantity"][t]  # buyer
+        elif buyer_id == options["nb_bes"]: # if buyer is the central supply system
+            prev_trade["css"]["buy"][t] += neg_res["trading_quantity"][t]
+        if seller_id < options["nb_bes"]:
+            prev_trade[seller_id]["sell"][t] += neg_res["trading_quantity"][t]  # seller
+        elif seller_id == options["nb_bes"]: # if seller is the central supply system
+            prev_trade["css"]["sell"][t] += neg_res["trading_quantity"][t]
+        #prev_trade[buyer_id]["buy"][t] += neg_res["trading_quantity"][t]  # buyer
+        #prev_trade[seller_id]["sell"][t] += neg_res["trading_quantity"][t]  # seller
 
     return neg_res, prev_trade
 
@@ -335,16 +418,15 @@ def matching_during_negotiation(sorted_block_bids, matched_pairs):
     return matched_bids_info
 
 def negotiation_with_css():
+    pass
 
-    # while
-    opti_res_css[n_opt] = opti_css.compute(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded,
-                                           trading_price, block_length)
-
-def trade_with_grid(params, par_rh, n_opt, block_length, opti_res):
+def trade_with_grid(params, par_rh, n_opt, block_length, opti_res, options, opti_res_css: dict = None):
 
     # Get the time steps of the block bid
     time_steps = par_rh["time_steps"][n_opt][0:block_length]
     nb_bes = len(opti_res)
+    #if options["central_supply_system"]:
+    #    nb_agents += 1
 
     # Initialize all necessary variables
     power_from_grid = {}
@@ -367,6 +449,20 @@ def trade_with_grid(params, par_rh, n_opt, block_length, opti_res):
                 power_to_grid[bes_id][t] = opti_res[bes_id][18][t]
                 revenue_power_to_grid[bes_id][t] = opti_res[bes_id][18][t]/1000 * params["eco"]["sell" + "_" + "pv"]
 
+    if options["central_supply_system"]:
+        power_from_grid[nb_bes] = {}
+        power_to_grid[nb_bes] = {}
+        costs_power_from_grid[nb_bes] = {}
+        revenue_power_to_grid[nb_bes] = {}
+        for t in time_steps:
+            # --------------------- CSS AS BUYER IMPORTS FROM GRID ---------------------
+            if opti_res_css["res_p_grid_buy"] != {}:
+                power_from_grid[nb_bes][t] = opti_res_css["res_p_grid_buy"][t]
+                costs_power_from_grid[nb_bes][t] = opti_res_css["res_p_grid_buy"][t]/1000 * params["eco"]["pr", "el"]
+            # --------------------- CSS AS SELLER INJECTS INTO GRID ---------------------
+            if opti_res_css["res_p_grid_sell"] != {}:
+                power_to_grid[nb_bes][t] = opti_res_css["res_p_grid_sell"][t]
+                revenue_power_to_grid[nb_bes][t] = opti_res_css["res_p_grid_sell"][t]/1000 * params["eco"]["sell" + "_" + "pv"]
     #for seller in sorted_bids["sell_blocks"]:
     #    # trade ignored demand of sellers with grid
     #    for t in time_steps:

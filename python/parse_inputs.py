@@ -429,21 +429,18 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
         nodes[n]["devs"]["bz"] = devs[n]["bz"]
         nodes[n]["devs"]["pv"] = devs[n]["pv"]
 
-
+    # todo: parameter for central supply system is under market_agents.py under object mar_agent_css
     # Central supply system
-    devs["css"] = {}
+    #devs["css"] = {}
     # Initialize devices for central supply system
-    devs["css"]["s_bat"] = dict(cap=0.0, min_soc=0.05, max_ch=0.6, max_dch=0.6, max_soc=0.95, eta_bat=0.97, k_loss=0)
-    devs["css"]["s_hp35"] = dict(cap=0.0, dT_max=15, exists=0, mod_lvl=1)
-    devs["css"]["s_hp55"] = dict(cap=0.0, dT_max=15, exists=0, mod_lvl=1)
-    devs["css"]["s_pv"] = dict(cap=0.0)
-    devs["css"]["s_wind"] = dict(cap=0.0)
-    devs["css"]["s_COP_sh35"] = np.zeros(8760)  # Assuming hourly data for a year
-    devs["css"]["s_COP_sh55"] = np.zeros(8760)  # Assuming hourly data for a year
+    #devs["css"]["s_bat"] = dict(cap=0.0, min_soc=0.05, max_ch=0.6, max_dch=0.6, max_soc=0.95, eta_bat=0.97, k_loss=0)
+    #devs["css"]["s_hp35"] = dict(cap=0.0, dT_max=15, exists=0, mod_lvl=1)
+    #devs["css"]["s_hp55"] = dict(cap=0.0, dT_max=15, exists=0, mod_lvl=1)
+    #devs["css"]["s_pv"] = dict(cap=0.0)
+    #devs["css"]["s_wind"] = dict(cap=0.0)
+    #devs["css"]["s_COP_sh35"] = np.zeros(8760)  # Assuming hourly data for a year
+    #devs["css"]["s_COP_sh55"] = np.zeros(8760)  # Assuming hourly data for a year
 
-    # Todo: Map devices from district generator to central supply system
-    # Todo: jsc: um es einfacher zu halten, legen wir hier die Leistungen und Kapazitäten der zentralen
-    # Todo: jsc: Anlagen fest. Dementsprechend keine Änderungen im Quartiersgenerator
     '''
     if districtData.centralDevices['capacities']['BAT']:
         devs["css"]["s_bat"]["cap"] = districtData.centralDevices['capacities']['BAT']
@@ -462,8 +459,8 @@ def map_devices(options, nodes, building_params, par_rh, districtData):
     '''
 
     # Add central supply system devices to nodes
-    nodes["css"] = {
-        "devs": devs["css"]
-    }
+    #nodes["css"] = {
+    #    "devs": devs["css"]
+    #}
 
     return nodes, devs, building_params

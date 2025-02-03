@@ -68,6 +68,15 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
             mar_dict["sorted_bids"][n_opt] = {}
             mar_dict["matched_bids_info"][n_opt] = {}
             opti_res_css[n_opt] = {}
+            if options["central_supply_system"]:
+                matched_bids = {}
+                prev_traded = {}
+                trading_price = {}
+                res_soc_prev = mar_agent_css.bat_capacity * 0.1
+                for t in par_rh["time_steps"][n_opt][0:block_length]:
+                    matched_bids = {0: {t: {1: [0]}}, 1: {t: {1: [0]}}}
+                    prev_traded = {t: 0}
+                    trading_price = {t: options["p_min"]}
 
             if n_opt == 0:
                 for n in range(options["nb_bes"]):
@@ -87,7 +96,20 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 # todo Ray: add sharing operation here, adjust init_val for sharing operation?
                 init_val[n_opt]["css"] = {}
                 #opti_res_css[n_opt] = sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded, trading_price, block_length, opti_res, options)
-            else:
+                if options["central_supply_system"]:
+                    print("Starting optimization: n_opt: " + str(n_opt) + ", central supply system:")
+                    matched_bids = {}
+                    prev_traded = {}
+                    trading_price = {}
+                    res_soc_prev = mar_agent_css.bat_capacity * 0.1
+                    for t in par_rh["time_steps"][n_opt][0:block_length]:
+                        matched_bids = {0: {t: {1: [0]}}, 1: {t: {1: [0]}}}
+                        prev_traded = {t: 0}
+                        trading_price = {t: options["p_min"]}
+                    opti_res_css[n_opt] = (
+                        sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded,
+                                          trading_price, block_length, opti_res, options, res_soc_prev))
+            else: # for all next optimization steps n_opt > 0
                 for n in range(options["nb_bes"]):
                     print("Starting optimization: n_opt: " + str(n_opt) + ", building:" + str(n) + ".")
                     opti_res[n_opt][n] = decentral_operation(node=nodes[n], params=params, pars_rh=par_rh,
@@ -105,15 +127,42 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                             init_val[n_opt + 1] = 0
                     else: pass
                 # todo Ray: add sharing operation here, adjust init_val for sharing operation?
-                #opti_res_css[n_opt] = sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded, trading_price, block_length, opti_res, options)
+                if options["central_supply_system"]:
+                    # gather information about matched bids and previous trading round
+                    print("Starting optimization: n_opt: " + str(n_opt) + ", central supply system:")
+                    matched_bids = {}
+                    prev_traded = {}
+                    trading_price = {}
+                    res_soc_prev = mar_agent_css.bat_capacity * 0.1
+                    for t in par_rh["time_steps"][n_opt][0:block_length]:
+                        res_soc_prev = opti_res_css[n_opt - 1]["res_soc"]["s_bat"][t - 1]
+                        matched_bids = {t: 0}
+                        prev_traded = {t: 0}
+                        trading_price = {t: 0}
+                    if len(mar_dict["matched_bids_info"][n_opt]) > 0: #todo: what if more than one round for CSS? consider r?
+                        for match in range(len(mar_dict["matched_bids_info"][n_opt][0])):
+                            for t in par_rh["time_steps"][n_opt][0:block_length]:
+                                matched_bids = mar_dict["matched_bids_info"][n_opt][0][match]
+                                prev_traded = mar_dict["negotiation_results"][n_opt][0][match]["trading_quantity"]
+                                trading_price = mar_dict["negotiation_results"][n_opt][0][match][
+                                    "trading_price"]  # todo: need correct trading price from negotiation results
+                    opti_res_css[n_opt] = (
+                        sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded,
+                                          trading_price, block_length, opti_res, options, res_soc_prev))
             #opti_res_check[n_opt] = copy.deepcopy(opti_res[n_opt])
             print("Finished optimization " + str(n_opt) + ". " + str((n_opt + 1) / par_rh["n_opt"] * 100) +
                   "% of optimizations processed.")
 
             # calculate new flexibility characteristics for length of block bids using the SOC from optimization results
-            characteristics[n_opt] = characs.calc_characs(nodes=nodes, options=options, par_rh=par_rh,
-                                                          block_length=block_length, opti_res=opti_res,
-                                                          start_step=n_opt)
+            if options["central_supply_system"]:
+                characteristics[n_opt] = characs.calc_characs(nodes=nodes, options=options, par_rh=par_rh,
+                                                              block_length=block_length, opti_res=opti_res,
+                                                              start_step=n_opt, opti_res_css=opti_res_css,
+                                                              mar_agent_css=mar_agent_css)
+            else:
+                characteristics[n_opt] = characs.calc_characs(nodes=nodes, options=options, par_rh=par_rh,
+                                                              block_length=block_length, opti_res=opti_res,
+                                                              start_step=n_opt)
 
             # ----------------- P2P TRADING NEGOTIATION WITH BLOCK BIDS -----------------
             if options["negotiation"]:
@@ -123,6 +172,10 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                   mar_agent_bes=mar_agent_bes, n_opt=n_opt, options=options,
                                                   block_length=block_length, mar_dict=mar_dict,
                                                   devs_pre_opti=devs_pre_opti, nodes=nodes)
+                # todo: create block bids for CSS and trade with prosumers
+                mar_dict["block_bids"][n_opt] = (
+                    block_bids.compute_block_bids_css(par_rh, n_opt, options, block_length, opti_res_css,
+                                                      mar_dict["block_bids"][n_opt], mar_agent_css))
 
                 # ------------------- SEPARATE BLOCK BIDS INTO BUY AND SELL LISTS ------------------- #
                 mar_dict["buy_list"][n_opt], mar_dict["sell_list"][n_opt] = \
@@ -140,62 +193,75 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 mar_dict["matched_bids_info"][n_opt][0] = market.matching(sorted_bids=mar_dict["sorted_bids"][n_opt][0])
 
                 # run negotiation optimization (with constraints adapted to matched peer) and save results
-                (mar_dict["negotiation_results"][n_opt], mar_dict["sorted_bids"][n_opt],
-                 mar_dict["matched_bids_info"][n_opt]), opti_res[n_opt] \
-                    = market.negotiation(nodes=nodes, params=params, par_rh=par_rh,
-                                          init_val=init_val[n_opt], n_opt=n_opt, options=options,
-                                          matched_bids_info=mar_dict["matched_bids_info"][n_opt],
-                                          sorted_bids=mar_dict["sorted_bids"][n_opt], block_length=block_length,
-                                          opti_res=opti_res[n_opt])
+                if options["central_supply_system"]:
+                    (mar_dict["negotiation_results"][n_opt], mar_dict["sorted_bids"][n_opt],
+                     mar_dict["matched_bids_info"][n_opt]), opti_res[n_opt] \
+                        = market.negotiation(nodes=nodes, params=params, par_rh=par_rh,
+                                             init_val=init_val[n_opt], n_opt=n_opt, options=options,
+                                             matched_bids_info=mar_dict["matched_bids_info"][n_opt],
+                                             sorted_bids=mar_dict["sorted_bids"][n_opt], block_length=block_length,
+                                             opti_res=opti_res[n_opt], opti_res_css=opti_res_css[n_opt],
+                                             mar_agent_css=mar_agent_css)
+                else:
+                    (mar_dict["negotiation_results"][n_opt], mar_dict["sorted_bids"][n_opt],
+                     mar_dict["matched_bids_info"][n_opt]), opti_res[n_opt] \
+                        = market.negotiation(nodes=nodes, params=params, par_rh=par_rh,
+                                              init_val=init_val[n_opt], n_opt=n_opt, options=options,
+                                              matched_bids_info=mar_dict["matched_bids_info"][n_opt],
+                                              sorted_bids=mar_dict["sorted_bids"][n_opt], block_length=block_length,
+                                              opti_res=opti_res[n_opt], opti_res_css=opti_res_css[n_opt])
 
                 # ------------------- TRADE WITH CSS ------------------- #
                 # todo: Ray: Insert css opti here, use bids and offers from previous step as input for opti_css
                 # todo Ray: trade with css
-                if options["central_supply_system"]:
+                #if options["central_supply_system"]:
                     # gather information about matched bids and previous trading round
-                    if len(mar_dict["matched_bids_info"][n_opt][0]) > 0:
-                        for match in range(len(mar_dict["matched_bids_info"][n_opt][0])):
-                            matched_bids = mar_dict["matched_bids_info"][n_opt][0][match]
-                    else:
-                        matched_bids = {}
-                        for t in par_rh["time_steps"][n_opt][0:block_length]:
-                            matched_bids = {0: {t: {1: [0]}}, 1: {t: {1: [0]}}}
-                    if len(mar_dict["matched_bids_info"][n_opt][0]) > 0:
-                        for match in range(len(mar_dict["matched_bids_info"][n_opt][0])):
-                            prev_traded = mar_dict["negotiation_results"][n_opt][0][match]["trading_quantity"]
-                            trading_price = mar_dict["negotiation_results"][n_opt][0][match]["trading_price"] # todo: need correct trading price from negotiation results
-                    else:
-                        for t in par_rh["time_steps"][n_opt][0:block_length]:
-                            prev_traded = {t: 0}
-                            trading_price = {t: options["p_min"]}
+                    #matched_bids = {}
+                    #prev_traded = {}
+                    #trading_price = {}
+                    #res_soc_prev = mar_agent_css.bat_capacity * 0.1
+                    #for t in par_rh["time_steps"][n_opt][0:block_length]:
+                    #    matched_bids = {0: {t: {1: [0]}}, 1: {t: {1: [0]}}}
+                    #    prev_traded = {t: 0}
+                    #    trading_price = {t: options["p_min"]}
+                    #if len(mar_dict["matched_bids_info"][n_opt][0]) > 0:
+                    #    for match in range(len(mar_dict["matched_bids_info"][n_opt][0])):
+                    #        matched_bids = mar_dict["matched_bids_info"][n_opt][0][match]
+                    #        prev_traded = mar_dict["negotiation_results"][n_opt][0][match]["trading_quantity"]
+                    #        trading_price = mar_dict["negotiation_results"][n_opt][0][match][
+                    #                "trading_price"]  # todo: need correct trading price from negotiation results
+                    #if n_opt > 0:
+                    #    for t in par_rh["time_steps"][n_opt][0:block_length]:
+                    #        res_soc_prev = opti_res_css[n_opt - 1]["res_soc"]["s_bat"][t - 1]
 
-                    if n_opt == 0:
-                        res_soc_prev = mar_agent_css.bat_capacity * 0.1
-                    else:
-                        res_soc_prev = opti_res_css[n_opt - 1]["res_soc"]["s_bat"][t-1]
-
-                    opti_res_css[n_opt] = (
-                        sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded,
-                                          trading_price, block_length, opti_res, options, res_soc_prev))
+                    #opti_res_css[n_opt] = (
+                    #    sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded,
+                    #                      trading_price, block_length, opti_res, options, res_soc_prev))
 
                     # create dict to store initial values of CSS
-                    init_val[n_opt]["css"] = {"soc": {"s_bat": {}}}
-                    init_val[n_opt]["css"]["soc"]["s_bat"] = opti_res_css[n_opt]["res_soc"]["s_bat"]
+                    #init_val[n_opt]["css"] = {"soc": {"s_bat": {}}}
+                    #init_val[n_opt]["css"]["soc"]["s_bat"] = opti_res_css[n_opt]["res_soc"]["s_bat"]
 
                     # todo: create block bids for CSS and trade with prosumers
-                    mar_dict["block_bids"][n_opt] = (
-                        block_bids.compute_block_bids_css(par_rh, n_opt, options, block_length, opti_res_css,
-                                                          mar_dict["block_bids"][n_opt], mar_agent_css))
+                    #mar_dict["block_bids"][n_opt] = (
+                    #    block_bids.compute_block_bids_css(par_rh, n_opt, options, block_length, opti_res_css,
+                    #                                      mar_dict["block_bids"][n_opt], mar_agent_css))
 
                     # todo: negotiation between prosumers and CSS
-                    mar_dict["negotiation_results_with_css"] = {n_opt: {}}
+                    #mar_dict["negotiation_results_with_css"] = {n_opt: {}}
                     # mar_dict["negotiation_results_with_css"][n_opt] = (
                     #     market.negotiation_with_css())
 
                 # ------------------- TRADE WITH GRID ------------------- #
-                mar_dict["transactions_with_grid"][n_opt] = \
-                    market.trade_with_grid(params=params, par_rh=par_rh, n_opt=n_opt,
-                                            block_length=block_length, opti_res=opti_res[n_opt])
+                if options["central_supply_system"]:
+                    mar_dict["transactions_with_grid"][n_opt] = \
+                        market.trade_with_grid(params=params, par_rh=par_rh, n_opt=n_opt,
+                                               block_length=block_length, opti_res=opti_res[n_opt],
+                                               options=options, opti_res_css=opti_res_css[n_opt])
+                else:
+                    mar_dict["transactions_with_grid"][n_opt] = \
+                        market.trade_with_grid(params=params, par_rh=par_rh, n_opt=n_opt,
+                                                block_length=block_length, opti_res=opti_res[n_opt], options=options)
 
                 # todo ray: update q-tables of BES agents here, see below
                 # update q-tables of BES and CSS agents after each negotiation round
@@ -205,11 +271,12 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         reward1 = 0
                         reward2 = 0
                         reward3 = 0
+                        reward4 = 0
                         new_buy_quant = 0
                         new_sell_quant = 0
+                        eta_tes = nodes[n]["devs"]["tes"]["eta_tes"]
                         for t in par_rh["time_steps"][n_opt][0:block_length]:
                             current_soc = opti_res[n_opt][n][3]["tes"][t] / opti_res[n_opt][n][12]["tes"]
-                            eta_tes = nodes[n]["devs"]["tes"]["eta_tes"]
                             ch_tes = opti_res[n_opt][n][5]["tes"][t]
                             dch_tes = opti_res[n_opt][n][6]["tes"][t]
                         new_soc = max(0, current_soc * eta_tes + (ch_tes - dch_tes) / opti_res[n_opt][n][12]["tes"])
@@ -315,6 +382,8 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                                                  soc_state)
                             reward3 = mar_agent_bes[n].calc_reward_q_learning_v3(buying, p_match, q_match, q_dem,
                                                                                  soc_state)
+                            reward4 = mar_agent_bes[n].calc_reward_q_learning_v4(buying, p_match, q_match, q_dem,
+                                                                                 soc_state)
                             #reward1 += reward1  # sum up rewards for t in n_opt
                             #reward2 += reward2
 
@@ -322,7 +391,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                         mar_agent_bes[n]["q_table"] = (
                             mar_agent_bes[n].
                             update_q_table_q_learning(action=mar_dict["block_bids"][n_opt]["bes_" + str(n)][t][0],
-                                                      reward=reward3,
+                                                      reward=reward4,
                                                       new_buy_quant=new_buy_quant, new_sell_quant=new_sell_quant,
                                                       new_soc=new_soc))
 
@@ -391,7 +460,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                 nego_results=mar_dict["negotiation_results"],
                                                 opti_res=opti_res, opti_res_check=opti_res_check,
                                                 grid_transaction=mar_dict["transactions_with_grid"],
-                                                params=params)
+                                                params=params, options=options, opti_res_css=opti_res_css)
         #res_time, res_val = 1,2
 
         return mar_dict, characteristics, init_val, results, opti_res, opti_res_check
