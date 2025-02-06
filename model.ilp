@@ -3,39 +3,26 @@
 Minimize
  
 Subject To
- Max_heat_operation_chp: Q_chp_3631 <= 0
- heat_operation_chp_3631: Q_chp_3631 - 0.62 gaschp_3631 = 0
- Power_equation_hp55_3631: P_chp_3631 - 0.3 gaschp_3631 = 0
- Solar_electrical_pv_3631: P_pv_3631 = 421.6034734563918
- Storage_balance_bat_3631: SOC_bat_3631 - 0.97 P_ch_bat_3631
-   + 1.030927835051547 P_dch_bat_3631 = 521.4474625201807
- Electricity_balance_3631: P_ch_bat_3631 - P_dch_bat_3631 + P_hp35_3631
-   + P_hp55_3631 + P_eh_3631 - P_imp_3631 - P_use_chp_3631 - P_use_pv_3631
-   = -46.08566109287731
- power=sell+use_chp_3631: - P_chp_3631 + P_use_chp_3631 + P_sell_chp_3631
-   = 0
- power=sell+use_pv_3631: - P_pv_3631 + P_use_pv_3631 + P_sell_pv_3631 = 0
- soc_bb=soc_ph: SOC_bat_3631 = 476.7443712600906
- sold=grid+trade+prev_3631: - Power_trade_seller_3631
-   - Previous_power_trade_seller_3631 - P_grid_sell3631 + P_sell_chp_3631
-   + P_sell_pv_3631 = 0
- min_Power_trade_seller_2: Power_trade_seller_3631 >= 421.6034734563909
- binary_import_3631: - P_imp_3631 + 30484 y_house_load_3631 >= 0
- binary_export_3631: - P_sell_chp_3631 - P_sell_pv_3631
-   - 30484 y_house_load_3631 >= -30484
+ max_ch_s_bat_4365: P_ch_s_bat_4365 - 150000 y_s_bat_4365 <= 0
+ max_dch_s_bat_4365: P_dch_s_bat_4365 + 150000 y_s_bat_4365 <= 150000
+ Storage_balance_s_bat_4365: SOC_s_bat_4365 - 0.97 P_ch_s_bat_4365
+   + 1.030927835051547 P_dch_s_bat_4365 = 29850
+ Power_export_split_4365: - P_dch_s_bat_4365 + total_power_exported4365
+   - P_sell_s_pv_4365 - P_sell_s_wind_4365 = 0
+ soc_bb=soc_ph: SOC_s_bat_4365 = 30000
+ sold=grid+trade+prev_4365: total_power_exported4365 - p_grid_sell4365
+   - Power_trade_seller_4365 - Previous_power_trade_seller_4365 = 0
+ min_Power_trade_seller_2: Power_trade_seller_4365 >= 6.154526973576083
+ sum_p_sell_s_wind: P_sell_s_wind_4365 <= 0
+ MaxConstraint_PV_4365: P_sell_s_pv_4365 <= 3.077263486788041
 Bounds
- SOC_bat_3631 free
- P_dch_bat_3631 free
- P_chp_3631 free
- Q_chp_3631 free
- P_pv_3631 free
- Power_trade_seller_3631 free
- P_imp_3631 free
- P_use_chp_3631 free
- P_sell_chp_3631 free
- P_use_pv_3631 free
- P_sell_pv_3631 free
- gaschp_3631 free
+ SOC_s_bat_4365 free
+ P_ch_s_bat_4365 free
+ P_dch_s_bat_4365 free
+ total_power_exported4365 free
+ Power_trade_seller_4365 free
+ P_sell_s_pv_4365 free
+ P_sell_s_wind_4365 free
 Binaries
- y_house_load_3631
+ y_s_bat_4365
 End

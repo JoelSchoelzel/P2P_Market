@@ -1590,16 +1590,16 @@ def calc_characs_single_css(block_length, soc_state, opti_res_css, mar_agent_css
         # flexibility definition for BAT (considering effect to grid): charging = negative, dch = positive (like HP/EH)
         if opti_res_css["res_p_ch"]["s_bat"][t] > 0:
             power_ref_bat[t] = opti_res_css["res_p_ch"]["s_bat"][t]    # opti_res[5] = opti_res["res_p_ch"]
-        elif opti_res_css["res_p_dh"]["s_bat"][t] > 0:
+        elif opti_res_css["res_p_dch"]["s_bat"][t] > 0:
             power_ref_bat[t] = opti_res_css["res_p_dch"]["s_bat"][t]    # opti_res[6] = opti_res["res_p_dch"]
 
         power_max_bat = mar_agent_css.bat_capacity * mar_agent_css.bat_soc_ch_max # nodes[n]["devs"]["bat"]["cap"] * nodes[n]["devs"]["bat"]["max_ch"]
         if opti_res_css["res_p_ch"]["s_bat"][t] >= 0:
             power_flex_forced_bat[t] = power_max_bat - opti_res_css["res_p_ch"]["s_bat"][t]   # opti_res[5] = opti_res["res_p_ch"]
             power_flex_delayed_bat[t] = power_max_bat + opti_res_css["res_p_ch"]["s_bat"][t]
-        elif opti_res_css["res_p_dh"]["s_bat"][t] > 0:
-            power_flex_forced_bat[t] = power_max_bat + opti_res_css["res_p_dh"]["s_bat"][t]  # opti_res[6] = opti_res["res_p_dch"]
-            power_flex_delayed_bat[t] = power_max_bat - opti_res_css["res_p_dh"]["s_bat"][t]
+        elif opti_res_css["res_p_dch"]["s_bat"][t] > 0:
+            power_flex_forced_bat[t] = power_max_bat + opti_res_css["res_p_dch"]["s_bat"][t]  # opti_res[6] = opti_res["res_p_dch"]
+            power_flex_delayed_bat[t] = power_max_bat - opti_res_css["res_p_dch"]["s_bat"][t]
 
         characs["power_flex_forced_bat"][t] = power_flex_forced_bat[t]
         characs["power_flex_delayed_bat"][t] = power_flex_delayed_bat[t]

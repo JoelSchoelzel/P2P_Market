@@ -74,10 +74,10 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
                "crit_prio": crit_prio,  # "flex_energy",
                # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
                "block_length": block_length,  # length of block bid in hours
-               "max_trading_rounds": 3, # Number of trading rounds for multi round trading
-                "negotiation": True,  # True: negotiation, False: auction
+               "max_trading_rounds": 15,  # Number of trading rounds for multi round trading
+               "negotiation": True,  # True: negotiation, False: auction
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
-               "central_supply_system": True, # True: central supply system, False: without central supply system
+               "central_supply_system": False,  # True: wih shared central supply system (CSS), False: without CSS
                # path to the project
                "path_file": os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                # path to where the result should be stored
@@ -117,7 +117,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     # Run (rolling horizon) optimization for whole year or month
     if options["optimization"] == "P2P":
         # run optimization incl. trading
-        mar_dict, characteristics, init_val, results, opti_res, opti_res_check =\
+        mar_dict, characteristics, init_val, results, opti_res, opti_res_check, opti_res_css =\
             opti_methods.rolling_horizon_opti(options=options, nodes=nodes, par_rh=par_rh,
                                               building_params=building_params,
                                               params=params, block_length=options["block_length"],
@@ -186,7 +186,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     time["end"] = datetime.datetime.now()
     print("Finished rolling horizon. " + str(datetime.datetime.now()))
 
-    return mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options
+    return mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options, opti_res_css
 
 if __name__ == '__main__':
     for scenario_name in ["example2"]:  # AppliedEnergy, Typquartier_1, "Quartier_2", "Quartier_3"]:
@@ -196,7 +196,7 @@ if __name__ == '__main__':
                 for enhanced_horizon in [False]:  # , True]:
                     for crit_prio in ["quantity"]:  # "flex_energy", "quantity", "random", "flex_quantity", "quantity_x_price"
                         (mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh,
-                         districtData, options) = \
+                         districtData, options, opti_res_css) = \
                             run_optimization(scenario_name, calcUserProfiles=first_run, crit_prio=crit_prio,
                                              block_length=block_length, enhanced_horizon=enhanced_horizon, month=month)
                         first_run = False

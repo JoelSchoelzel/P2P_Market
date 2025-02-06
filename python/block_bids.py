@@ -62,11 +62,9 @@ def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_le
 def compute_block_bids_css(par_rh, n_opt, options, block_length, opti_res_css, block_bid, mar_agent_css):
     # compute bids for central supply system
     block_bid["css"] = {}
-    #block_bid["bes_" + str(options["nb_bes"])] = {}
     for t in par_rh["time_steps"][n_opt][0:block_length]:
-        buying_quantity_css = opti_res_css[n_opt]["res_p_grid_buy"][t] + opti_res_css[n_opt]["res_p_trade_buy"][t]
-        selling_quantity_css = (opti_res_css[n_opt]["res_p_grid_sell"][t] + opti_res_css[n_opt]["res_p_trade_sell"][t]
-                                + opti_res_css[n_opt]["res_p_trade_sell"][t])
+        buying_quantity_css = opti_res_css[n_opt]["res_p_grid_buy"][t] + opti_res_css[n_opt]["res_p_trade_buy"][t]  # + opti_res_css[n_opt]["res_prev_trade_buy"][t]
+        selling_quantity_css = opti_res_css[n_opt]["res_p_grid_sell"][t] + opti_res_css[n_opt]["res_p_trade_sell"][t]  # + opti_res_css[n_opt]["res_prev_trade_sell"][t]
         soc_state = opti_res_css[n_opt]["res_soc"]["s_bat"][t] / mar_agent_css.bat_capacity
 
         block_bid["css"][t] = {}
@@ -85,7 +83,6 @@ def compute_block_bids_css(par_rh, n_opt, options, block_length, opti_res_css, b
 
             # Calculate the block bid with q_learning
             block_bid["css"][t] = mar_agent_css.q_learning_bids(buying_quantity_css, selling_quantity_css, n_opt)
-            #block_bid["bes_" + str(options["nb_bes"])][t] = mar_agent_css.q_learning_bids(buying_quantity_css, selling_quantity_css, n_opt)
             # Q-table updates happen in 'opti_methods.py' after each negotiation rounds
 
     return block_bid

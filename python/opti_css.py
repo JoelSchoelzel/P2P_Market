@@ -17,14 +17,14 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
     # n_opt: int, number of the optimization horizon
 
     # Define subsets
-    storage = ["s_bat"] # Shared battery storage
+    storage = ["s_bat"]  # Shared battery storage
     renewables = ("s_pv", "s_wind")    # Solar park, wind turbine.
     devices = ("s_bat", "s_pv", "s_wind")
 
     # Extract parameters
     dt = par_rh["duration"][n_opt]
     # Create list of time steps per optimization horizon (dt --> hourly resolution)
-    time_steps = par_rh["time_steps"][n_opt]#[0:block_length]
+    time_steps = par_rh["time_steps"][n_opt]  #[0:block_length]
 
     model = gp.Model("Operation computation")
 
@@ -39,11 +39,9 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
         par_rh["month"] = par_rh["month"] + 1
 
     # Define variables
-    # Revenues
-    revenue = {}
-    c_imp = {} # Costs of electricity import
+    revenue = {}  # Revenues
+    c_imp = {}  # Costs of electricity import
     for rev in ["grid", "trading"]:
-        revenue[rev] = {}
         revenue[rev] = model.addVar(vtype="C", name="revenue_" + rev)
         c_imp[rev] = model.addVar(vtype="C", name="cost_import_" + rev)
 
@@ -75,38 +73,48 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
     soc_init = {}
     soc_init["s_bat"] = soc_nom["s_bat"] * 0.1  # kWh   Initial SOC Battery
 
+    # VARIABLE FOR TRADING POWER
+    power_trade = {}
+    prev_trade = {}
+    for peer in ["buyer", "seller"]:
+        power_trade[peer] = {}
+        prev_trade[peer] = {}
+        for t in time_steps:
+            power_trade[peer][t] = model.addVar(vtype="C", name="Power_trade_" + peer + "_" + str(t))
+            prev_trade[peer][t] = model.addVar(vtype="C", name="Previous_power_trade_" + peer + "_" + str(t))
+
     # Electricity export
-    p_exp = {} # Total electricity exported
-    p_grid_sell = {} # Electricity sold to the grid
+    p_exp = {}  # Total electricity exported
+    p_grid_sell = {}  # Electricity sold to the grid
     # Dicts for the variables of traded power and trading price
-    power_trade_sell = {} # Power traded
-    prev_trade_sell = {} # Previous power traded
+    # power_trade_sell = power_trade["seller"]  # Power traded
+    # prev_trade_sell = prev_trade["seller"]  # Previous power traded
     for t in time_steps:
         p_exp[t] = model.addVar(vtype="C", name="total_power_exported" + str(t))
         p_grid_sell[t] = model.addVar(vtype="C", name="p_grid_sell" + str(t))
-        power_trade_sell[t] = model.addVar(vtype="C", name="power_trade_sell_" + str(t))
-        prev_trade_sell[t] = model.addVar(vtype="C", name="Previous_power_trade_sell_" + str(t))
+        # power_trade_sell[t] = model.addVar(vtype="C", name="power_trade_sell_" + str(t))
+        # prev_trade_sell[t] = model.addVar(vtype="C", name="Previous_power_trade_sell_" + str(t))
         
     # Electricity import
     p_imp = {}
     p_grid_buy = {}
-    power_trade_buy = {}
-    prev_trade_buy = {}
+    # power_trade_buy = power_trade["buyer"]
+    # prev_trade_buy = prev_trade["buyer"]
     for t in time_steps:
         p_imp[t] = model.addVar(vtype="C", name="total_power_imported_" + str(t))
         p_grid_buy[t] = model.addVar(vtype="C", name="p_grid_buy_" + str(t))
-        power_trade_buy[t] = model.addVar(vtype="C", name="power_trade_buy_" + str(t))
-        prev_trade_buy[t] = model.addVar(vtype="C", name="Previous_power_trade_buy_" + str(t))
+        # power_trade_buy[t] = model.addVar(vtype="C", name="power_trade_buy_" + str(t))
+        # prev_trade_buy[t] = model.addVar(vtype="C", name="Previous_power_trade_buy_" + str(t))
 
-    # Todo: make sure its needed here: Import bid power quantity and bid price of matched trading partners
-    quantity_bid_seller = {}
-    quantity_bid_buyer = {}
-    # Todo: quantity and price of the buyer and seller is only set for block length
-    #for t in time_steps[0:block_length]:
-    #    quantity_bid_buyer[t] = matched_bids[1][t][1]
-    #    quantity_bid_seller[t] = matched_bids[0][t][1]
+    # # Todo: Currently empty: Import bid power quantity and bid price of matched trading partners
+    # quantity_bid_seller = {}
+    # quantity_bid_buyer = {}
+    # # Todo: quantity and price of the buyer and seller is only set for block length
+    # for t in time_steps[0:block_length]:
+    #     quantity_bid_buyer[t] = matched_bids[1][t][1]
+    #     quantity_bid_seller[t] = matched_bids[0][t][1]
     for t in time_steps[0:block_length]:
-        price = trading_price[t] # Trading price
+        price = trading_price[t]  # Trading price
 
     p_use = {}
     p_sell = {}
@@ -137,9 +145,7 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
     # Update model
     model.update()
 
-    # todo: Aufladen und Entladen der Batterie
     # Objective function
-    # todo: Edited revenue as t dependent
     model.setObjective(c_imp["grid"] + c_imp["trading"] - revenue["grid"] - revenue["trading"], gp.GRB.MINIMIZE)
 
     # Define constraints
@@ -148,22 +154,21 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
     model.addConstr(revenue["grid"] == sum(p_grid_sell[t] * params["eco"]["sell_pv"] for t in time_steps),
                             name="Feed_in_rev_" + dev)
     # Todo: How to calc revenues of trading within community?
-    model.addConstr(revenue["trading"] == sum(power_trade_sell[t] * price for t in time_steps),
+    model.addConstr(revenue["trading"] == sum(power_trade["seller"][t] * price for t in time_steps),
                             name="power_trade_sell_revenue")
 
     # Cost of electricity import
     model.addConstr(c_imp["grid"] == sum(p_imp[t] * params["eco"]["pr", "el"] for t in time_steps),
                         name="Cost_imported_electricity_grid")
-    model.addConstr(c_imp["trading"] == sum(power_trade_buy[t] * price for t in time_steps),
+    model.addConstr(c_imp["trading"] == sum(power_trade["buyer"][t] * price for t in time_steps),
                         name="Cost_imported_electricity_trade")
 
     # Devices operation
     for t in time_steps:
-    # Solar park and wind turbine
+        # Solar park and wind turbine
         dev = "s_pv"
         model.addConstr(power[dev][t] == mar_agent_css.pv_power[t],
                         name="Solar_electrical_" + dev + "_" + str(t))
-
         dev = "s_wind"
         model.addConstr(power[dev][t] == mar_agent_css.wind_power[t],
                         name="Wind_electrical_" + dev + "_" + str(t))
@@ -173,12 +178,12 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
     for t in time_steps:
         # Initial SOC is the SOC at the beginning of the first time step, thus it equals the SOC at the end of the previous time step
         if t == par_rh["hour_start"][n_opt] and t > par_rh["month_start"][par_rh["month"]]:
-            soc_prev = soc_init_rh[dev][t-1]  # Start of optimization window (hour)
+            soc_prev = soc_init_rh[dev]  # [t-1]  # Start of optimization window (hour)
         elif t == par_rh["month_start"][par_rh["month"]]:
             soc_prev = soc_init[dev]  # Start of month
         else:
-            # soc_prev = soc[dev][t - 1]  # Previous SOC
-            soc_prev = res_soc_prev
+            soc_prev = soc[dev][t - 1]  # Previous SOC
+            # soc_prev = res_soc_prev
 
         # Charging and discharging power limits based on battery capacity and usage
         # (y is a binary variable controlling operation modes)
@@ -197,14 +202,8 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
                         name="max_soc_s_bat_" + str(t))
         model.addConstr(soc["s_bat"][t] >= mar_agent_css.bat_soc_min * mar_agent_css.bat_capacity,
                         name="min_soc_s_bat_" + str(t))
-
-        #SoC degradation over time
-        #model.addConstr(soc[dev][t] == (1 - k_loss) * soc_prev +
-        #                (mar_agent_css.bat_eta * p_ch[dev][t] - 1 / mar_agent_css.bat_eta * p_dch[dev][t]) * dt[t],
-        #                name="Storage_balance_" + dev + "_" + str(t))
-        # todo: Corrected the SoC balance equation
         model.addConstr(soc[dev][t] == (1 - k_loss) * soc_prev +
-                        mar_agent_css.bat_eta * (p_ch[dev][t] - p_dch[dev][t]) * dt[t],
+                        (p_ch[dev][t] * mar_agent_css.bat_eta - p_dch[dev][t] / mar_agent_css.bat_eta) * dt[t],
                         name="Storage_balance_" + dev + "_" + str(t))
 
     # Split Wind and PV power into self-used and sold powers
@@ -223,26 +222,40 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
 
     # Power trading constraints: split exported power into trading power, previous traded power and power to the grid
     for t in time_steps:
-        model.addConstr(p_exp[t] == p_grid_sell[t] + power_trade_sell[t] + prev_trade_sell[t],
+        model.addConstr(p_exp[t] == p_grid_sell[t] + power_trade["seller"][t] + prev_trade["seller"][t],
                         name="Power_export_split_" + str(t))
+        # model.addConstr(power_trade["seller"][t] <= opti_bes_res_buyer["res_power_trade"][t],
+        #                 name="max_Power_trade_seller")
+        # model.addConstr(power_trade["seller"][t] <= quantity_bid_seller[t], name="max_Power_trade_seller")
+        model.addConstr(power_trade["seller"][t] >= 0, name="min_Power_trade_seller_1")
+        # if quantity_bid_seller[t] <= opti_bes_res_buyer["res_power_trade"][t] and quantity_bid_seller[t] != 0:
+        #     model.addConstr(power_trade["seller"][t] >= quantity_bid_seller[t], name="min_Power_trade_seller_2")
         # if first trading:
-        #model.addConstr(power_trade_sell[t] == 0)
-        #model.addConstr(prev_trade_sell[t] == 0)
+        #model.addConstr(power_trade["seller"][t] == 0)
+        #model.addConstr(prev_trade["seller"][t] == 0)
         # else:
         # Todo: How to implement previous trading
-        #model.addConstr(prev_trade_sell[t] == prev_traded["css"][t], name="Previous_traded_electricity_css_" + str(t))
+        #model.addConstr(prev_trade["seller"][t] == prev_traded["css"][t], name="Previous_traded_electricity_css_" + str(t))
 
+    # Power trading constraints: split imported power into trading power, previous traded power and power from the grid
     for t in time_steps:
-        model.addConstr(p_imp[t] == p_grid_buy[t] + power_trade_buy[t] + prev_trade_buy[t], name="Power_import_split_" + str(t))
+        model.addConstr(p_imp[t] == p_grid_buy[t] + power_trade["buyer"][t] + prev_trade["buyer"][t], name="Power_import_split_" + str(t))
+        # model.addConstr(power_trade["buyer"][t] <= quantity_bid_seller[t], name="max_Power_trade_buyer")
+        model.addConstr(power_trade["buyer"][t] >= 0, name="min_Power_trade_buyer")
         # if first trading:
-        #model.addConstr(power_trade_buy[t] == 0)
-        #model.addConstr(prev_trade_buy[t] == 0)
+        #model.addConstr(power_trade["buyer"][t] == 0)
+        #model.addConstr(prev_trade["buyer"][t] == 0)
         # else:
+        # model.addConstr(prev_trade["buyer"][t] == prev_traded["css"][t], name="Previous_traded_electricity_css_" + str(t))
 
-    # Todo: The sum of power_trade_sell cannot be greater than total trading quantity of the block bid,
-    #  make sure loop is correct, maybe opti_res[n_opt][n][8]["chp"][t]?
-    #model.addConstr(sum(power_trade_sell[t] for t in time_steps) <= sum(quantity_bid_seller.values()),
-    #                name="sum_p_sell")
+    # # Trading quantity during negotiation is limited by the bid quantity
+    # model.addConstr(sum(power_trade["buyer"][t] for t in time_steps) <= sum(quantity_bid_buyer.values()),
+    #                 name="sum_p_buy")
+    # # The sum of power_trade_sell cannot be greater than total trading quantity of the block bid,
+    # model.addConstr(sum(power_trade["seller"][t] for t in time_steps) <= sum(quantity_bid_seller.values()),
+    #                 name="sum_p_sell")
+
+
     #for t in time_steps:
     #    model.addConstr(p_exp[t] <= max(opti_res[n_opt][n][8]["chp"][t] for n in range(options["nb_bes"]) for t in time_steps), f"MaxConstraint_{t}")
 
@@ -297,17 +310,17 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
     res_p_exp = {}
     res_p_exp[dev] = {t: p_exp[t].X for t in time_steps}
 
-    res_p_grid_sell = {(t): p_grid_sell[t].X for t in time_steps}
-    res_p_trade_sell = {(t): power_trade_sell[t].X for t in time_steps}
-    res_prev_trade_sell = {(t): prev_trade_sell[t].X for t in time_steps}
+    res_p_grid_sell = {t: p_grid_sell[t].X for t in time_steps}
+    res_p_trade_sell = {t: power_trade["seller"][t].X for t in time_steps}
+    res_prev_trade_sell = {t: prev_trade["seller"][t].X for t in time_steps}
 
-    res_p_imp = {(t): p_imp[t].X for t in time_steps}
-    res_p_grid_buy = {(t): p_grid_buy[t].X for t in time_steps}
-    res_p_trade_buy = {(t): power_trade_buy[t].X for t in time_steps}
-    res_prev_trade_buy = {(t): prev_trade_buy[t].X for t in time_steps}
+    res_p_imp = {t: p_imp[t].X for t in time_steps}
+    res_p_grid_buy = {t: p_grid_buy[t].X for t in time_steps}
+    res_p_trade_buy = {t: power_trade["buyer"][t].X for t in time_steps}
+    res_prev_trade_buy = {t: prev_trade["buyer"][t].X for t in time_steps}
 
-    res_p_trade = {(t): power_trade_buy[t].X + power_trade_sell[t].X for t in time_steps}
-    res_prev_trade =  {(t): prev_trade_buy[t].X + prev_trade_sell[t].X for t in time_steps}
+    res_p_trade = {t: power_trade["buyer"][t].X + power_trade["seller"][t].X for t in time_steps}
+    res_prev_trade = {t: prev_trade["buyer"][t].X + prev_trade["seller"][t].X for t in time_steps}
     obj = model.objVal
     print("Obj: " + str(model.objVal))
     objVal = obj
@@ -323,4 +336,4 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
             "res_p_grid_sell": res_p_grid_sell,
             "res_p_trade_sell": res_p_trade_sell, "res_prev_trade_sell": res_prev_trade_sell,
             "res_p_grid_buy": res_p_grid_buy, "res_p_trade_buy": res_p_trade_buy, "res_p_trade": res_p_trade,
-            "res_prev_trade": res_prev_trade}
+            "res_prev_trade": res_prev_trade, "res_prev_trade_buy": res_prev_trade_buy}

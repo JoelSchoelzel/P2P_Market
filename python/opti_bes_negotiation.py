@@ -350,7 +350,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         #                name="Storage_balance_" + dev + "_" + str(t))
         # todo: corrected battery balance equation
         model.addConstr(soc[dev][t] == (1 - k_loss) * soc_prev +
-                        dt[t] * (node["devs"][dev]["eta_bat"] * p_ch[dev][t] - node["devs"][dev]["eta_bat"] *
+                        dt[t] * (node["devs"][dev]["eta_bat"] * p_ch[dev][t] - (1 / node["devs"][dev]["eta_bat"]) *
                                  p_dch[dev][t]),
                         name="Storage_balance_" + dev + "_" + str(t))
 
@@ -404,7 +404,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
                             name="import=grid+trade+prev_" + str(t))
             model.addConstr(prev_traded["buy"][t] == prev_trade["buyer"][t], name="prev_trade_sell==0_" + str(t))
             model.addConstr(opti_res[18][t] == p_grid_sell[t], name="p_grid_sell==0_" + str(t))
-            model.addConstr(prev_traded["sell"][t]  == prev_trade["seller"][t], name="prev_trade_sell==0_" + str(t))
+            model.addConstr(prev_traded["sell"][t] == prev_trade["seller"][t], name="prev_trade_sell==0_" + str(t))
             # power the buyer can trade is limited by the quantity the seller is willing to sell
             model.addConstr(power_trade["buyer"][t] <= quantity_bid_seller[t], name="max_Power_trade_buyer")
             model.addConstr(power_trade["buyer"][t] >= 0, name="min_Power_trade_buyer")
@@ -569,9 +569,9 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
     runtime = model.getAttr("Runtime")
     datetime.datetime.now()
     #        model.computeIIS()
-     #       model.write("model.ilp")
-     #       print('\nConstraints:')
-     #       for c in model.getConstrs():
+    #        model.write("model.ilp")
+    #        print('\nConstraints:')
+    #        for c in model.getConstrs():
     #          if c.IISConstr:
     #                print('%s' % c.constrName)
     #        print('\nBounds:')
@@ -650,7 +650,8 @@ def replace_opti_res(opti_res, opti_res_block_bid, par_rh, n_opt):
 
     return opti_res
 
-def initial_values_block(nb_buildings, opti_res, block_bid_time_steps, length_block_bid, opti_res_css, n_opt):
+
+def initial_values_block(nb_buildings, opti_res, block_bid_time_steps, length_block_bid):
     """
     Computes the SoC values for each BES at the last time step of the block bid
     for the current optimization step.
@@ -672,11 +673,6 @@ def initial_values_block(nb_buildings, opti_res, block_bid_time_steps, length_bl
         # fill this dict with initial SoC values of first optimisation
         for dev in ["tes", "bat", "ev"]:
             init_val_block["building_" + str(n)]["soc"][dev] = opti_res[n][3][dev][last_time_step]
-
-    # create dict to store initial values of CSS
-    #init_val_block["css"] = {"soc": {"s_bat": {}}}
-    #init_val_block["css"]["soc"]["s_bat"] = opti_res_css[n_opt]["res_soc"]["s_bat"]
-
 
     ### ----------------------- Reduction of saved data ----------------------- ###
 
