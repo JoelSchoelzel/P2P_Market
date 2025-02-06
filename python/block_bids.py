@@ -414,7 +414,7 @@ def sort_block_bids(options, buy_list, sell_list, sorted_bids, r, par_rh, n_opt,
         random.shuffle(sorted_sell_list)
 
     # STORE SORTED BUY AND SELL LISTS IN ONE DICTIONARY TO RETURN
-    if r == False:
+    if r is None:
         sorted_bids[0] = {"buy_blocks": sorted_buy_list,
                          "sell_blocks": sorted_sell_list}
     else:

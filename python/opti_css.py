@@ -113,8 +113,8 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
     # for t in time_steps[0:block_length]:
     #     quantity_bid_buyer[t] = matched_bids[1][t][1]
     #     quantity_bid_seller[t] = matched_bids[0][t][1]
-    for t in time_steps[0:block_length]:
-        price = trading_price[t]  # Trading price
+    #for t in time_steps[0]:
+    price = trading_price[time_steps[0]]  # Trading price
 
     p_use = {}
     p_sell = {}

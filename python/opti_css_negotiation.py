@@ -286,8 +286,7 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
 
     for t in time_steps:
         # Electricity balance for the central supply system
-        for t in time_steps:
-            model.addConstr(p_exp[t] + p_ch["s_bat"][t] ==
+        model.addConstr(p_exp[t] + p_ch["s_bat"][t] ==
                         p_imp[t] + p_dch["s_bat"][t] + power["s_wind"][t] + power["s_pv"][t],
                         name="Electricity_balance_" + str(t))
         # Split Wind and PV generation into self-consumed and sold powers
@@ -295,10 +294,9 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
             model.addConstr(p_sell[dev][t] + p_use[dev][t] == power[dev][t],
                             name="power=sell+use_" + dev + "_" + str(t))
 
-        for t in time_steps:
-            model.addConstr(p_exp[t] == p_sell["s_wind"][t] + p_sell["s_pv"][t] + p_dch["s_bat"][t],
+        model.addConstr(p_exp[t] == p_sell["s_wind"][t] + p_sell["s_pv"][t] + p_dch["s_bat"][t],
                         name="Power_export_split_" + str(t))
-            model.addConstr(p_imp[t] == p_ch["s_bat"][t] - p_use["s_wind"][t] - p_use["s_pv"][t],
+        model.addConstr(p_imp[t] == p_ch["s_bat"][t] - p_use["s_wind"][t] - p_use["s_pv"][t],
                         name="Power_import_split_" + str(t))
         # Power trading constraints: split exported power into trading power, previous traded power and power to the grid
         # model.addConstr(p_exp[t] == p_grid_sell[t] + power_trade["seller"][t] + prev_trade["seller"][t],

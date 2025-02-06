@@ -164,7 +164,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                     block_bids.sort_block_bids(options, buy_list=mar_dict["buy_list"][n_opt],
                                                sell_list=mar_dict["sell_list"][n_opt],
                                                sorted_bids=mar_dict["sorted_bids"][n_opt],
-                                               r=False, par_rh=par_rh, n_opt=n_opt, block_length=block_length)
+                                               r=None, par_rh=par_rh, n_opt=n_opt, block_length=block_length)
 
                 # match the block bids to each other according to crit
                 mar_dict["matched_bids_info"][n_opt][0] = market.matching(sorted_bids=mar_dict["sorted_bids"][n_opt][0])

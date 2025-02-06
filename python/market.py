@@ -416,15 +416,18 @@ def matching_during_negotiation(sorted_block_bids, matched_pairs):
                 for s in range(len(sorted_block_bids["sell_blocks"])):
                     if sorted_block_bids["sell_blocks"][s]["bes_id"] == possible_matches[i][1]:
                         matched_bids_info[i][1] = sorted_block_bids["sell_blocks"][s]
-
+        # Convert matched_bids_info to a list of its values before returning
+        matched_bids_info = list(matched_bids_info.values())
     else:
         matched_bids_info = []
         print("No matched bids for this optimization period.")
 
     return matched_bids_info
 
+
 def negotiation_with_css():
     pass
+
 
 def trade_with_grid(params, par_rh, n_opt, block_length, opti_res, options, opti_res_css: dict = None):
 
