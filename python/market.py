@@ -119,13 +119,12 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                                                             matched_bids_info=matched_bids_info[r][match],
                                                             prev_traded=prev_trade[buyer_id], r=r,
                                                             is_buying=True, trading_price=trading_price,
-                                                            block_length=block_length, opti_res = opti_res[buyer_id],
+                                                            block_length=block_length, opti_res=opti_res[buyer_id],
                                                             opti_bes_res_buyer=opti_bes_res_buyer)
 
             elif buyer_id == options["nb_bes"]:  # if buyer is the central supply system
                 opti_bes_res_buyer \
-                        = opti_css_negotiation.compute_opti(params=params,
-                                                            par_rh=par_rh,
+                        = opti_css_negotiation.compute_opti(params=params, par_rh=par_rh,
                                                             init_val=init_val["css"],
                                                             n_opt=n_opt, options=options,
                                                             matched_bids_info=matched_bids_info[r][match],
@@ -199,16 +198,19 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                                                                          sell_list_next_round, options)
             # if buyer or seller is the central supply system
             elif buyer_id == options["nb_bes"] or seller_id == options["nb_bes"]:
-                buy_list_next_round , sell_list_next_round = \
-                        block_bids.compute_block_bids_during_negotiation(matched_bids_info, r, match,
-                                                                         neg_res[r][match]["remaining_demand"],
-                                                                         block_bid_time_steps, nodes, block_length,
-                                                                         buyer_id, opti_bes_res_buyer, opti_res,
-                                                                         buy_list_next_round,
-                                                                         neg_res[r][match]["remaining_supply"],
-                                                                         seller_id, opti_bes_res_seller,
-                                                                         sell_list_next_round, options, opti_res_css,
-                                                                         mar_agent_css)
+                buy_list_next_round, sell_list_next_round = \
+                        block_bids.compute_block_bids_during_negotiation(matched_bids=matched_bids_info, r=r, match=match,
+                                                                         remaining_demand=neg_res[r][match]["remaining_demand"],
+                                                                         block_bid_time_steps=block_bid_time_steps,
+                                                                         nodes=nodes, block_length=block_length,
+                                                                         buyer_id=buyer_id, opti_bes_res_buyer=opti_bes_res_buyer,
+                                                                         opti_res=opti_res,
+                                                                         buy_list_next_round=buy_list_next_round,
+                                                                         remaining_supply=neg_res[r][match]["remaining_supply"],
+                                                                         seller_id=seller_id, opti_bes_res_seller=opti_bes_res_seller,
+                                                                         sell_list_next_round=sell_list_next_round,
+                                                                         options=options, opti_res_css=opti_res_css,
+                                                                         mar_agent_css=mar_agent_css)
 
         # Add all buyers/sellers that weren't matched (but were in sorted bids list) to the new sorted_bids_nego lists
         if len(sorted_bids[r]["buy_blocks"]) > len(sorted_bids[r]["sell_blocks"]):
@@ -346,7 +348,9 @@ def matching_during_negotiation(sorted_block_bids, matched_pairs):
     # sell bid, 2nd buy bid matches with 2nd sell bid, etc.)
     matched_bids_info = {}
     possible_matches = []
+    already_matched = []
     not_possible_matches = []
+    not_yet_matched = []
     if len(sorted_block_bids["buy_blocks"]) != 0 and len(sorted_block_bids["sell_blocks"]) != 0:
         if len(sorted_block_bids["buy_blocks"]) <= len(sorted_block_bids["sell_blocks"]):
             for b in range(len(sorted_block_bids["buy_blocks"])):

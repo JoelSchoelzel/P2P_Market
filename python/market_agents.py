@@ -529,13 +529,13 @@ class mar_agent_css(object):
 
         self.pv_area = 100  # m^2
         self.wind_turbine_model = "WT_Enercon_E40"  # csv: wind_speed in m/s; power in kW
-        self.bat_capacity = 300000 # Wh
-        self.bat_soc_max = 0.9 # 0.9 = 90% of the capacity
+        self.bat_capacity = 150000  # Wh
+        self.bat_soc_max = 0.9  # 0.9 = 90% of the capacity
         self.bat_soc_min = 0.1  # 0.1 = 10% of the capacity
-        self.bat_eta = 0.97 # 0.97 --> 3% losses during charging
-        self.bat_soc_ch_max = 0.5 # 0.5 = 50% of capacity as charging power in kW
-        self.bat_soc_dch_max = 0.5 # 0.5 = 50% of capacity as charging power in kW
-        self.k_loss = 0.005 # 0.005 = 0.5% losses during charging
+        self.bat_eta = 0.97  # 0.97 --> 3% losses during charging
+        self.bat_soc_ch_max = 0.5  # 0.5 = 50% of capacity as charging power in kW
+        self.bat_soc_dch_max = 0.5  # 0.5 = 50% of capacity as charging power in kW
+        self.k_loss = 0.005  # 0.005 = 0.5% losses during charging
 
         self.pv_power, self.wind_power = self.generation()
 
@@ -988,4 +988,20 @@ class mar_agent_css(object):
         self.q_table[state_index + (action_index,)] = new_q
 
         return self.q_table
+
+    def one_price(self, bid, par_rh, n_opt, block_length):
+
+        price_list = []
+        for t in par_rh["time_steps"][n_opt][0:block_length]:
+            if bid[t][0] > 0:
+                price_list.append(bid[t][0])
+        #try:
+        #    mean_price = sum(price_list) / len(price_list)
+        #except ZeroDivisionError:
+        #    mean_price = 0
+        for t in par_rh["time_steps"][n_opt][0:block_length]:
+            if bid[t][0] > 0:
+                bid[t][0] = price_list[0]
+
+        return bid
 

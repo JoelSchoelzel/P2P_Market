@@ -145,7 +145,7 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
     # Activation decision variables
     # binary variable for each css block to avoid simultaneous feed-in and purchase of electric energy
     y = {}
-    for dev in ["s_bat"]:
+    for dev in ["s_bat", "css_load"]:
         y[dev] = {}
         for t in time_steps:
             y[dev][t] = model.addVar(vtype="B", lb=0.0, ub=1.0, name="y_" + dev + "_" + str(t))
@@ -200,11 +200,6 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
 
     # --------------- ECONOMIC CONSTRAINTS ---------------
 
-    # Demand related costs (gas)
-    #for dev in ("boiler", "chp"):
-    #    model.addConstr(c_dem[dev] == params["eco"]["gas"] * sum(gas[dev][t] for t in time_steps),
-    #                    name="Demand_costs_" + dev)
-
     # Demand related costs (electricity)
     dev = "grid"
     model.addConstr(c_imp[dev] == sum(p_grid_buy[t] * params["eco"]["pr", "el"] for t in time_steps),
@@ -225,24 +220,9 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
 
     # --------------- TECHNICAL CONSTRAINTS ---------------
 
-    # Determine nominal heat at every timestep
-    #for t in time_steps:
-    #    for dev in heater:
-    #        if dev == "eh":
-    #            model.addConstr(power[dev][t] <= node["devs"][dev]["cap"],
-    #                            name="Max_heat_operation_" + dev)
-    #        else:
-    #            model.addConstr(heat[dev][t] <= node["devs"][dev]["cap"],
-    #                            name="Max_heat_operation_" + dev)
-
     ### Devices operation
-    # Solar components
-    #for dev in solar:
-    #    for t in time_steps:
-    #        model.addConstr(power[dev][t] == demands["PV_GEN"][t],
-    #                        name="Solar_electrical_" + dev + "_" + str(t))
     for t in time_steps:
-    # Solar park and wind turbine
+        # Solar park and wind turbine
         dev = "s_pv"
         model.addConstr(power[dev][t] == mar_agent_css.pv_power[t],
                         name="Solar_electrical_" + dev + "_" + str(t))
@@ -321,9 +301,6 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
             model.addConstr(power_trade["buyer"][t] <= quantity_bid_seller[t], name="max_Power_trade_buyer")
             model.addConstr(power_trade["buyer"][t] >= 0, name="min_Power_trade_buyer")
         else:
-            # model.addConstr(p_sell["s_wind"][t] + p_sell["s_pv"][t] + p_dch["s_bat"][t] ==
-            #                 p_grid_sell[t] + power_trade["seller"][t] + prev_trade["seller"][t],
-            #                 name="sold=grid+trade+prev_" + str(t))
             model.addConstr(p_exp[t] == p_grid_sell[t] + power_trade["seller"][t] + prev_trade["seller"][t],
                             name="sold=grid+trade+prev_" + str(t))
             model.addConstr(prev_traded["sell"][t] == prev_trade["seller"][t], name="prev_trade_buy==0_" + str(t))
@@ -338,13 +315,13 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
         # for inflexible market participants with buy and sell quantities in a bidding period
         if is_buying:
             if matched_bids_info[0]["ignored_demand"]:
-                model.addConstr(p_imp[t] == opti_res_css["res_p_ch"][t], name="A1")
+                model.addConstr(p_imp[t] <= opti_res_css["res_p_ch"][t], name="A1")
                 model.addConstr(p_sell["s_wind"][t] == opti_res_css["res_p_sell"]["s_wind"][t], name="A2")
                 model.addConstr(p_sell["s_pv"][t] == opti_res_css["res_p_sell"]["s_pv"][t], name="A3")
                 # todo: make sure p_sell wind and pv are correct
         else:
             if matched_bids_info[1]["ignored_demand"]:
-                model.addConstr(p_imp[t] == opti_res_css["res_p_ch"][t], name="B1")
+                model.addConstr(p_imp[t] <= opti_res_css["res_p_ch"][t], name="B1")
                 model.addConstr(p_sell["s_wind"][t] == opti_res_css["res_p_sell"]["s_wind"][t], name="B2")
                 model.addConstr(p_sell["s_pv"][t] == opti_res_css["res_p_sell"]["s_pv"][t], name="B3")
 
@@ -375,19 +352,26 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
                         name="sum_p_sell")
         # Limiting the load peak within the block bid based on the initial bids
         for t in time_steps:
-            model.addConstr(p_sell["s_wind"][t] <= max(opti_res_css["res_p_sell"]["s_wind"][t]for t in time_steps),
+            model.addConstr(p_sell["s_wind"][t] <= max(opti_res_css["res_p_sell"]["s_wind"][t] for t in time_steps),
                             f"MaxConstraint_Wind_{t}")
-            model.addConstr(p_sell["s_pv"][t] <= max(opti_res_css["res_p_sell"]["s_pv"][t]for t in time_steps),
+            model.addConstr(p_sell["s_pv"][t] <= max(opti_res_css["res_p_sell"]["s_pv"][t] for t in time_steps),
                             f"MaxConstraint_PV_{t}")
 
     # Set solver parameters
-    #ratedPower = 100000
+    ratedPower = 150000
     # Guarantee that just feed-in OR load is possible
-    #for t in time_steps:
-    #    model.addConstr(y["css_load"][t] * ratedPower >= p_imp[t], name="binary_import_" + str(t))  #  + power_trade["buyer"][t]
-    #    model.addConstr(p_imp[t] >= 0, name="p_imp>=0_" + str(t))
-    #    model.addConstr((1 - y["css_load"][t]) * ratedPower >= p_sell["s_pv"][t] + p_sell["s_wind"][t],
-    #                    name="binary_export_" + str(t))  #+ power_trade["seller"][t]
+    for t in time_steps:
+        model.addConstr(y["css_load"][t] * ratedPower >= p_imp[t], name="binary_import_" + str(t))  #  + power_trade["buyer"][t]
+        model.addConstr(p_imp[t] >= 0, name="p_imp>=0_" + str(t))
+        model.addConstr((1 - y["css_load"][t]) * ratedPower >= p_exp[t], name="binary_export_" + str(t))  # + power_trade["seller"][t]
+        model.addConstr(p_exp[t] >= 0, name="p_exp>=0_" + str(t))
+
+    if is_buying:
+        for t in time_steps:
+            model.addConstr(y["css_load"][t] == 1, name="sum_y_css_load")
+    else:
+        for t in time_steps:
+            model.addConstr(y["css_load"][t] == 0, name="sum_y_css_load")
 
     # Set solver parameters
     model.Params.TimeLimit = params["gp"]["time_limit"]
@@ -411,11 +395,11 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
                 f.write('%s' % c.constrName)
                 f.write('\n')
         f.close()
-    elif model.status == gp.GRB.Status.UNBOUNDED:
-        print('Model is unbounded')
-        f = open('errorfile_2.txt', 'w')
-        f.write(str(datetime.datetime.now()) + '\nModel is unbounded')
-        f.close()
+    # elif model.status == gp.GRB.Status.UNBOUNDED:
+    #     print('Model is unbounded')
+    #     f = open('errorfile_2.txt', 'w')
+    #     f.write(str(datetime.datetime.now()) + '\nModel is unbounded')
+    #     f.close()
     # elif model.status == gp.GRB.Status.INF_OR_UNBD:
     #     print('Model is infeasible or unbounded')
     #     f = open('errorfile_2.txt', 'w')
@@ -425,15 +409,8 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
     # Retrieve results
     res_y = {}
     res_power = {}
-    #res_heat = {}
     res_soc = {}
 
-    #for dev in ["bat", "house_load"]:
-    #    res_y[dev] = {(t): y[dev][t].X for t in time_steps}
-
-    #for dev in ["hp35", "hp55", "chp", "boiler", "eh"]:
-    #    res_power[dev] = {(t): power[dev][t].X for t in time_steps}
-    #    res_heat[dev] = {(t): heat[dev][t].X for t in time_steps}
     for dev in renewables:
         res_power[dev] = {(t): power[dev][t].X for t in time_steps}
     for dev in storage:
@@ -454,22 +431,23 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
     #    res_rev = {(t): p_sell[dev][t].X * params["eco"]["sell" + "_" + dev] for t in time_steps}
 
     res_soc_nom = {dev: soc_nom[dev] for dev in storage}
+    res_price_trade = {(t): trading_price[t] for t in time_steps}
 
     res_p_use = {}
     res_p_sell = {}
     for dev in renewables:
-        res_p_use[dev] = {(t): p_use[dev][t].X for t in time_steps}
+        res_p_use[dev] = {t: p_use[dev][t].X for t in time_steps}
         res_p_sell[dev] = {t: p_sell[dev][t].X for t in time_steps}
 
-    res_p_grid_buy = {(t): p_grid_buy[t].X for t in time_steps}
-    res_p_grid_sell = {(t): p_grid_sell[t].X for t in time_steps}
+    res_p_grid_buy = {t: p_grid_buy[t].X for t in time_steps}
+    res_p_grid_sell = {t: p_grid_sell[t].X for t in time_steps}
+    res_p_trade_buy = {t: power_trade["buyer"][t].X for t in time_steps}
+    res_p_trade_sell = {t: power_trade["seller"][t].X for t in time_steps}
 
     if is_buying:
-        res_price_trade = {(t): trading_price[t] for t in time_steps}
         res_power_trade = {(t): power_trade["buyer"][t].X for t in time_steps}
         res_prev_trade = {(t): prev_trade["buyer"][t].X for t in time_steps}
     else:
-        res_price_trade = {(t): trading_price[t] for t in time_steps}
         res_power_trade = {(t): power_trade["seller"][t].X for t in time_steps}
         res_prev_trade = {(t): prev_trade["seller"][t].X for t in time_steps}
 
@@ -480,9 +458,9 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
     runtime = model.getAttr("Runtime")
     datetime.datetime.now()
     #        model.computeIIS()
-     #       model.write("model.ilp")
-     #       print('\nConstraints:')
-     #       for c in model.getConstrs():
+    #        model.write("model.ilp")
+    #        print('\nConstraints:')
+    #        for c in model.getConstrs():
     #          if c.IISConstr:
     #                print('%s' % c.constrName)
     #        print('\nBounds:')
@@ -496,25 +474,23 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
     opti_bes_res = {
         "res_y": res_y,
         "res_power": res_power,
-        #"res_heat": res_heat,
         "res_soc": res_soc,
         "res_p_imp": res_p_imp,
         "res_p_ch": res_p_ch,
         "res_p_dch": res_p_dch,
         "res_p_use": res_p_use,
         "res_p_sell": res_p_sell,
-        #"res_gas_sum": res_gas_sum,
         "obj": obj,
         "res_c_dem": res_c_dem,
         "res_rev": res_rev,
         "res_soc_nom": res_soc_nom,
-        #"node": node,
         "objVal": objVal,
         "runtime": runtime,
         "soc_init_rh": soc_init_rh,
-        #"res_gas_sum": res_gas_sum,
-        "res_power_trade": res_power_trade,
         "res_price_trade": res_price_trade,
+        "res_power_trade": res_power_trade,
+        "res_p_trade_buy": res_p_trade_buy,
+        "res_p_trade_sell": res_p_trade_sell,
         "res_p_grid_buy": res_p_grid_buy,
         "res_p_grid_sell": res_p_grid_sell,
         "res_prev_trade": res_prev_trade,
@@ -522,19 +498,14 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
 
     return opti_bes_res
 
+
 def replace_opti_res_css(opti_res_css, opti_res_block_bid, par_rh, n_opt):
 
     control_horizon = []
     for t_ch in range(par_rh["n_hours"] - par_rh["n_hours_ov"]):
-        control_horizon.append(par_rh["time_steps"][n_opt][t_ch]
-        )
+        control_horizon.append(par_rh["time_steps"][n_opt][t_ch])
 
     for t in control_horizon:
-        #for dev in ["hp35", "hp55", "chp", "boiler", "eh"]:
-        #    # power
-        #    opti_res[1][dev][t] = opti_res_block_bid["res_power"][dev][t]
-        #    # heat
-        #    opti_res[2][dev][t] = opti_res_block_bid["res_heat"][dev][t]
         for dev in ["s_pv", "s_wind"]:
             # power
             opti_res_css["res_power"][dev][t] = opti_res_block_bid["res_power"][dev][t]
@@ -559,6 +530,7 @@ def replace_opti_res_css(opti_res_css, opti_res_block_bid, par_rh, n_opt):
         opti_res_css["res_prev_trade"][t] = opti_res_block_bid["res_prev_trade"][t]
 
     return opti_res_css
+
 
 def initial_values_block(nb_buildings, opti_res, block_bid_time_steps, length_block_bid, opti_res_css, n_opt):
     """
@@ -619,6 +591,7 @@ def initial_values_block(nb_buildings, opti_res, block_bid_time_steps, length_bl
         #opti_res[n][19] = slice_dict(opti_res[n][19], length_block_bid)
 
     return init_val_block
+
 
 def slice_dict(d, timestep):
     # Convert dictionary to a list of tuples (key, value)

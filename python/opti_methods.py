@@ -36,7 +36,9 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
         for n in range(options["nb_bes"]):
             mar_agent_bes.append(market_agents.mar_agent_bes(options, n))
 
-        mar_agent_css = market_agents.mar_agent_css(options, districtData)
+        mar_agent_css = None
+        if options["central_supply_system"]:
+            mar_agent_css = market_agents.mar_agent_css(options, districtData)
 
         # Creates a dictionary to store information about market activities.
         mar_dict = {
@@ -166,10 +168,10 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                sorted_bids=mar_dict["sorted_bids"][n_opt],
                                                r=None, par_rh=par_rh, n_opt=n_opt, block_length=block_length)
 
-                # match the block bids to each other according to crit
+                # match the block bids to each other according to crit (here, for first matching round only)
                 mar_dict["matched_bids_info"][n_opt][0] = market.matching(sorted_bids=mar_dict["sorted_bids"][n_opt][0])
 
-                # run negotiation optimization (with constraints adapted to matched peer) and save results
+                # run negotiation optimization (with constraints adapted to matched peer), next mathing rounds, and save results
                 if options["central_supply_system"]:
                     (mar_dict["negotiation_results"][n_opt], mar_dict["sorted_bids"][n_opt],
                      mar_dict["matched_bids_info"][n_opt]), opti_res[n_opt], opti_res_css[n_opt] \

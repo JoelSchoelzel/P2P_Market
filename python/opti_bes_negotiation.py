@@ -406,7 +406,12 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
             model.addConstr(opti_res[18][t] == p_grid_sell[t], name="p_grid_sell==0_" + str(t))
             model.addConstr(prev_traded["sell"][t] == prev_trade["seller"][t], name="prev_trade_sell==0_" + str(t))
             # power the buyer can trade is limited by the quantity the seller is willing to sell
+            # if quantity_bid_buyer[t] >= quantity_bid_seller[t] and quantity_bid_seller[t] != 0:
+            #     model.addConstr(power_trade["buyer"][t] <= quantity_bid_seller[t], name="max_Power_trade_buyer")
+            # elif quantity_bid_buyer[t] < quantity_bid_seller[t] and quantity_bid_buyer[t] != 0:
+            #     model.addConstr(power_trade["buyer"][t] <= quantity_bid_buyer[t], name="max_Power_trade_buyer")
             model.addConstr(power_trade["buyer"][t] <= quantity_bid_seller[t], name="max_Power_trade_buyer")
+            # model.addConstr(power_trade["buyer"][t] <= quantity_bid_buyer[t], name="max_Power_trade_buyer")
             model.addConstr(power_trade["buyer"][t] >= 0, name="min_Power_trade_buyer")
         else:
             model.addConstr(p_sell["chp"][t] + p_sell["pv"][t] == p_grid_sell[t] + power_trade["seller"][t]

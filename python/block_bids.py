@@ -26,7 +26,6 @@ def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_le
             selling_quantity = opti_res[n][8]["chp"][t] + opti_res[n][8]["pv"][t]  # chp_sell + pv_sell
             soc_state = opti_res[n][3]["bat"][t]/opti_res[n][12]["bat"] if opti_res[n][12]["bat"] != 0 \
                 else opti_res[n][3]["tes"][t]/opti_res[n][12]["tes"] # soc of bat or tes
-            #Todo: Ray: q-learning needs min_sell_offer_price and max_buy_bid_price after negotiation rounds
             buying_capacity = (nodes[n]["elec"].max() +
                                max(devs_pre_opti[n]["hp55"]["cap"]/nodes[n]["devs"]["COP_sh55"].min(),
                                    devs_pre_opti[n]["hp35"]["cap"]/nodes[n]["devs"]["COP_sh35"].min()))
@@ -40,7 +39,6 @@ def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_le
             # compute bids with erev-roth learning strategy
             elif options["bid_strategy"] == "erev_roth_learning":
                 block_bid["bes_" + str(n)][t] = mar_agent_bes[n].erev_roth_learning_bids(buying_quantity, selling_quantity)
-            # TODO: add here q_learning bidding strategy -> Ray: q-learning needs min_sell_offer_price and max_buy_bid_price
             elif options["bid_strategy"] == "q_learning":
                 # Initialize Q-table for n_opt == 0, or get Q-table from previous rounds
                 if n_opt == 0:
@@ -85,6 +83,8 @@ def compute_block_bids_css(par_rh, n_opt, options, block_length, opti_res_css, b
             block_bid["css"][t] = mar_agent_css.q_learning_bids(buying_quantity_css, selling_quantity_css, n_opt)
             # Q-table updates happen in 'opti_methods.py' after each negotiation rounds
 
+    block_bid["css"] = mar_agent_css.one_price(block_bid["css"], par_rh, n_opt, block_length)
+
     return block_bid
 
 
@@ -116,7 +116,7 @@ def compute_block_bids_during_negotiation(matched_bids, r, match, remaining_dema
         block_bid["sum_energy"] = new_sum_energy
         block_bid["total_price"] = matched_bids[r][match][0][t][0]
         block_bid["ignored_demand"] = matched_bids[r][match][0]["ignored_demand"]
-        if buyer_id == options["nb_bes"]: # if central supply system is in block_bid
+        if buyer_id == options["nb_bes"]:  # if central supply system is in block_bid
             flex_energy = characteristics.calc_characs_single_css(block_length, soc_state=opti_bes_res_buyer["res_soc"],
                                                                   opti_res_css=opti_res_css, mar_agent_css=mar_agent_css)
         else:
@@ -128,6 +128,7 @@ def compute_block_bids_during_negotiation(matched_bids, r, match, remaining_dema
         ### add block bid with remaining demand to next round
         buy_list_next_round.append(block_bid)
 
+    new_sum_energy = 0  # reset sum energy for seller, otherwise it will be added up from previous block_bid loop
     # add bids only if there is untraded supply
     if sum(remaining_supply.values()) > 1e-3:
         add_sell_bid = True
@@ -139,7 +140,7 @@ def compute_block_bids_during_negotiation(matched_bids, r, match, remaining_dema
         for t in block_bid_time_steps:
             # Subtract the traded power from the original supply to get the new remaining supply
             block_bid[t] = [matched_bids[r][match][1][t][0],  # price
-                            max(0, remaining_supply[t]), # remaining supply
+                            max(0, remaining_supply[t]),  # remaining supply
                             'False',  # False --> selling
                             matched_bids[r][match][1][t][3]  # bes_id
                             ]
@@ -152,7 +153,7 @@ def compute_block_bids_during_negotiation(matched_bids, r, match, remaining_dema
         block_bid["sum_energy"] = new_sum_energy
         block_bid["total_price"] = matched_bids[r][match][1][t][0]
         block_bid["ignored_demand"] = matched_bids[r][match][1]["ignored_demand"]
-        if seller_id == options["nb_bes"]: # if central supply system is in block_bid
+        if seller_id == options["nb_bes"]:  # if central supply system is in block_bid
             flex_energy = characteristics.calc_characs_single_css(block_length, soc_state=opti_bes_res_seller["res_soc"],
                                                                   opti_res_css=opti_res_css, mar_agent_css=mar_agent_css)
         else:
