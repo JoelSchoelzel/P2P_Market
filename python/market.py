@@ -29,6 +29,53 @@ def matching(sorted_bids):
     return matched_bids_info
 
 
+def matching_price_check(sorted_bids):
+    """Match the sorted block bids of the buyers to the ones of the sellers with price checking and buyer rolling.
+    If the price condition (buyer_price >= seller_price) is not met, the buyer will be rolled.
+    Returns:
+        matched_bids_info (list): List of all matched block_bids in tuples.
+        Only pairs where buyer price >= seller price are included.
+    """
+    matched_bids_info = []
+
+    # Check if there are both buyers and sellers
+    if len(sorted_bids["buy_blocks"]) != 0 and len(sorted_bids["sell_blocks"]) != 0:
+        buyers = sorted_bids["buy_blocks"]
+        sellers = sorted_bids["sell_blocks"]
+
+        # Iterate through each seller
+        for seller in sellers:
+            seller_price = seller["mean_price"]
+            match_found = False
+
+            # Try to match the seller with buyers
+            for _ in range(len(sorted_bids.get("buy_blocks", [])[:])):
+                if not buyers:  # If no buyers are left
+                    break
+
+                # Take the first buyer
+                buyer = buyers[0]
+                buyer_price = buyer["mean_price"]
+
+                # Check price condition
+                if buyer_price >= seller_price:
+                    # Valid match, append and remove buyer from the queue
+                    matched_bids_info.append((buyer, seller))
+                    # buyers.pop(0)  # Remove matched buyer
+                    remaining_buyers = buyers[1:]
+                    buyers = remaining_buyers
+                    match_found = True
+                    break
+                else:
+                    # Roll the buyer (move to the end of the list)
+                    buyers.append(buyers.pop(0))
+
+    else:
+        print("No matched bids for this optimization period.")
+
+    return matched_bids_info
+
+
 def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_info, sorted_bids, block_length,
                 opti_res, opti_res_css: dict = None, mar_agent_css: object = None):
     """Run the optimization problem for the negotiation phase (taking into account
@@ -121,7 +168,6 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                                                             is_buying=True, trading_price=trading_price,
                                                             block_length=block_length, opti_res=opti_res[buyer_id],
                                                             opti_bes_res_buyer=opti_bes_res_buyer)
-
             elif buyer_id == options["nb_bes"]:  # if buyer is the central supply system
                 opti_bes_res_buyer \
                         = opti_css_negotiation.compute_opti(params=params, par_rh=par_rh,
@@ -233,7 +279,11 @@ def negotiation(nodes, params, par_rh, init_val, n_opt, options, matched_bids_in
                                                  par_rh=par_rh, n_opt=n_opt, block_length=block_length)
 
         # match all buyers and sellers for the next trading round
-        matched_bids_info[r + 1] = matching_during_negotiation(sorted_bids[r + 1], matched_pairs)
+        if options["price_based_matching"]:
+            matched_bids_info[r + 1] = matching_during_negotiation_price_check(sorted_bids[r + 1], matched_pairs,
+                                                                               par_rh, n_opt, block_length)
+        else:
+            matched_bids_info[r + 1] = matching_during_negotiation(sorted_bids[r + 1], matched_pairs)
 
         # go to next negotiation trading round
         r += 1
@@ -258,7 +308,6 @@ def calculate_trading_price(par_rh, n_opt, block_length, matched_bids, r, match)
             try:
                 ratio[t] = bid_quantity_seller[t] / max(bid_quantity_seller.values())
                 # todo: check if this is correct, ratio compared to flex energy of seller?
-                #ratio[t] = max(0, min(1, bid_quantity_seller[t] / matched_bids[r][match][1]["flex_energy"]))
             except ZeroDivisionError:
                 ratio[t] = 0
         for t in par_rh["time_steps"][n_opt][0:block_length]:
@@ -267,11 +316,7 @@ def calculate_trading_price(par_rh, n_opt, block_length, matched_bids, r, match)
                                                         matched_bids[r][match][0][t][0])
                                                     - min(matched_bids[r][match][1][t][0],
                                                           matched_bids[r][match][0][t][0])))
-            # trading_price[t] = 1/3*(matched_bids[r][match][1][t][0] + matched_bids[r][match][0][t][0]) \
-            #                + (1 - ratio[t]) * (max(matched_bids[r][match][1][t][0],
-            #                                        matched_bids[r][match][0][t][0])
-            #                                    - min(matched_bids[r][match][1][t][0],
-            #                                          matched_bids[r][match][0][t][0]))
+
     # else if seller has more flex energy
     elif matched_bids[r][match][1]["flex_energy"] > matched_bids[r][match][0]["flex_energy"]:
         for t in par_rh["time_steps"][n_opt][0:block_length]:
@@ -289,11 +334,6 @@ def calculate_trading_price(par_rh, n_opt, block_length, matched_bids, r, match)
                                                       matched_bids[r][match][0][t][0])
                                                   - max(matched_bids[r][match][1][t][0],
                                                         matched_bids[r][match][0][t][0]))
-            # trading_price[t] = 2/3 * (matched_bids[r][match][1][t][0] + matched_bids[r][match][0][t][0]) \
-            #                    + (1 - ratio[t]) * (min(matched_bids[r][match][1][t][0],
-            #                                            matched_bids[r][match][0][t][0])
-            #                                        - max(matched_bids[r][match][1][t][0],
-            #                                              matched_bids[r][match][0][t][0]))
 
     return trading_price
 
@@ -331,10 +371,9 @@ def save_negotiation_results(neg_res, opti_bes_res_buyer, opti_bes_res_seller, t
             prev_trade[seller_id]["sell"][t] += neg_res["trading_quantity"][t]  # seller
         elif seller_id == options["nb_bes"]:  # if seller is the central supply system
             prev_trade["css"]["sell"][t] += neg_res["trading_quantity"][t]
-        #prev_trade[buyer_id]["buy"][t] += neg_res["trading_quantity"][t]  # buyer
-        #prev_trade[seller_id]["sell"][t] += neg_res["trading_quantity"][t]  # seller
 
     return neg_res, prev_trade
+
 
 def matching_during_negotiation(sorted_block_bids, matched_pairs):
     """Match the sorted block bids of the buyers to the ones of the sellers.
@@ -354,6 +393,17 @@ def matching_during_negotiation(sorted_block_bids, matched_pairs):
     if len(sorted_block_bids["buy_blocks"]) != 0 and len(sorted_block_bids["sell_blocks"]) != 0:
         if len(sorted_block_bids["buy_blocks"]) <= len(sorted_block_bids["sell_blocks"]):
             for b in range(len(sorted_block_bids["buy_blocks"])):
+                # buyer = sorted_block_bids["buy_blocks"][b]
+                # seller = sorted_block_bids["sell_blocks"][b]
+                # buyer_price = buyer["mean_price"]
+                # seller_price = seller["mean_price"]
+                #
+                # # Check if the buyer's price is >= seller's price before adding to possible matches
+                # if buyer_price >= seller_price:
+                #     if [buyer["bes_id"], seller["bes_id"]] not in matched_pairs:  # Check if the pair is already matched
+                #         possible_matches.append([buyer["bes_id"], seller["bes_id"]])  # Add to possible matches
+                #     else:  # If the pair is already matched, add to not possible matches
+                #         not_possible_matches.append([buyer["bes_id"], seller["bes_id"]])
                 if [sorted_block_bids["buy_blocks"][b]["bes_id"], sorted_block_bids["sell_blocks"][b]["bes_id"]] not in matched_pairs:
                     possible_matches.append([sorted_block_bids["buy_blocks"][b]["bes_id"], sorted_block_bids["sell_blocks"][b]["bes_id"]])
                 else:
@@ -380,6 +430,14 @@ def matching_during_negotiation(sorted_block_bids, matched_pairs):
                 max += 1
             for i in range(len(possible_matches)):
                 for b in range(len(sorted_block_bids["buy_blocks"])):
+                    # buyer = sorted_block_bids["buy_blocks"][b]
+                    # if buyer["bes_id"] == possible_matches[i][0]:
+                    #     # Ensure buyer price >= seller price
+                    #     for s in range(len(sorted_block_bids["sell_blocks"])):
+                    #         seller = sorted_block_bids["sell_blocks"][s]
+                    #         if seller["bes_id"] == possible_matches[i][1]:
+                    #             if buyer["price"] >= seller["price"]:
+                    #                 matched_bids_info[i] = [buyer, seller]
                     if sorted_block_bids["buy_blocks"][b]["bes_id"] == possible_matches[i][0]:
                         matched_bids_info[i] = [sorted_block_bids["buy_blocks"][b], []]
                 for s in range(len(sorted_block_bids["sell_blocks"])):
@@ -426,6 +484,92 @@ def matching_during_negotiation(sorted_block_bids, matched_pairs):
         matched_bids_info = []
         print("No matched bids for this optimization period.")
 
+    return matched_bids_info
+
+
+def matching_during_negotiation_price_check(sorted_block_bids, matched_pairs, par_rh, n_opt, block_length):
+    """Match the sorted block bids of buyers to sellers based on the condition (seller price >= buyer price),
+    with a rolling mechanism to try alternative buyer-seller combinations.
+    If no valid matches are found, the buyers and sellers will be included in matched_bids_info as fallback.
+    Returns:
+        matched_bids_info (list): List of all matched block_bids in tuples.
+        Each tuple contains a dict (key [O]= buyer, [1]= seller).
+        Buyer and seller each have a dict (time steps t as key) which contains a
+        list [price, quantity, buying:True/False/None, building_id]"""
+
+    # Create a list of tuples where each tuple contains matched buy and sell bids (1st buy bid matches with 1st
+    # sell bid, 2nd buy bid matches with 2nd sell bid, etc.)
+    matched_bids_info = []
+    unmatched_buyers = []
+    unmatched_sellers = []
+
+    # Extract buyers and sellers from sorted block bids
+    buyers = sorted_block_bids.get("buy_blocks", [])
+    sellers = sorted_block_bids.get("sell_blocks", [])
+
+    # Create a copy of buyers and sellers to keep track of unmatched ones
+    buyer_queue = buyers[:]
+    seller_queue = sellers[:]
+
+    # Process each seller by attempting to match them with buyers
+    for seller in seller_queue[:]:  # Use a copy of the queue to allow mutations
+        seller_price = seller["mean_price"]
+        matched = False
+
+        # Attempt to match with buyers in the buyer queue
+        for _ in range(len(buyer_queue)):
+            buyer = buyer_queue[0]  # Take the first buyer
+            buyer_price = buyer["mean_price"]
+
+            # Check the price condition for match
+            if buyer_price >= seller_price and [buyer["bes_id"], seller["bes_id"]] not in matched_pairs\
+                    and any(buyer[t][1] >= 0.01 and seller[t][1] >= 0.01 for t in buyer if t in seller):  #for t in par_rh["time_steps"][n_opt][0:block_length]):
+                # Valid match
+                matched_bids_info.append([buyer, seller])
+                buyer_queue.pop(0)  # Remove matched buyer from the queue
+                matched = True
+                break  # Stop looking for buyers for this seller (once matched)
+            else:
+                # Rotate (move the buyer to the end of the queue)
+                if [buyer["bes_id"], seller["bes_id"]] in matched_pairs:
+                    buyer_queue.pop(0)
+                else:
+                    buyer_queue.append(buyer_queue.pop(0))
+
+        # If no valid matches found for this seller, mark as unmatched
+        # if not matched:
+        #     unmatched_sellers.append(seller)
+
+    # After processing sellers, handle remaining unmatched buyers
+    # unmatched_buyers.extend(buyer_queue)
+
+    # # If there are unmatched buyers and sellers, use fallback to pair them
+    # while unmatched_sellers and unmatched_buyers:
+    #     # Pair one unmatched buyer with one unmatched seller
+    #     matched_bids_info.append([unmatched_buyers.pop(0), unmatched_sellers.pop(0)])
+
+    # # If there are still unmatched buyers (no sellers left), add them with None
+    # for unmatched_buyer in unmatched_buyers:
+    #     matched_bids_info.append([unmatched_buyer, None])
+    #
+    # # If there are still unmatched sellers (no buyers left), add them with None
+    # for unmatched_seller in unmatched_sellers:
+    #     matched_bids_info.append([None, unmatched_seller])
+
+    # # If there are unmatched buyers and sellers, use fallback to pair them
+    # for unmatched_buyer in unmatched_buyers:
+    #     if unmatched_sellers:
+    #         # Pair each unmatched buyer with an unmatched seller
+    #         matched_bids_info.append([unmatched_buyer, unmatched_sellers.pop(0)])
+    #     else:
+    #         # If no unmatched sellers are left, still include buyer as unmatched
+    #         matched_bids_info.append([unmatched_buyer, None])
+    #
+    # # Add remaining unmatched sellers (if any) paired with None
+    # for unmatched_seller in unmatched_sellers:
+    #     matched_bids_info.append([None, unmatched_seller])
+
+    # Return the final matched bids info
     return matched_bids_info
 
 

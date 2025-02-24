@@ -136,7 +136,7 @@ def compute_pars_rh(param, options, districtData): # computes parameters for rol
         # Set up time steps
 
         # optimize any period of length n_opt_max*n_hours_ch or entire year starting at hour 0
-        if param["month"] == 0: # optimize entire year
+        if param["month"] == 0:  # optimize entire year
 
             # Calculate number of operational optimizations
             if options["number_typeWeeks"] > 0:

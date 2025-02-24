@@ -3,26 +3,54 @@
 Minimize
  
 Subject To
- max_ch_s_bat_4365: P_ch_s_bat_4365 - 150000 y_s_bat_4365 <= 0
- max_dch_s_bat_4365: P_dch_s_bat_4365 + 150000 y_s_bat_4365 <= 150000
- Storage_balance_s_bat_4365: SOC_s_bat_4365 - 0.97 P_ch_s_bat_4365
-   + 1.030927835051547 P_dch_s_bat_4365 = 29850
- Power_export_split_4365: - P_dch_s_bat_4365 + total_power_exported4365
-   - P_sell_s_pv_4365 - P_sell_s_wind_4365 = 0
- soc_bb=soc_ph: SOC_s_bat_4365 = 30000
- sold=grid+trade+prev_4365: total_power_exported4365 - p_grid_sell4365
-   - Power_trade_seller_4365 - Previous_power_trade_seller_4365 = 0
- min_Power_trade_seller_2: Power_trade_seller_4365 >= 6.154526973576083
- sum_p_sell_s_wind: P_sell_s_wind_4365 <= 0
- MaxConstraint_PV_4365: P_sell_s_pv_4365 <= 3.077263486788041
+ Solar_electrical_s_pv_783: P_s_pv_783 = 1234.190578592187
+ Wind_electrical_s_wind_783: P_s_wind_783 = 213004
+ Solar_electrical_s_pv_784: P_s_pv_784 = 728.0349346749807
+ Wind_electrical_s_wind_784: P_s_wind_784 = 178060
+ Solar_electrical_s_pv_785: P_s_pv_785 = 526.9137451645468
+ Wind_electrical_s_wind_785: P_s_wind_785 = 134670
+ max_dch_s_bat_783: P_dch_s_bat_783 + 75000 y_s_bat_783 <= 75000
+ Storage_balance_s_bat_783: SOC_s_bat_783 - 0.97 P_ch_s_bat_783
+   + 1.030927835051547 P_dch_s_bat_783 = 15457.98119317171
+ max_dch_s_bat_784: P_dch_s_bat_784 + 75000 y_s_bat_784 <= 75000
+ Storage_balance_s_bat_784: - 0.995 SOC_s_bat_783 + SOC_s_bat_784
+   - 0.97 P_ch_s_bat_784 + 1.030927835051547 P_dch_s_bat_784 = 0
+ max_dch_s_bat_785: P_dch_s_bat_785 + 75000 y_s_bat_785 <= 75000
+ Storage_balance_s_bat_785: - 0.995 SOC_s_bat_784 + SOC_s_bat_785
+   - 0.97 P_ch_s_bat_785 + 1.030927835051547 P_dch_s_bat_785 = 0
+ Electricity_balance_783: P_ch_s_bat_783 - P_dch_s_bat_783 - P_s_pv_783
+   - P_s_wind_783 + total_power_exported783 - total_power_imported_783 = 0
+ Electricity_balance_784: P_ch_s_bat_784 - P_dch_s_bat_784 - P_s_pv_784
+   - P_s_wind_784 + total_power_exported784 - total_power_imported_784 = 0
+ Electricity_balance_785: P_ch_s_bat_785 - P_dch_s_bat_785 - P_s_pv_785
+   - P_s_wind_785 + total_power_exported785 - total_power_imported_785 = 0
+ soc_bb=soc_ph: SOC_s_bat_785 = 15303.78783076982
+ binary_export_783: - total_power_exported783 - 150000 y_css_load_783
+   >= -150000
+ binary_export_784: - total_power_exported784 - 150000 y_css_load_784
+   >= -150000
+ binary_export_785: - total_power_exported785 - 150000 y_css_load_785
+   >= -150000
 Bounds
- SOC_s_bat_4365 free
- P_ch_s_bat_4365 free
- P_dch_s_bat_4365 free
- total_power_exported4365 free
- Power_trade_seller_4365 free
- P_sell_s_pv_4365 free
- P_sell_s_wind_4365 free
+ SOC_s_bat_783 free
+ P_ch_s_bat_783 free
+ P_dch_s_bat_783 free
+ SOC_s_bat_784 free
+ P_ch_s_bat_784 free
+ P_dch_s_bat_784 free
+ SOC_s_bat_785 free
+ P_ch_s_bat_785 free
+ P_dch_s_bat_785 free
+ P_s_pv_783 free
+ P_s_pv_784 free
+ P_s_pv_785 free
+ P_s_wind_783 free
+ P_s_wind_784 free
+ P_s_wind_785 free
+ total_power_exported783 free
+ total_power_exported784 free
+ total_power_exported785 free
 Binaries
- y_s_bat_4365
+ y_s_bat_783 y_s_bat_784 y_s_bat_785 y_css_load_783 y_css_load_784
+ y_css_load_785
 End

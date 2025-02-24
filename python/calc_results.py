@@ -4,7 +4,7 @@ import pandas as pd
 import pickle
 
 
-def calc_results_p2p(par_rh, block_length, nego_results, opti_res,opti_res_check, grid_transaction, params, options,
+def calc_results_p2p(par_rh, block_length, nego_results, opti_res, opti_res_check, grid_transaction, params, options,
                      opti_res_css: dict = None):
 
     last_n_opt = par_rh["n_opt"]
@@ -23,13 +23,13 @@ def calc_results_p2p(par_rh, block_length, nego_results, opti_res,opti_res_check
         for n in range(len(opti_res[0])):
             for t in range(par_rh["hour_start"][n_opt], par_rh["hour_start"][n_opt] + block_length):
                 total_p_purchase[t - par_rh["hour_start"][0]] += opti_res[n_opt][n][4]["p_imp"]["p_imp"][t] / 1000 # kW
-                total_feed_in[t - par_rh["hour_start"][0]] += (opti_res[n_opt][n][8]["chp"][t] \
-                                                              + opti_res[n_opt][n][8]["pv"][t]) / 1000 # kW
+                total_feed_in[t - par_rh["hour_start"][0]] += (opti_res[n_opt][n][8]["chp"][t] +
+                                                               opti_res[n_opt][n][8]["pv"][t]) / 1000  # kW
         if options["central_supply_system"]:
             for t in range(par_rh["hour_start"][n_opt], par_rh["hour_start"][n_opt] + block_length):
-                total_p_purchase[t - par_rh["hour_start"][0]] += opti_res_css[n_opt]["res_p_imp"][t] / 1000 # kW
+                total_p_purchase[t - par_rh["hour_start"][0]] += opti_res_css[n_opt]["res_p_imp"][t] / 1000  # kW
                 total_feed_in[t - par_rh["hour_start"][0]] += (opti_res_css[n_opt]["res_p_sell"]["s_pv"][t] +
-                                                               opti_res_css[n_opt]["res_p_sell"]["s_wind"][t]) / 1000 # kW
+                                                               opti_res_css[n_opt]["res_p_sell"]["s_wind"][t]) / 1000  # kW
 
     denominator_dgoc = []
     numerator_dgoc = []

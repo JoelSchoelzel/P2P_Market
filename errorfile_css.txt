@@ -1,7 +1,16 @@
-2025-01-19 06:26:32.613259Optimization stopped with status 3
+2025-02-20 10:18:52.297817Optimization stopped with status 3
 The following constraint(s) cannot be satisfied:
-Solar_electrical_s_pv_3626
-Wind_electrical_s_wind_3626
-min_soc_s_bat_3626
-Storage_balance_s_bat_3626
-Electricity_balance_3626
+Solar_electrical_s_pv_1405
+Wind_electrical_s_wind_1405
+Solar_electrical_s_pv_1406
+Wind_electrical_s_wind_1406
+min_soc_s_bat_1404
+Storage_balance_s_bat_1405
+max_soc_s_bat_1406
+Storage_balance_s_bat_1406
+Electricity_balance_1405
+Power_export_parts_1405
+Electricity_balance_1406
+Power_export_parts_1406
+binary_export_1405
+binary_export_1406

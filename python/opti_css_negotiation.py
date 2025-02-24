@@ -358,7 +358,7 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
                             f"MaxConstraint_PV_{t}")
 
     # Set solver parameters
-    ratedPower = 150000
+    ratedPower = 750000  # 150 kW
     # Guarantee that just feed-in OR load is possible
     for t in time_steps:
         model.addConstr(y["css_load"][t] * ratedPower >= p_imp[t], name="binary_import_" + str(t))  #  + power_trade["buyer"][t]

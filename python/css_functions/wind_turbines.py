@@ -185,6 +185,6 @@ def wind_turbine_generation(array_windSpeed, wind_turbine_model):
         array_WT_power.append(get_turbine_power(windSpeed_t, powerCurve(wind_turbine_model)))  # [kW]
 
     # transform to array
-    array_WT_power = np.array(array_WT_power) # [kW]
+    array_WT_power = np.array(array_WT_power)  # [kW]
 
     return array_WT_power

@@ -18,14 +18,31 @@ class mar_agent_bes(object):
         self.rec_erev_roth = 0.08  # recency parameter for learning intelligence agent [0,1]
         self.exp_erev_roth = 0.99  # experimentation parameter for learning intelligence agent [0,1]
 
-        self.initial_propensity = 0.01 # initial propensities for learning intelligence agent
+        self.initial_propensity = 0.01  # initial propensities for learning intelligence agent
 
         #self.p_feed_in = 0.0803 # feed-in tariff price (per kWh)
         #self.p_rate = 0.30 # utility service rate (per kWh)
-        self.p_reg = 0.001 # price regulation for CES
+        self.p_reg = 0.001  # price regulation for CES
+
+        if options["bid_strategy"] == "q_learning":
+            self.alpha = 0.01  # learning rate
+            self.epsilon = 0.5  # exploration rate
+            self.gamma = 0.8  # discount factor
+
+            # The Q-table is a 4D numpy array that stores q-values for each state-action pair of the CSS
+            self.q_table = {}
+            self.q_state = {}
+            self.q_actions_CSS = [round(x, 2) for x in np.arange(self.p_min + 0.01, self.p_max, self.step_size_price)]
+            self.q_update_counter = 0
+            self.cum_q_reward = 0
+
+            self.buying_capacity = 0
+            self.selling_capacity = 0
 
     def __setitem__(self, key, value):
         self.__dict__["q_table"] = self.q_table
+        self.__dict__["q_update_counter"] = self.q_update_counter
+        self.__dict__["q_state"] = self.q_state
 
     def __getitem__(self, key):
         return getattr(self, key)
@@ -79,24 +96,28 @@ class mar_agent_bes(object):
 
         return [p, q, buying, self.bes_id]
 
-    def q_learning_bids(self, buying_quantity, selling_quantity, n_opt):
+    def q_learning_bids(self, buying_quantity, selling_quantity, n_opt, block_length, t):
         # This function is used to calculate the bidding price for the BES using Q-learning
         # Based on current state and q-table, the agent selects an action (price) to bid, (buying or selling)
         # The agent then generates a bid based on the selected action
-        self.decay_rate = 0.99  # decay rate for epsilon
-        self.epsilon = max(0.1, self.epsilon_init * (self.decay_rate ** n_opt))  # decay epsilon over time until 0.1
+        # self.decay_rate = 1  # decay rate for epsilon
+        # self.epsilon = max(0.1, self.epsilon_init * (self.decay_rate ** n_opt))  # decay epsilon over time until 0.1
+        self.epsilon = 0.8  # exploration rate
+        if n_opt >= 4380/block_length:
+            self.epsilon = 0
         if random.uniform(0, 1) < self.epsilon:
             action = random.choice(self.q_actions_BES)
         else:
-            state_index = tuple(self.q_state)
+            state_index = tuple(self.q_state[t])
             max_value = np.max(self.q_table[state_index])
             all_max_indices = np.where(self.q_table[state_index] == max_value)[0]
-            if buying_quantity > 0 and selling_quantity == 0:
-                action_index = min(all_max_indices)  # Choose the action with the lowest index
-            elif selling_quantity > 0 and buying_quantity == 0:
-                action_index = max(all_max_indices)  # Choose the action with the highest index
-            else:
-                action_index = np.random.choice(all_max_indices)  # Randomly choose among the max indices
+            # if buying_quantity > 0 and selling_quantity == 0:
+            #     action_index = min(all_max_indices)  # Choose the action with the lowest index
+            # elif selling_quantity > 0 and buying_quantity == 0:
+            #     action_index = max(all_max_indices)  # Choose the action with the highest index
+            # else:
+            #     action_index = np.random.choice(all_max_indices)  # Randomly choose among the max indices
+            action_index = np.random.choice(all_max_indices)  # Randomly choose among the max indices
             action = self.q_actions_BES[action_index]
             # action = self.q_actions_BES[np.argmax(self.q_table[state_index])]
 
@@ -117,21 +138,24 @@ class mar_agent_bes(object):
         # Return the bid
         return [p, q, buying, self.bes_id]
 
-    def initialize_q_table_q_learning(self):
+    def initialize_q_table_q_learning(self, t):
         # This function is used to initialize the Q-table for Q-learning
-        self.alpha, self.gamma, self.epsilon_init = 0.1, 0.4, 0.8  # learning rate, discount factor, exploration rate
+        self.alpha, self.gamma = 0.1, 0.4  # learning rate, discount factor, exploration rate
+        self.epsilon_init = 0.8  # initial exploration rate
         # The Q-table is a 4D numpy array that stores q-values for each state-action pair of each BES
         self.q_table = {}
         self.q_actions_BES = [round(x, 2) for x in np.arange(self.p_min + 0.01, self.p_max, self.step_size_price)]
         state_space = [10, 10, 10]
-        self.q_state = ()
+        self.q_state[t] = ()
 
         # Initialize Q-tables (4D) for storing q-values for each state-action pair of each BES
         self.q_table = np.zeros(state_space + [len(self.q_actions_BES)])
+        self.q_update_counter = 0
+        self.cum_q_reward = 0
 
         return self.q_table
 
-    def get_state_q_learning(self, buying_quantity, buying_capacity, selling_quantity, selling_capacity, soc_state):
+    def get_state_q_learning(self, buying_quantity, buying_capacity, selling_quantity, selling_capacity, soc_state, t):
         # This function is used to map input variables to a discrete state index
         # The state space consists of relative buying quantity, relative selling quantity, and SOC state
 
@@ -162,39 +186,34 @@ class mar_agent_bes(object):
         ct = discretize(soc)
 
         # Combine into a state tuple
-        self.q_state = (bq_t, sq_t, ct)
-        return self.q_state
+        self.q_state[t] = (bq_t, sq_t, ct)
+        return self.q_state[t]
 
     def calc_reward_and_update_q_table(self, options, nodes, n, par_rh, n_opt, block_length, opti_res, mar_dict):
         # This function is used to calculate the reward for Q-learning and update the Q-table
-        t = par_rh["time_steps"][n_opt][0]
-        buying = mar_dict["block_bids"][n_opt]["bes_" + str(n)][t][2]
-        q_dem = mar_dict["block_bids"][n_opt]["bes_" + str(n)][t][1]
+        buying = mar_dict["block_bids"][n_opt]["bes_" + str(n)][par_rh["time_steps"][n_opt][0]][2]
         p_match = 0.5 * (options["p_max"] + options["p_min"])
         q_match = 0
         p_min_sell = options["p_max"] - 0.001
         p_max_buy = options["p_min"] + 0.001
-        soc_state = opti_res[n_opt][n][3]["tes"][t] / opti_res[n_opt][n][12]["tes"]
+        soc_state = opti_res[n_opt][n][3]["tes"][par_rh["time_steps"][n_opt][0]] / opti_res[n_opt][n][12]["tes"]
+
+        total_reward = {}
 
         # update q-tables of BES agents after each negotiation round
         for t in par_rh["time_steps"][n_opt][0:block_length]:
+            reward1 = {t: {}}
+            # reward2 = {t: {}}
+            # reward3 = {t: {}}
+            # reward4 = {t: {}}
+
+            buying = mar_dict["block_bids"][n_opt]["bes_" + str(n)][t][2]
             if buying == "True":
-                p_match = options["p_max"] - 0.001
+                p_match = options["p_max"]
             elif buying == "False":
-                p_match = options["p_min"] + 0.001
-
-            # if any negotiation results exist, get the trading price and quantity
-            if len(mar_dict["negotiation_results"][n_opt][0]) > 0:
-                match_nr = None
-                for match in mar_dict["negotiation_results"][n_opt][0]:  # find match number
-                    if (mar_dict["negotiation_results"][n_opt][0][match]["buyer_id"] == n or
-                            mar_dict["negotiation_results"][n_opt][0][match]["seller_id"] == n):
-                        match_nr = match  # Store the match number/key
-                        break  # Exit the loop as the desired match is found
-
-                if match_nr is not None:  # Access trading_price for the respective match
-                    p_match = mar_dict["negotiation_results"][n_opt][0][match_nr]["trading_price"][t]
-                    q_match = mar_dict["negotiation_results"][n_opt][0][match_nr]["trading_quantity"][t]
+                p_match = options["p_min"]
+            q_dem = mar_dict["block_bids"][n_opt]["bes_" + str(n)][t][1]
+            soc_state = opti_res[n_opt][n][3]["tes"][t] / opti_res[n_opt][n][12]["tes"]
 
             if len(mar_dict["sell_list"][n_opt]) > 0:
                 p_min_sell = min(mar_dict["sell_list"][n_opt][n]["mean_price"]
@@ -204,14 +223,35 @@ class mar_agent_bes(object):
                 p_max_buy = max(mar_dict["buy_list"][n_opt][n]["mean_price"]
                                 for n in range(len(mar_dict["buy_list"][n_opt])))
 
-            if opti_res[n_opt][n][12]["bat"] != 0: # if battery exists
+            if opti_res[n_opt][n][12]["bat"] != 0:  # if battery exists
                 soc_state = opti_res[n_opt][n][3]["bat"][t] / opti_res[n_opt][n][12]["bat"]
 
-        # calculate reward
-        reward1 = self.reward_func_q_learning_v1(buying, p_match, q_match, q_dem)
-        reward2 = self.reward_func_q_learning_v2(buying, p_min_sell, p_max_buy, p_match, soc_state)
-        reward3 = self.reward_func_q_learning_v3(buying, p_match, q_match, q_dem, soc_state)
-        reward4 = self.reward_func_q_learning_v4(buying, p_match, q_match, q_dem, soc_state)
+            # if any negotiation results exist, get the trading price and quantity
+            if len(mar_dict["negotiation_results"][n_opt]) > 1:
+                match_nr = None
+                round_nr = None
+                r_ = 0  # negotiation round number
+                for r in range(len(mar_dict["negotiation_results"][n_opt])):  # find round number
+                    if len(mar_dict["negotiation_results"][n_opt][r]) > 0:
+                        for match in range(len(mar_dict["negotiation_results"][n_opt][r])):  # find match number
+                            if (mar_dict["negotiation_results"][n_opt][r][match]["buyer_id"] == n or
+                                    mar_dict["negotiation_results"][n_opt][r][match]["seller_id"] == n):
+                                round_nr = r  # Store the round number/key
+                                match_nr = match  # Store the match number/key
+                                break  # Exit the loop as the desired match is found
+
+                        if match_nr is not None and round_nr is not None:  # Access trading_price for the respective match
+                            p_match = mar_dict["negotiation_results"][n_opt][round_nr][match_nr]["trading_price"][t]
+                            q_match = mar_dict["negotiation_results"][n_opt][round_nr][match_nr]["trading_quantity"][t]
+
+                        # calculate reward
+                        reward1[t][r_] = self.reward_func_q_learning_v1(buying, p_match, q_match, q_dem)
+                        #reward2[t][r_] = self.reward_func_q_learning_v2(buying, p_min_sell, p_max_buy, p_match, soc_state)
+                        #reward3[t][r_] = self.reward_func_q_learning_v3(buying, p_match, q_match, q_dem, soc_state)
+                        #reward4[t][r_] = self.reward_func_q_learning_v4(buying, p_match, q_match, q_dem, soc_state)
+                        r_ += 1  # increment negotiation round number
+            # Calculate total reward for the block bids
+            total_reward[t] = sum(reward1[t][r_] for r_ in range(len(reward1[t])))
 
         # Calculate new buying/selling quantity & SoC
         new_buy_quant = 0
@@ -228,27 +268,37 @@ class mar_agent_bes(object):
             if buying == "True":  # when buying
                 # look for the matched bid and find the matched buying quantity
                 remaining_demand = mar_dict["block_bids"][n_opt]["bes_" + str(n)][t][1]
-                if len(mar_dict["matched_bids_info"][n_opt][0]) > 0:
+                if len(mar_dict["matched_bids_info"][n_opt]) > 1:
                     match_nr = None
-                    for match in range(len(mar_dict["negotiation_results"][n_opt][0])):
-                        if mar_dict["negotiation_results"][n_opt][0][match]["buyer_id"] == n:
-                            match_nr = match
-                            break
-                    if match_nr is not None:
+                    round_nr = None
+                    for r in range(len(mar_dict["negotiation_results"][n_opt])):  # find round number
+                        if len(mar_dict["negotiation_results"][n_opt][r]) > 0:
+                            for match in range(len(mar_dict["negotiation_results"][n_opt][r])):  # find match number
+                                if mar_dict["negotiation_results"][n_opt][r][match]["buyer_id"] == n:
+                                    round_nr = r
+                                    match_nr = match
+                                    break
+
+                    if round_nr is not None and match_nr is not None:
                         remaining_demand = mar_dict["negotiation_results"][n_opt][0][match_nr][
                             "remaining_demand"][t]
                 new_buy_quant = remaining_demand
+
             elif buying == "False":  # when selling
                 remaining_supply = mar_dict["block_bids"][n_opt]["bes_" + str(n)][t][1]
                 # look for the matched bid and find the matched buying quantity
-                if len(mar_dict["matched_bids_info"][n_opt][0]) > 0:
+                if len(mar_dict["matched_bids_info"][n_opt]) > 1:
                     match_nr = None
-                    for match in range(len(mar_dict["negotiation_results"][n_opt][0])):
-                        if mar_dict["negotiation_results"][n_opt][0][match]["seller_id"] == n:
-                            match_nr = match
-                            break
-                            # todo: check if this is correct
-                    if match_nr is not None:
+                    round_nr = None
+                    for r in range(len(mar_dict["negotiation_results"][n_opt])):  # find round number
+                        if len(mar_dict["negotiation_results"][n_opt][r]) > 0:
+                            for match in range(len(mar_dict["negotiation_results"][n_opt][r])):  # find match number
+                                if mar_dict["negotiation_results"][n_opt][r][match]["seller_id"] == n:
+                                    round_nr = r
+                                    match_nr = match
+                                    break
+
+                    if round_nr is not None and match_nr is not None:
                         remaining_supply = mar_dict["negotiation_results"][n_opt][0][match_nr][
                             "remaining_supply"][t]
                 new_sell_quant = remaining_supply
@@ -267,16 +317,18 @@ class mar_agent_bes(object):
                 ch_bat = opti_res[n_opt][n][5]["bat"][t]
                 dch_bat = opti_res[n_opt][n][6]["bat"][t]
                 k_loss = nodes[n]["devs"]["bat"]["k_loss"]
-                new_soc = (1 - k_loss) * current_soc + eta_bat * (ch_bat - dch_bat) / opti_res[n_opt][n][12]["bat"]
+                new_soc = (1 - k_loss) * current_soc + (eta_bat * ch_bat - dch_bat / eta_bat) / opti_res[n_opt][n][12]["bat"]
 
-        # update q-table
-        # reward can be chosen from available reward functions
-        self.q_table = (
-            self.update_q_table_q_learning(action=mar_dict["block_bids"][n_opt]["bes_" + str(n)][t][0],
-                                           reward=reward4,
-                                           new_buy_quant=new_buy_quant, new_sell_quant=new_sell_quant,
-                                           new_soc=new_soc))
+            # update q-table
+            # reward can be chosen from available reward functions
+            self.q_table = (
+                self.update_q_table_q_learning(action=mar_dict["block_bids"][n_opt]["bes_" + str(n)][par_rh["time_steps"][n_opt][0]][0],
+                                               reward=total_reward[t], new_buy_quant=new_buy_quant,
+                                               new_sell_quant=new_sell_quant, new_soc=new_soc, t=t))
+            self.q_update_counter += 1
+            self.cum_q_reward += total_reward[t]
 
+        print(f"bes_{n} Q-Table updated. q_update_counter: {self.q_update_counter}. Cumulative Q-Reward: {self.cum_q_reward}")
         #mar_dict["q_tables"][n] = self.q_table
         return self.q_table
 
@@ -286,10 +338,10 @@ class mar_agent_bes(object):
         eco_coeff = 0.7
         trade_coeff = 0.3
         if buying == "True":
-            reward = (eco_coeff * (self.p_max - p_match) / (self.p_max - self.p_min) +
+            reward = (eco_coeff * (self.p_max - p_match) * q_match / ((self.p_max - self.p_min) * q_dem) +
                       trade_coeff * q_match / q_dem)
         elif buying == "False":
-            reward = (eco_coeff * (p_match - self.p_min) / (self.p_max - self.p_min) +
+            reward = (eco_coeff * (p_match - self.p_min) * q_match / ((self.p_max - self.p_min) * q_dem) +
                       trade_coeff * q_match / q_dem)
         else:
             reward = 0
@@ -340,17 +392,17 @@ class mar_agent_bes(object):
             reward = 0
         return reward
 
-    def update_q_table_q_learning(self, action, reward, new_buy_quant, new_sell_quant, new_soc):
+    def update_q_table_q_learning(self, action, reward, new_buy_quant, new_sell_quant, new_soc, t):
         # This function is used to update the Q-table for Q-learning
         # The Q-table is updated based on the current state, action, reward, and next state
         # Reward calculated beforehand, and given as input
 
         # Get the index of the current state
-        state_index = tuple(self.q_state)
+        state_index = tuple(self.q_state[t])
 
         # Calculate the next state and get its index
         next_state = self.get_state_q_learning(new_buy_quant, self.buying_capacity, new_sell_quant,
-                                               self.selling_capacity, new_soc)
+                                               self.selling_capacity, new_soc, t)
         next_state_index = tuple(next_state)
 
         # Get the index of the action in the actions list
@@ -511,11 +563,26 @@ class mar_agent_bes(object):
 
         return bid
 
+    def one_price_weighted(self, bid, par_rh, n_opt, block_length, options):
+        sum_price_x_quantity = sum(bid[dt][0] * bid[dt][1] for dt in par_rh["time_steps"][n_opt][0:block_length])
+        sum_quantity = sum(bid[dt][1] for dt in par_rh["time_steps"][n_opt][0:block_length])
+        for t in par_rh["time_steps"][n_opt][0:block_length]:
+            if sum_quantity != 0:
+                bid[t][0] = round(sum_price_x_quantity / sum_quantity, 2)
+            else:
+                bid[t][0] = round((options["p_min"] + options["p_max"]) / 2, 2)
+
+        return bid
+
 
 # TODO: Implement the market agent for the central supply system (CSS) that creates the bids.
 class mar_agent_css(object):
     """Market agent for the central supply system (CSS) that creates the bids."""
     def __init__(self, options, districtData):
+        self.WindTurbine = options["CSS_Wind"]
+        self.PV_Park = options["CSS_PV"]
+        self.Battery = options["CSS_Bat"]
+
         self.css_id = options["nb_bes"]
         self.p_min = options["p_min"] + 0.001
         self.p_max = options["p_max"] - 0.001
@@ -527,9 +594,16 @@ class mar_agent_css(object):
         self.time = districtData.time
         self.site = districtData.site
 
-        self.pv_area = 100  # m^2
-        self.wind_turbine_model = "WT_Enercon_E40"  # csv: wind_speed in m/s; power in kW
-        self.bat_capacity = 150000  # Wh
+        if self.PV_Park:
+            self.pv_area = 500  # m^2
+        else:
+            self.pv_area = 0
+        self.wind_turbine_model = "WT_Hummer_H25"  # csv: wind_speed in m/s; power in kW
+
+        if self.Battery:
+            self.bat_capacity = 200000  # Wh, equal to 200 kWh
+        else:
+            self.bat_capacity = 0
         self.bat_soc_max = 0.9  # 0.9 = 90% of the capacity
         self.bat_soc_min = 0.1  # 0.1 = 10% of the capacity
         self.bat_eta = 0.97  # 0.97 --> 3% losses during charging
@@ -539,8 +613,25 @@ class mar_agent_css(object):
 
         self.pv_power, self.wind_power = self.generation()
 
-    def generation(self):
+        if options["bid_strategy"] == "q_learning":
+            self.alpha = 0.01  # learning rate
+            self.epsilon = 0.5  # exploration rate
+            self.gamma = 0.8  # discount factor
 
+            # The Q-table is a 4D numpy array that stores q-values for each state-action pair of the CSS
+            self.q_table = {}
+            self.q_state = {}
+            self.q_actions_CSS = [round(x, 2) for x in np.arange(self.p_min + 0.01, self.p_max, self.step_size_price)]
+            self.q_update_counter = 0
+            self.cum_q_reward = 0
+
+    def __setitem__(self, key, value):
+        self.__dict__["q_state"] = self.q_state
+        self.__dict__["q_table"] = self.q_table
+        self.__dict__["q_update_counter"] = self.q_update_counter
+        self.__dict__["cum_q_reward"] = self.cum_q_reward
+
+    def generation(self):
         global sun
         sun = Sun(filePath=self.filePath)
         # calculate theoretical PV generation
@@ -555,6 +646,9 @@ class mar_agent_css(object):
 
         potentialWIND = wind_turbines.wind_turbine_generation(self.site["wind_speed"], self.wind_turbine_model)
         potentialWIND = potentialWIND * 1000  # convert from kW to W
+
+        if not self.WindTurbine:
+            potentialWIND = potentialWIND * 0
 
         # # convert into np array
         # potentialPV = np.array(potentialPV)
@@ -725,17 +819,21 @@ class mar_agent_css(object):
     #
     #     return action, q_table_ces, generate_bid(action)
 
-    def q_learning_bids(self, buying_quantity, selling_quantity, n_opt):
+    def q_learning_bids(self, buying_quantity, selling_quantity, n_opt, block_length, t):
         # This function is used to calculate the bidding price for the BES using Q-learning
         # Based on current state and q-table, the agent selects an action (price) to bid, (buying or selling)
         # The agent then generates a bid based on the selected action
 
-        self.decay_rate = 0.99  # decay rate for epsilon
-        self.epsilon = max(0.1, self.epsilon_init * (self.decay_rate ** n_opt))  # decay epsilon over time until 0.1
+        # self.decay_rate = 0.99  # decay rate for epsilon
+        # self.epsilon = max(0.1, self.epsilon_init * (self.decay_rate ** n_opt))  # decay epsilon over time until 0.1
+        self.epsilon = 0.8  # exploration rate
+        if n_opt >= 4380/block_length:
+            self.epsilon = 0
+
         if random.uniform(0, 1) < self.epsilon:
             action = random.choice(self.q_actions_CSS)
         else:
-            state_index = tuple(self.q_state)
+            state_index = tuple(self.q_state[t])
             max_value = np.max(self.q_table[state_index])
             all_max_indices = np.where(self.q_table[state_index] == max_value)[0] # get all indices with max value
             # if buying_quantity > 0:
@@ -765,23 +863,24 @@ class mar_agent_css(object):
         # Return the bid
         return [p, q, buying, self.css_id]
 
-    def initialize_q_table_q_learning(self):
+    def initialize_q_table_q_learning(self, t):
         # This function is used to initialize the Q-table for Q-learning
-        self.alpha, self.gamma, self.epsilon_init = 0.1, 0.4, 0.8  # learning rate, discount factor, exploration rate
-        # The Q-table is a 4D numpy array that stores q-values for each state-action pair of each BES
+        self.alpha, self.gamma = 0.1, 0.4  # learning rate, discount factor, exploration rate
+        # The Q-table is a 4D numpy array that stores q-values for each state-action pair of the CSS
         self.q_table = {}
         self.q_actions_CSS = [round(x, 2) for x in np.arange(self.p_min + 0.01, self.p_max, self.step_size_price)]
-            #[round(x, 2) for x in np.arange(self.p_min, (self.p_max + self.step_size_price),
-            #                                     self.step_size_price)]
-        state_space = [10, 10, 10]
-        self.q_state = ()
 
-        # Initialize Q-tables (4D) for storing q-values for each state-action pair of each BES
+        state_space = [10, 10, 10]
+        self.q_state[t] = ()
+
+        # Initialize Q-tables (4D) for storing q-values for each state-action pair of the CSS
         self.q_table = np.zeros(state_space + [len(self.q_actions_CSS)])
+        self.q_update_counter = 0  # Counter for updating the Q-table
+        self.cum_q_reward = 0  # Cumulative reward for Q-learning
 
         return self.q_table
 
-    def get_state_q_learning(self, buying_quantity, selling_quantity, soc_state):
+    def get_state_q_learning(self, buying_quantity, selling_quantity, soc_state, t):
         # This function is used to map input variables to a discrete state index
         # The state space consists of relative buying quantity, relative selling quantity, and SOC state
 
@@ -799,7 +898,7 @@ class mar_agent_css(object):
             return 9  # If value is outside the range, map it to the highest discrete value (9)
 
         # Calculate relative buying and selling quantities, and SOC
-        bq_rel = buying_quantity / buying_capacity  # Relative to buying capacity
+        bq_rel = buying_quantity / buying_capacity if buying_capacity != 0 else 0  # Relative to buying capacity
         sq_rel = selling_quantity / selling_capacity  # Relative to selling capacity
         soc = soc_state  # Current state of charge
 
@@ -809,23 +908,28 @@ class mar_agent_css(object):
         ct = discretize(soc)
 
         # Combine into a state tuple
-        self.q_state = (bq_t, sq_t, ct)
-        return self.q_state
+        self.q_state[t] = (bq_t, sq_t, ct)
+        return self.q_state[t]
 
     def calc_reward_and_update_q_table(self, options, opti_res_css, par_rh, n_opt, block_length, mar_dict):
         p_match = 0.5 * (options["p_max"] + options["p_min"])
         q_match = 0
         p_min_sell = options["p_max"] - 0.001
         p_max_buy = options["p_min"] + 0.001
-        t = par_rh["time_steps"][n_opt][0]
-        soc_state = opti_res_css[n_opt]["res_soc"]["s_bat"][t] / self.bat_capacity  # SoC %
-        buying = mar_dict["block_bids"][n_opt]["css"][t][2]
-        q_dem = mar_dict["block_bids"][n_opt]["css"][t][1]
 
+        reward_CSS_sum = {}
         for t in par_rh["time_steps"][n_opt][0:block_length]:
+            reward_CSS1 = {t: {}}
+            # reward_CSS2 = {t: {}}
+            # reward_CSS3 = {t: {}}
             # get the inputs for reward calculation
-            # buying = mar_dict["block_bids"][n_opt]["css"][t][2]
-            # q_dem = mar_dict["block_bids"][n_opt]["css"][t][1]
+            buying = mar_dict["block_bids"][n_opt]["css"][t][2]
+            q_dem = mar_dict["block_bids"][n_opt]["css"][t][1]
+            if buying == "True":
+                p_match = options["p_max"]
+            elif buying == "False":
+                p_match = options["p_min"]
+            soc_state = opti_res_css[n_opt]["res_soc"]["s_bat"][t] / self.bat_capacity if self.bat_capacity > 0 else 0
             if len(mar_dict["buy_list"][n_opt]) > 0:  # if any buying bid exists
                 # get the maximum price of all buying bids
                 p_max_buy = max(mar_dict["buy_list"][n_opt][bid]["mean_price"]
@@ -836,70 +940,106 @@ class mar_agent_css(object):
 
             # find the matched bid and find the matched buying/selling quantity
             # if any negotiation results exist, get the trading price and quantity
-            if len(mar_dict["negotiation_results"][n_opt][0]) > 0:
+            if len(mar_dict["negotiation_results"][n_opt]) > 1:
+                round_nr = None
                 match_nr = None
-                for match in range(len(mar_dict["negotiation_results"][n_opt][0])):  # find match number
-                    if (mar_dict["negotiation_results"][n_opt][0][match]["buyer_id"] == options["nb_bes"] or
-                            mar_dict["negotiation_results"][n_opt][0][match]["seller_id"] == options["nb_bes"]):
-                        match_nr = match  # Store the match number/key
-                        break  # Exit the loop as the desired match is found
+                r_ = 0  # representing the round
+                for r in range(len(mar_dict["negotiation_results"][n_opt])):
+                    if len(mar_dict["negotiation_results"][n_opt][r]) > 0:
+                        for match in range(len(mar_dict["negotiation_results"][n_opt][r])):
+                            if (mar_dict["negotiation_results"][n_opt][r][match]["buyer_id"] == options["nb_bes"] or
+                                    mar_dict["negotiation_results"][n_opt][r][match]["seller_id"] == options["nb_bes"]):
+                                round_nr = r  # Store the round number/key
+                                match_nr = match  # Store the match number/key
+                                break
+                        # CSS can appear only once in a match, but can appear in multiple rounds
+                        if match_nr is not None:  # Access trading_price for the respective round and match
+                            p_match = mar_dict["negotiation_results"][n_opt][round_nr][match_nr]["trading_price"][t]
+                            q_match = mar_dict["negotiation_results"][n_opt][round_nr][match_nr]["trading_quantity"][t]
 
-                if match_nr is not None:  # Access trading_price for the respective match
-                    p_match = mar_dict["negotiation_results"][n_opt][0][match_nr]["trading_price"][t]
-                    q_match = mar_dict["negotiation_results"][n_opt][0][match_nr]["trading_quantity"][t]
+                        # calc reward for CSS agent
+                        reward_CSS1[t][r_] = self.reward_func_q_learning_v1(buying, p_match, q_match, q_dem)
+                        #reward_CSS2[t][r_] = self.reward_func_q_learning_v2(buying, p_min_sell, p_max_buy, p_match, soc_state)
+                        #reward_CSS3[t][r_] = self.reward_func_q_learning_v3(buying, p_match, q_match, q_dem, soc_state)
+                        r_ += 1  # representing the round
 
-        # calc reward for CSS agent
-        reward_CSS1 = self.reward_func_q_learning_v1(buying, p_match, q_match, q_dem)
-        reward_CSS2 = self.reward_func_q_learning_v2(buying, p_min_sell, p_max_buy, p_match, soc_state)
-        reward_CSS3 = self.reward_func_q_learning_v3(buying, p_match, q_match, q_dem, soc_state)
+            # Calculate sum of rewards for each time step and round
+            reward_CSS_sum[t] = sum(reward_CSS1[t][r_] for r_ in range(len(reward_CSS1[t])))
+
+        #         for match in range(len(mar_dict["negotiation_results"][n_opt][0])):  # find match number
+        #             if (mar_dict["negotiation_results"][n_opt][0][match]["buyer_id"] == options["nb_bes"] or
+        #                     mar_dict["negotiation_results"][n_opt][0][match]["seller_id"] == options["nb_bes"]):
+        #                 match_nr = match  # Store the match number/key
+        #                 break  # Exit the loop as the desired match is found
+        #
+        #         if match_nr is not None:  # Access trading_price for the respective match
+        #             p_match = mar_dict["negotiation_results"][n_opt][0][match_nr]["trading_price"][t]
+        #             q_match = mar_dict["negotiation_results"][n_opt][0][match_nr]["trading_quantity"][t]
+        #
+        # # calc reward for CSS agent
+        # reward_CSS1 = self.reward_func_q_learning_v1(buying, p_match, q_match, q_dem)
+        # reward_CSS2 = self.reward_func_q_learning_v2(buying, p_min_sell, p_max_buy, p_match, soc_state)
+        # reward_CSS3 = self.reward_func_q_learning_v3(buying, p_match, q_match, q_dem, soc_state)
 
         # Calculate new buying/selling quantity & SoC
         new_buy_quant = 0
         new_sell_quant = 0
         new_soc = 0
         for t in par_rh["time_steps"][n_opt][0:block_length]:
+            buying = mar_dict["block_bids"][n_opt]["css"][t][2]
+            soc_state = opti_res_css[n_opt]["res_soc"]["s_bat"][t] / self.bat_capacity if self.bat_capacity > 0 else 0
             # get remaining demand and remaining supply
             if buying == "True":  # when buying
                 # look for the matched bid and find the matched buying quantity
                 remaining_demand = mar_dict["block_bids"][n_opt]["css"][t][1]
-                if len(mar_dict["matched_bids_info"][n_opt][0]) > 0:
+                if len(mar_dict["matched_bids_info"][n_opt]) > 1:
+                    round_nr = None
                     match_nr = None
-                    for match in range(len(mar_dict["negotiation_results"][n_opt][0])):
-                        if mar_dict["negotiation_results"][n_opt][0][match]["buyer_id"] == options["nb_bes"]:
-                            match_nr = match
-                            break
+                    for r in range(len(mar_dict["negotiation_results"][n_opt])):
+                        if len(mar_dict["negotiation_results"][n_opt][r]) > 0:
+                            for match in range(len(mar_dict["negotiation_results"][n_opt][r])):
+                                if mar_dict["negotiation_results"][n_opt][r][match]["buyer_id"] == options["nb_bes"]:
+                                    round_nr = r
+                                    match_nr = match
+                                    break
                     if match_nr is not None:  # if match is found
-                        remaining_demand = mar_dict["negotiation_results"][n_opt][0][match_nr][
+                        remaining_demand = mar_dict["negotiation_results"][n_opt][round_nr][match_nr][
                             "remaining_demand"][t]
                 new_buy_quant = remaining_demand
             elif buying == "False":  # when selling
                 remaining_supply = mar_dict["block_bids"][n_opt]["css"][t][1]
                 # look for the matched bid and find the matched buying quantity
-                if len(mar_dict["matched_bids_info"][n_opt][0]) > 0:
+                if len(mar_dict["matched_bids_info"][n_opt]) > 1:
+                    round_nr = None
                     match_nr = None
-                    # todo: check if this is correct
-                    for match in range(len(mar_dict["negotiation_results"][n_opt][0])):
-                        if mar_dict["negotiation_results"][n_opt][0][match]["seller_id"] == options["nb_bes"]:
-                            match_nr = match
-                            break
-                            # todo: check if this is correct
+                    for r in range(len(mar_dict["negotiation_results"][n_opt])):
+                        if len(mar_dict["negotiation_results"][n_opt][r]) > 0:
+                            for match in range(len(mar_dict["negotiation_results"][n_opt][r])):
+                                if mar_dict["negotiation_results"][n_opt][r][match]["seller_id"] == options["nb_bes"]:
+                                    round_nr = r
+                                    match_nr = match
+                                    break
                     if match_nr is not None:
-                        remaining_supply = mar_dict["negotiation_results"][n_opt][0][match_nr][
+                        remaining_supply = mar_dict["negotiation_results"][n_opt][round_nr][match_nr][
                             "remaining_supply"][t]
                 new_sell_quant = remaining_supply
 
             # calculate new SoC
             current_soc = soc_state
-            eta_bat = self.bat_eta
             ch_bat = opti_res_css[n_opt]["res_p_ch"]["s_bat"][t]
             dch_bat = opti_res_css[n_opt]["res_p_dch"]["s_bat"][t]
-            k_loss = self.k_loss
-            new_soc = (1 - k_loss) * current_soc + eta_bat * (ch_bat - dch_bat) / self.bat_capacity
+            new_soc = ((1 - self.k_loss) * current_soc + (ch_bat * self.bat_eta - dch_bat / self.bat_eta) /
+                       self.bat_capacity) if self.bat_capacity > 0 else current_soc
 
-        # update q-table
-        self.q_table = (
-            self.update_q_table_q_learning(action=mar_dict["block_bids"][n_opt]["css"][t][0], reward=reward_CSS3,
-                                           new_buy_quant=new_buy_quant, new_sell_quant=new_sell_quant, new_soc=new_soc))
+            # update q-table
+            self.q_table = (
+                self.update_q_table_q_learning(action=mar_dict["block_bids"][n_opt]["css"][t][0], reward=reward_CSS_sum[t],
+                                               new_buy_quant=new_buy_quant, new_sell_quant=new_sell_quant,
+                                               new_soc=new_soc, t=t))
+            self.q_update_counter += 1
+            self.cum_q_reward += reward_CSS_sum[t]
+
+        print(f"CSS Q-Table updated. q_update_counter: {self.q_update_counter}. Cumulative reward: {self.cum_q_reward}")
 
         return self.q_table
 
@@ -909,14 +1049,15 @@ class mar_agent_css(object):
         eco_coeff = 0.7
         trade_coeff = 0.3
         if buying == "True":
-            reward = (eco_coeff * (self.p_rate - p_match) * q_match / (self.p_rate - self.p_min) * q_dem +
+            reward = (eco_coeff * (self.p_max - p_match) * q_match / ((self.p_max - self.p_min) * q_dem) +
                       trade_coeff * q_match / q_dem)
         elif buying == "False":
-            reward = (eco_coeff * (p_match - self.p_feed_in) * q_match / (self.p_max - self.p_feed_in) * q_dem +
+            reward = (eco_coeff * (p_match - self.p_min) * q_match / ((self.p_max - self.p_min) * q_dem) +
                       trade_coeff * q_match / q_dem)
         else:
             reward = 0
         return reward
+
 
     def reward_func_q_learning_v2(self, buying, p_min_sell, p_max_buy, p_match, soc_state):
         # This function is used to calculate the reward for Q-learning
@@ -961,16 +1102,16 @@ class mar_agent_css(object):
             reward = 0
         return reward
 
-    def update_q_table_q_learning(self, action, reward, new_buy_quant, new_sell_quant, new_soc):
+    def update_q_table_q_learning(self, action, reward, new_buy_quant, new_sell_quant, new_soc, t):
         # This function is used to update the Q-table for Q-learning
         # The Q-table is updated based on the current state, action, reward, and next state
         # Reward calculated beforehand, and given as input
 
         # Get the index of the current state
-        state_index = tuple(self.q_state)
+        state_index = tuple(self.q_state[t])
 
         # Calculate the next state and get its index
-        next_state = self.get_state_q_learning(new_buy_quant, new_sell_quant, new_soc)
+        next_state = self.get_state_q_learning(new_buy_quant, new_sell_quant, new_soc, t)
         next_state_index = tuple(next_state)
 
         # Get the index of the action in the actions list
@@ -990,18 +1131,39 @@ class mar_agent_css(object):
         return self.q_table
 
     def one_price(self, bid, par_rh, n_opt, block_length):
-
         price_list = []
         for t in par_rh["time_steps"][n_opt][0:block_length]:
             if bid[t][0] > 0:
                 price_list.append(bid[t][0])
-        #try:
-        #    mean_price = sum(price_list) / len(price_list)
-        #except ZeroDivisionError:
-        #    mean_price = 0
+
         for t in par_rh["time_steps"][n_opt][0:block_length]:
             if bid[t][0] > 0:
                 bid[t][0] = price_list[0]
 
+        if (any(bid[t][2] == "None" for t in par_rh["time_steps"][n_opt][0:block_length]) and
+                any(bid[t][2] == "False" for t in par_rh["time_steps"][n_opt][0:block_length])):
+            for t in par_rh["time_steps"][n_opt][0:block_length]:
+                bid[t][2] = "None"
+
+        if (any(bid[t][2] == "None" for t in par_rh["time_steps"][n_opt][0:block_length]) and
+                any(bid[t][2] == "True" for t in par_rh["time_steps"][n_opt][0:block_length])):
+            for t in par_rh["time_steps"][n_opt][0:block_length]:
+                bid[t][2] = "None"
+
         return bid
 
+    def one_price_weighted(self, bid, par_rh, n_opt, block_length, options):
+        sum_price_x_quantity = sum(bid[dt][0] * bid[dt][1] for dt in par_rh["time_steps"][n_opt][0:block_length])
+        sum_quantity = sum(bid[dt][1] for dt in par_rh["time_steps"][n_opt][0:block_length])
+        for t in par_rh["time_steps"][n_opt][0:block_length]:
+            if sum_quantity != 0:
+                bid[t][0] = round(sum_price_x_quantity / sum_quantity, 2)
+            else:
+                bid[t][0] = round((options["p_min"] + options["p_max"]) / 2, 2)
+
+        if (any(bid[t][2] == "None" for t in par_rh["time_steps"][n_opt][0:block_length]) and
+                any(bid[t][2] == "False" for t in par_rh["time_steps"][n_opt][0:block_length])):
+            for t in par_rh["time_steps"][n_opt][0:block_length]:
+                bid[t][2] = "None"
+
+        return bid

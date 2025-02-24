@@ -25,7 +25,7 @@ def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_le
             buying_quantity = opti_res[n][4]["p_imp"][t]  # p_imp
             selling_quantity = opti_res[n][8]["chp"][t] + opti_res[n][8]["pv"][t]  # chp_sell + pv_sell
             soc_state = opti_res[n][3]["bat"][t]/opti_res[n][12]["bat"] if opti_res[n][12]["bat"] != 0 \
-                else opti_res[n][3]["tes"][t]/opti_res[n][12]["tes"] # soc of bat or tes
+                else opti_res[n][3]["tes"][t]/opti_res[n][12]["tes"]  # soc of bat or tes
             buying_capacity = (nodes[n]["elec"].max() +
                                max(devs_pre_opti[n]["hp55"]["cap"]/nodes[n]["devs"]["COP_sh55"].min(),
                                    devs_pre_opti[n]["hp35"]["cap"]/nodes[n]["devs"]["COP_sh35"].min()))
@@ -42,17 +42,23 @@ def compute_block_bids(opti_res, par_rh, mar_agent_bes, n_opt, options, block_le
             elif options["bid_strategy"] == "q_learning":
                 # Initialize Q-table for n_opt == 0, or get Q-table from previous rounds
                 if n_opt == 0:
-                    mar_agent_bes[n].initialize_q_table_q_learning()
+                    mar_agent_bes[n].initialize_q_table_q_learning(t)
 
                 # Get state for q_learning
                 mar_agent_bes[n].get_state_q_learning(buying_quantity, buying_capacity, selling_quantity,
-                                                      selling_capacity, soc_state)
+                                                      selling_capacity, soc_state, t)
 
                 # Calculate the block bid with q_learning
-                block_bid["bes_" + str(n)][t] = mar_agent_bes[n].q_learning_bids(buying_quantity, selling_quantity, n_opt)
+                block_bid["bes_" + str(n)][t] = mar_agent_bes[n].q_learning_bids(buying_quantity, selling_quantity,
+                                                                                 n_opt, block_length, t)
                 # Q-table updates happen in 'opti_methods.py' after each negotiation rounds
 
-        block_bid["bes_" + str(n)] = mar_agent_bes[n].one_price(block_bid["bes_" + str(n)], par_rh, n_opt, block_length)
+        if options["bid_strategy"] == "zero" or options["bid_strategy"] == "erev_roth_learning":
+            block_bid["bes_" + str(n)] = mar_agent_bes[n].one_price(block_bid["bes_" + str(n)], par_rh, n_opt,
+                                                                    block_length)
+        elif options["bid_strategy"] == "q_learning":
+            block_bid["bes_" + str(n)] = mar_agent_bes[n].one_price_weighted(block_bid["bes_" + str(n)], par_rh, n_opt,
+                                                                             block_length, options)
 
     return block_bid
 
@@ -63,7 +69,8 @@ def compute_block_bids_css(par_rh, n_opt, options, block_length, opti_res_css, b
     for t in par_rh["time_steps"][n_opt][0:block_length]:
         buying_quantity_css = opti_res_css[n_opt]["res_p_grid_buy"][t] + opti_res_css[n_opt]["res_p_trade_buy"][t]  # + opti_res_css[n_opt]["res_prev_trade_buy"][t]
         selling_quantity_css = opti_res_css[n_opt]["res_p_grid_sell"][t] + opti_res_css[n_opt]["res_p_trade_sell"][t]  # + opti_res_css[n_opt]["res_prev_trade_sell"][t]
-        soc_state = opti_res_css[n_opt]["res_soc"]["s_bat"][t] / mar_agent_css.bat_capacity
+        soc_state = opti_res_css[n_opt]["res_soc"]["s_bat"][t] / mar_agent_css.bat_capacity \
+            if mar_agent_css.bat_capacity != 0 else 0
 
         block_bid["css"][t] = {}
         #block_bid["bes_" + str(options["nb_bes"])][t] = {}
@@ -74,16 +81,19 @@ def compute_block_bids_css(par_rh, n_opt, options, block_length, opti_res_css, b
         if options["bid_strategy"] == "q_learning":
             # Initialize Q-table for n_opt == 0, or get Q-table from previous rounds
             if n_opt == 0:
-                mar_agent_css.initialize_q_table_q_learning()
+                mar_agent_css.initialize_q_table_q_learning(t)
 
             # Get state for q_learning
-            mar_agent_css.get_state_q_learning(buying_quantity_css, selling_quantity_css, soc_state)
+            mar_agent_css.get_state_q_learning(buying_quantity_css, selling_quantity_css, soc_state, t)
 
             # Calculate the block bid with q_learning
-            block_bid["css"][t] = mar_agent_css.q_learning_bids(buying_quantity_css, selling_quantity_css, n_opt)
+            block_bid["css"][t] = mar_agent_css.q_learning_bids(buying_quantity_css, selling_quantity_css, n_opt, block_length, t)
             # Q-table updates happen in 'opti_methods.py' after each negotiation rounds
 
-    block_bid["css"] = mar_agent_css.one_price(block_bid["css"], par_rh, n_opt, block_length)
+    if options["bid_strategy"] == "zero" or options["bid_strategy"] == "erev_roth_learning":
+        block_bid["css"] = mar_agent_css.one_price(block_bid["css"], par_rh, n_opt, block_length)
+    elif options["bid_strategy"] == "q_learning":
+        block_bid["css"] = mar_agent_css.one_price_weighted(block_bid["css"], par_rh, n_opt, block_length, options)
 
     return block_bid
 
@@ -93,7 +103,6 @@ def compute_block_bids_during_negotiation(matched_bids, r, match, remaining_dema
                                           remaining_supply, seller_id, opti_bes_res_seller, sell_list_next_round, options,
                                           opti_res_css: dict = None, mar_agent_css: object = None):
     new_sum_energy = 0
-
     # add bids only if there is untraded demand
     if sum(remaining_demand.values()) > 1e-3:
         add_buy_bid = True
@@ -115,6 +124,7 @@ def compute_block_bids_during_negotiation(matched_bids, r, match, remaining_dema
         block_bid["quantity"] = new_sum_energy / len(block_bid_time_steps)
         block_bid["sum_energy"] = new_sum_energy
         block_bid["total_price"] = matched_bids[r][match][0][t][0]
+        block_bid["mean_price"] = matched_bids[r][match][0][t][0]
         block_bid["ignored_demand"] = matched_bids[r][match][0]["ignored_demand"]
         if buyer_id == options["nb_bes"]:  # if central supply system is in block_bid
             flex_energy = characteristics.calc_characs_single_css(block_length, soc_state=opti_bes_res_buyer["res_soc"],
@@ -152,6 +162,7 @@ def compute_block_bids_during_negotiation(matched_bids, r, match, remaining_dema
         block_bid["quantity"] = new_sum_energy / len(block_bid_time_steps)
         block_bid["sum_energy"] = new_sum_energy
         block_bid["total_price"] = matched_bids[r][match][1][t][0]
+        block_bid["mean_price"] = matched_bids[r][match][1][t][0]
         block_bid["ignored_demand"] = matched_bids[r][match][1]["ignored_demand"]
         if seller_id == options["nb_bes"]:  # if central supply system is in block_bid
             flex_energy = characteristics.calc_characs_single_css(block_length, soc_state=opti_bes_res_seller["res_soc"],
@@ -417,9 +428,9 @@ def sort_block_bids(options, buy_list, sell_list, sorted_bids, r, par_rh, n_opt,
     # STORE SORTED BUY AND SELL LISTS IN ONE DICTIONARY TO RETURN
     if r is None:
         sorted_bids[0] = {"buy_blocks": sorted_buy_list,
-                         "sell_blocks": sorted_sell_list}
+                          "sell_blocks": sorted_sell_list}
     else:
         sorted_bids[r+1] = {"buy_blocks": sorted_buy_list,
-                          "sell_blocks": sorted_sell_list}
+                            "sell_blocks": sorted_sell_list}
 
     return sorted_bids

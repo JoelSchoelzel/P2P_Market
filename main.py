@@ -76,8 +76,12 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
                "block_length": block_length,  # length of block bid in hours
                "max_trading_rounds": 10,  # Number of trading rounds for multi round trading
                "negotiation": True,  # True: negotiation, False: auction
+               "price_based_matching": True,  # True: apply criteria for matching (buyer price >= seller price), False: no price check
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
                "central_supply_system": True,  # True: wih shared central supply system (CSS), False: without CSS
+               "CSS_Wind": True,  # True: central supply system includes Wind turbine
+               "CSS_PV": True,  # True: central supply system includes PV
+               "CSS_Bat": True,  # True: central supply system includes battery
                # path to the project
                "path_file": os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                # path to where the result should be stored
@@ -89,6 +93,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
                "time_zone": districtData.site['timeZone'],  # ---,      time zone
                "location": districtData.site['location'],  # degree,   latitude, longitude of location
                "altitude": districtData.site['altitude'],  # m,        height of location above sea level
+               "number_typeWeeks": 0,  # number of type weeks for type week optimization
                }
 
     # Set rolling horizon options
@@ -189,9 +194,9 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     return mar_dict, characteristics, init_val, results, opti_res, opti_res_check, par_rh, districtData, options, opti_res_css
 
 if __name__ == '__main__':
-    for scenario_name in ["scenario1"]:  # AppliedEnergy, Typquartier_1, "Quartier_2", "Quartier_3"]:
+    for scenario_name in ["Scenario1"]:  # AppliedEnergy, Typquartier_1, "Quartier_2", "Quartier_3"]:
         first_run = True
-        for month in [7]:  # , 7]:
+        for month in [0]:  # 0 (Whole year), 1 (Jan), 4 (Apr), 7 (Jul), etc.]:
             for block_length in [3]:  # 1, 3, 5]:
                 for enhanced_horizon in [False]:  # , True]:
                     for crit_prio in ["quantity"]:  # "flex_energy", "quantity", "random", "flex_quantity", "quantity_x_price"

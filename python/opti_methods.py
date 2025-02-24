@@ -95,7 +95,7 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                 if options["central_supply_system"]:
                     init_val[n_opt]["css"] = {}
                     print("Starting optimization: n_opt: " + str(n_opt) + ", central supply system:")
-                    res_soc_prev = mar_agent_css.bat_capacity * 0.1
+                    res_soc_prev = mar_agent_css.bat_capacity * 0.3
                     opti_res_css[n_opt] = (
                         sharing_operation(mar_agent_css, params, par_rh, init_val, n_opt, matched_bids, prev_traded,
                                           trading_price, block_length, opti_res, options, res_soc_prev))
@@ -169,7 +169,10 @@ def rolling_horizon_opti(options, nodes, par_rh, building_params, params, block_
                                                r=None, par_rh=par_rh, n_opt=n_opt, block_length=block_length)
 
                 # match the block bids to each other according to crit (here, for first matching round only)
-                mar_dict["matched_bids_info"][n_opt][0] = market.matching(sorted_bids=mar_dict["sorted_bids"][n_opt][0])
+                if options["price_based_matching"]:
+                    mar_dict["matched_bids_info"][n_opt][0] = market.matching_price_check(sorted_bids=mar_dict["sorted_bids"][n_opt][0])
+                else:
+                    mar_dict["matched_bids_info"][n_opt][0] = market.matching(sorted_bids=mar_dict["sorted_bids"][n_opt][0])
 
                 # run negotiation optimization (with constraints adapted to matched peer), next mathing rounds, and save results
                 if options["central_supply_system"]:

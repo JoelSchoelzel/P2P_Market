@@ -1,11 +1,21 @@
-2025-02-06 09:43:46.404625
+2025-02-20 09:56:04.585223
 The following constraint(s) cannot be satisfied:
-max_ch_s_bat_4365
-max_dch_s_bat_4365
-Storage_balance_s_bat_4365
-Power_export_split_4365
+Solar_electrical_s_pv_783
+Wind_electrical_s_wind_783
+Solar_electrical_s_pv_784
+Wind_electrical_s_wind_784
+Solar_electrical_s_pv_785
+Wind_electrical_s_wind_785
+max_dch_s_bat_783
+Storage_balance_s_bat_783
+max_dch_s_bat_784
+Storage_balance_s_bat_784
+max_dch_s_bat_785
+Storage_balance_s_bat_785
+Electricity_balance_783
+Electricity_balance_784
+Electricity_balance_785
 soc_bb=soc_ph
-sold=grid+trade+prev_4365
-min_Power_trade_seller_2
-sum_p_sell_s_wind
-MaxConstraint_PV_4365
+binary_export_783
+binary_export_784
+binary_export_785

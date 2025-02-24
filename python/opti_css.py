@@ -259,6 +259,23 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
     #for t in time_steps:
     #    model.addConstr(p_exp[t] <= max(opti_res[n_opt][n][8]["chp"][t] for n in range(options["nb_bes"]) for t in time_steps), f"MaxConstraint_{t}")
 
+    # Set solver parameters
+    ratedPower = 750000  # 750 kW
+    # Guarantee that just feed-in OR load is possible
+    for t in time_steps:
+        model.addConstr(1 * ratedPower >= p_imp[t], name="binary_import_" + str(t))  #  + power_trade["buyer"][t]
+        model.addConstr(p_imp[t] >= 0, name="p_imp>=0_" + str(t))
+        model.addConstr(1 * ratedPower >= p_exp[t], name="binary_export_" + str(t))  # + power_trade["seller"][t]
+        model.addConstr(p_exp[t] >= 0, name="p_exp>=0_" + str(t))
+
+    # if is_buying:
+    #     for t in time_steps:
+    #         model.addConstr(y["css_load"][t] == 1, name="sum_y_css_load")
+    # else:
+    #     for t in time_steps:
+    #         model.addConstr(y["css_load"][t] == 0, name="sum_y_css_load")
+
+
     # Set solver parameters (e.g., time limit, MIP gap)
     model.Params.TimeLimit = params["gp"]["time_limit"]
     model.Params.MIPGap = params["gp"]["mip_gap"]
