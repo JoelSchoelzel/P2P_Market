@@ -64,22 +64,21 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     districtData = Datahandler()
     # Bei erstem Durchlauf calcUserProfiles=True und saveUserProfiles=True setzen,
     # danach calcUserProfiles=False und saveUserProfiles=False
-    districtData.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=False)#, designDevs=True)
-    # todo done: added designCentralDevices & designDecentralDevices instead of designDevs=True in generateDistrictComplete
+    districtData.generateDistrictComplete(options_DG["scenario_name"], calcUserProfiles=False, saveUserProfiles=False)
     districtData.designDecentralDevices(saveGenerationProfiles=False)
 
     # Set options for energy trading
     options = {"optimization": "P2P",  # P2P
-               "bid_strategy": "q_learning",  # "zero", "erev_roth_learning" or "q_learning"
+               "bid_strategy": "q_learning",  # "zero" or "q_learning"
                "crit_prio": crit_prio,  # "flex_energy",
                # criteria to assign priority for trading: (mean_price, mean_quantity, flex_energy) for block, (price, alpha_el_flex, quantity...) for single
                "block_length": block_length,  # length of block bid in hours
                "max_trading_rounds": 10,  # Number of trading rounds for multi round trading
                "negotiation": True,  # True: negotiation, False: auction
-               "price_based_matching": True,  # True: apply criteria for matching (buyer price >= seller price), False: no price check
+               "price_based_matching": True,  # True: apply "buyer price >= seller price", False: no price check
                "multi_round": True,  # True: multiple trading rounds, False: single trading round
-               "central_supply_system": True,  # True: wih shared central supply system (CSS), False: without CSS
-               "CSS_Wind": True,  # True: central supply system includes Wind turbine
+               "central_supply_system": True,  # True: with shared central supply system (CSS), False: without CSS
+               "CSS_Wind": False,  # True: central supply system includes Wind turbine
                "CSS_PV": True,  # True: central supply system includes PV
                "CSS_Bat": True,  # True: central supply system includes battery
                # path to the project
@@ -87,7 +86,8 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
                # path to where the result should be stored
                "path_results": os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "results"),
                "full_path_scenario": (
-                       "/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/districtgenerator/data/scenarios/" +
+                       # "/Users/lenabmg/Documents/1_RWTH Studium/Masterarbeit/districtgenerator/data/scenarios/" +
+                       "/Users/muham/Documents/GitHub/districtgenerator/data/scenarios" +
                        options_DG["scenario_name"] + ".csv"),  # scenario csv, name set for DG is used
 
                "time_zone": districtData.site['timeZone'],  # ---,      time zone
@@ -115,6 +115,7 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
     }
     # Get following inputs:
     nodes, building_params, params, devs_pre_opti, par_rh = get_inputs(par_rh, options, districtData)
+
     # pickledump
     with open(options["path_results"] + "/nodes_input_" + options_DG["scenario_name"] + ".p", 'wb') as file_nodes:
         pickle.dump(nodes, file_nodes)
@@ -127,6 +128,62 @@ def run_optimization(scenario_name, calcUserProfiles, crit_prio, block_length, e
                                               building_params=building_params,
                                               params=params, block_length=options["block_length"],
                                               districtData=districtData, devs_pre_opti=devs_pre_opti)
+
+        # # Updated folder structure here:
+        # # Determine subfolders based on options configuration
+        # district_folder = options_DG["scenario_name"].replace("_", " ")
+        #
+        # # Determine the CSS configuration based on the options
+        # css_config = []
+        # if options["central_supply_system"]:
+        #     if options["CSS_Wind"]:
+        #         css_config.append("WT")
+        #     if options["CSS_PV"]:
+        #         css_config.append("PV")
+        #     if options["CSS_Bat"]:
+        #         css_config.append("BAT")
+        #     if not css_config:  # If no WT/PV/BAT, use Base_CSS
+        #         css_config.append("Base_District")
+        # else:
+        #     css_config.append("Base_District")
+        # css_folder = "_".join(css_config)
+        #
+        # # Determine Bidding Strategy Subfolder
+        # bid_strategy_folder = "QL" if options["bid_strategy"] == "q_learning" else "ZI"
+        #
+        # # # Create the complete save path
+        # # complete_path = os.path.join(
+        # #     options["path_results"],
+        # #     district_folder,
+        # #     "CSS_configurations",
+        # #     css_folder,
+        # #     "bidding_strategy",
+        # #     bid_strategy_folder
+        # # )
+        #
+        # # Construct the complete path using Path
+        # complete_path = Path(options[
+        #                          "path_results"]) / district_folder / "CSS_configurations" / css_folder / "bidding_strategy" / bid_strategy_folder
+        #
+        # # Ensure the complete directory exists
+        # # Path(complete_path).mkdir(parents=True, exist_ok=True)
+        # complete_path.mkdir(parents=True, exist_ok=True)
+        #
+        # # Save results into the updated folder structure
+        # with open(os.path.join(complete_path, "mar_dict_P2P_" + options_DG["scenario_name"] + ".p"), 'wb') as file_mar:
+        #     pickle.dump(mar_dict, file_mar)
+        # with open(complete_path / f"mar_dict_P2P_{options_DG['scenario_name']}.p", 'wb') as file_mar:
+        #     pickle.dump(mar_dict, file_mar)
+        #
+        # with open(os.path.join(complete_path, "par_rh_P2P_" + options_DG["scenario_name"] + ".p"), 'wb') as file_par:
+        #     pickle.dump(par_rh, file_par)
+        #
+        # with open(os.path.join(complete_path, "init_val_P2P_" + options_DG["scenario_name"] + ".p"), 'wb') as file_init:
+        #     pickle.dump(init_val, file_init)
+        #
+        # with open(os.path.join(complete_path, "results_P2P_" + options_DG["scenario_name"] + ".p"),
+        #           'wb') as file_res_list:
+        #     pickle.dump(results, file_res_list)
 
         scenario_folder = scenario_name.replace("_", " ")
         month_folder = ""

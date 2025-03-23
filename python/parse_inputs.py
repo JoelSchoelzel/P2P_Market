@@ -325,7 +325,6 @@ def read_demands(options, districtData, par_rh):
             "ev_dem_arrive": districtData.district[n]['user'].car,
             #"ev_avail": ev_exists[n] * ev_data["avail"][:, n],
             #"ev_dem_leave": ev_exists[n] * ev_data["dem_leave"][:, n],
-            # TODO: pv_power correct here? or in map_devices?
             "pv_power": districtData.district[n]['generationPV'],
             "devs": {}
         }
@@ -341,7 +340,6 @@ def read_demands(options, districtData, par_rh):
                 nodes[n]["dhw"][t] = 0
             if nodes[n]["elec"][t] < 0.01:
                 nodes[n]["elec"][t] = 0
-            # todo: pv_power correct here? or in map_devices?
             # if nodes[n]["pv_power"][t] < 0.01:
             #    nodes[n]["pv_power"][t] = 0
 

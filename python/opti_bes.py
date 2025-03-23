@@ -158,7 +158,6 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     model.update()
 
     # Objective
-    # TODO:
     model.setObjective(c_dem["grid"] - revenue["pv"] - revenue["chp"] + c_dem["boiler"]
                        + c_dem["chp"], gp.GRB.MINIMIZE)
 
@@ -167,7 +166,6 @@ def compute(node, params, par_rh, building_param, init_val, n_opt, options):
     ##### Economic constraints
 
     # Demand related costs (gas)
-    # todo:
     for dev in ("boiler", "chp"):
         model.addConstr(c_dem[dev] == params["eco"]["gas"] * sum(gas[dev][t] for t in time_steps),
                         name="Demand_costs_" + dev)

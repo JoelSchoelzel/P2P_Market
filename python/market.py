@@ -307,7 +307,6 @@ def calculate_trading_price(par_rh, n_opt, block_length, matched_bids, r, match)
         for t in par_rh["time_steps"][n_opt][0:block_length]:
             try:
                 ratio[t] = bid_quantity_seller[t] / max(bid_quantity_seller.values())
-                # todo: check if this is correct, ratio compared to flex energy of seller?
             except ZeroDivisionError:
                 ratio[t] = 0
         for t in par_rh["time_steps"][n_opt][0:block_length]:
@@ -324,8 +323,6 @@ def calculate_trading_price(par_rh, n_opt, block_length, matched_bids, r, match)
         for t in par_rh["time_steps"][n_opt][0:block_length]:
             try:
                 ratio[t] = bid_quantity_buyer[t] / max(bid_quantity_buyer.values())
-                #ratio[t] = max(0, min(1, bid_quantity_buyer[t] / matched_bids[r][match][0]["flex_energy"]))
-                # todo: or should be bid_quantity_seller?
             except ZeroDivisionError:
                 ratio[t] = 0
         for t in par_rh["time_steps"][n_opt][0:block_length]:

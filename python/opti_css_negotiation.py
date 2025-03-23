@@ -65,6 +65,7 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
         revenue[rev] = {}
         revenue[rev] = model.addVar(vtype="C", name="revenue_" + rev)
         c_imp[rev] = model.addVar(vtype="C", name="cost_import_" + rev)
+    # revenue["s_bat"] = model.addVar(vtype="C", name="revenue_s_bat")
 
     cost_trade = model.addVar(vtype="C", name="cost_trade")
 
@@ -133,7 +134,6 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
            prev_trade[peer][t] = model.addVar(vtype="C", name="Previous_power_trade_" + peer + "_" + str(t))
 
     # Import bid power quantity and bid price of matched trading partners
-    # todo: check if this is correct
     quantity_bid_seller = {}
     quantity_bid_buyer = {}
 
@@ -209,6 +209,11 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
     dev = "grid"
     model.addConstr(revenue[dev] == sum(p_grid_sell[t] * params["eco"]["sell" + "_pv"] for t in time_steps),
                         name="Feed_in_rev_" + dev)
+
+    # # Possible future revenues for selling in the future when storing energy in the Battery
+    # dev = "s_bat"
+    # model.addConstr(revenue[dev] == sum(p_ch[dev][t] * dt[t] * 0.5 * (params["eco"]["sell"+"_pv"] + trading_price[t])
+    #                                     for t in time_steps), name="Future_bat_rev_" + dev)
 
     # Costs and revenues of trade
     if is_buying:
@@ -318,7 +323,6 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
                 model.addConstr(p_imp[t] <= opti_res_css["res_p_ch"][t], name="A1")
                 model.addConstr(p_sell["s_wind"][t] == opti_res_css["res_p_sell"]["s_wind"][t], name="A2")
                 model.addConstr(p_sell["s_pv"][t] == opti_res_css["res_p_sell"]["s_pv"][t], name="A3")
-                # todo: make sure p_sell wind and pv are correct
         else:
             if matched_bids_info[1]["ignored_demand"]:
                 model.addConstr(p_imp[t] <= opti_res_css["res_p_ch"][t], name="B1")
@@ -331,7 +335,6 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
                         name="sum_p_buy")
         # Limitation of imported electricity volumes (more electricity needed through flexibility
         # utilisation and heat losses) based on the initial bids
-        # todo: Ineffizienz als Sensitivitätsanalyse
         model.addConstr(sum(p_imp[t] for t in time_steps) <= sum(opti_res_css["res_p_ch"][t] for t in time_steps)*1.2,
                         name="sum_p_imp")
         ## Buyer is not allowed to trade a sell quantity
@@ -350,6 +353,8 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
         # The sum of power_trade cannot be greater than total trading quantity of the block bid
         model.addConstr(sum(power_trade["seller"][t] for t in time_steps) <= sum(quantity_bid_seller.values()),
                         name="sum_p_sell")
+        # model.addConstr(sum(power_trade["seller"][t] for t in time_steps) <= sum(quantity_bid_buyer.values()),
+        #                 name="sum_p_sell")
         # Limiting the load peak within the block bid based on the initial bids
         for t in time_steps:
             model.addConstr(p_sell["s_wind"][t] <= max(opti_res_css["res_p_sell"]["s_wind"][t] for t in time_steps),
@@ -358,7 +363,7 @@ def compute_opti(params, par_rh, init_val, n_opt, options, matched_bids_info, pr
                             f"MaxConstraint_PV_{t}")
 
     # Set solver parameters
-    ratedPower = 750000  # 150 kW
+    ratedPower = 500000  # 500 kW
     # Guarantee that just feed-in OR load is possible
     for t in time_steps:
         model.addConstr(y["css_load"][t] * ratedPower >= p_imp[t], name="binary_import_" + str(t))  #  + power_trade["buyer"][t]

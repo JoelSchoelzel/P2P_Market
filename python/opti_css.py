@@ -9,7 +9,7 @@ import gurobipy as gp
 import datetime
 
 
-def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_traded, trading_price,  block_length,
+def compute(mar_agent_css, params, par_rh, init_val, n_opt, trading_price,  block_length,
             opti_res, options, res_soc_prev):
     # params:  dict, economic parameters, such as costs of electricity or gas, and technical parameters for optimization
     # par_rh: dict, contains information about the prediction horizon (time-related parameters).
@@ -153,7 +153,6 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
     # Revenues for selling electricity to the grid
     model.addConstr(revenue["grid"] == sum(p_grid_sell[t] * params["eco"]["sell_pv"] for t in time_steps),
                             name="Feed_in_rev_" + dev)
-    # Todo: How to calc revenues of trading within community?
     model.addConstr(revenue["trading"] == sum(power_trade["seller"][t] * price for t in time_steps),
                             name="power_trade_sell_revenue")
 
@@ -255,12 +254,8 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
     # model.addConstr(sum(power_trade["seller"][t] for t in time_steps) <= sum(quantity_bid_seller.values()),
     #                 name="sum_p_sell")
 
-
-    #for t in time_steps:
-    #    model.addConstr(p_exp[t] <= max(opti_res[n_opt][n][8]["chp"][t] for n in range(options["nb_bes"]) for t in time_steps), f"MaxConstraint_{t}")
-
     # Set solver parameters
-    ratedPower = 750000  # 750 kW
+    ratedPower = 500000  # 500 kW
     # Guarantee that just feed-in OR load is possible
     for t in time_steps:
         model.addConstr(1 * ratedPower >= p_imp[t], name="binary_import_" + str(t))  #  + power_trade["buyer"][t]
@@ -284,7 +279,6 @@ def compute(mar_agent_css, params, par_rh, init_val, n_opt,  matched_bids, prev_
     # Execute the optimization model
     model.optimize()
 
-    # Todo: correct the model, when infeasible or unbounded, can't computeIIS()
     # Write errorfile if optimization problem is infeasible or unbounded
     if model.status == gp.GRB.Status.INFEASIBLE or model.status == gp.GRB.Status.INF_OR_UNBD:
         model.computeIIS()

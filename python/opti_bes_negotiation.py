@@ -31,7 +31,6 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
 
     # Extract parameters
     dt = par_rh["duration"][n_opt]
-    # todo:
     #if first_opti == "True":
     #    time_steps = par_rh["time_steps"][n_opt]
     #else:
@@ -348,7 +347,6 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
         #                dt[t] * (node["devs"][dev]["eta_bat"] * p_ch[dev][t] - 1 / node["devs"][dev]["eta_bat"] *
         #                      p_dch[dev][t]),
         #                name="Storage_balance_" + dev + "_" + str(t))
-        # todo: corrected battery balance equation
         model.addConstr(soc[dev][t] == (1 - k_loss) * soc_prev +
                         dt[t] * (node["devs"][dev]["eta_bat"] * p_ch[dev][t] - (1 / node["devs"][dev]["eta_bat"]) *
                                  p_dch[dev][t]),
@@ -406,13 +404,7 @@ def compute_opti(node, params, par_rh, init_val, n_opt, options, matched_bids_in
             model.addConstr(opti_res[18][t] == p_grid_sell[t], name="p_grid_sell==0_" + str(t))
             model.addConstr(prev_traded["sell"][t] == prev_trade["seller"][t], name="prev_trade_sell==0_" + str(t))
             # power the buyer can trade is limited by the quantity the seller is willing to sell
-            # if quantity_bid_buyer[t] <= quantity_bid_seller[t] and quantity_bid_seller[t] != 0:
-            #     model.addConstr(power_trade["buyer"][t] <= quantity_bid_seller[t], name="max_Power_trade_buyer")
-            # elif quantity_bid_buyer[t] >= quantity_bid_seller[t] and quantity_bid_buyer[t] != 0:
-            #     model.addConstr(power_trade["buyer"][t] <= quantity_bid_buyer[t], name="max_Power_trade_buyer")
             model.addConstr(power_trade["buyer"][t] <= quantity_bid_seller[t], name="max_Power_trade_buyer")
-            # model.addConstr(power_trade["buyer"][t] <= quantity_bid_buyer[t], name="max_Power_trade_buyer")
-            # model.addConstr(power_trade["buyer"][t] <= max(quantity_bid_buyer[t], quantity_bid_seller[t]), name="max_Power_trade_buyer")
             model.addConstr(power_trade["buyer"][t] >= 0, name="min_Power_trade_buyer")
         else:
             model.addConstr(p_sell["chp"][t] + p_sell["pv"][t] == p_grid_sell[t] + power_trade["seller"][t]
@@ -693,17 +685,17 @@ def initial_values_block(nb_buildings, opti_res, block_bid_time_steps, length_bl
             opti_res[n][1][dev] = slice_dict(opti_res[n][1][dev], length_block_bid)
         for dev in ["bat", "tes", "ev"]:
             # soc
-            opti_res[n][3][dev] = slice_dict(opti_res[n][3][dev], length_block_bid)
+            opti_res[n][3][dev] = slice_dict(opti_res[n][3][dev], length_block_bid+1)
             # ch
             opti_res[n][5][dev] = slice_dict(opti_res[n][5][dev], length_block_bid)
             # dch
             opti_res[n][6][dev] = slice_dict(opti_res[n][6][dev], length_block_bid)
         # p_imp
-        opti_res[n][4]["p_imp"] = slice_dict(opti_res[n][4], length_block_bid)
+        opti_res[n][4]["p_imp"] = slice_dict(opti_res[n][4], length_block_bid+1)
         for dev in ["pv", "chp"]:
             opti_res[n][7][dev] = slice_dict(opti_res[n][7][dev], length_block_bid)
             # p_sell
-            opti_res[n][8][dev] = slice_dict(opti_res[n][8][dev], length_block_bid)
+            opti_res[n][8][dev] = slice_dict(opti_res[n][8][dev], length_block_bid+1)
         #opti_res[n][16] = slice_dict(opti_res[n][16], length_block_bid)
         #opti_res[n][17] = slice_dict(opti_res[n][17], length_block_bid)
         #opti_res[n][18] = slice_dict(opti_res[n][18], length_block_bid)
